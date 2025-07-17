@@ -1,0 +1,12 @@
+﻿using Microsoft.AspNetCore.Mvc;
+
+namespace PlanifPRS.wwwroot.css
+{
+    public class validation : Controller
+    {
+        public IActionResult Index()
+        {
+            return View();
+        }
+    }
+}

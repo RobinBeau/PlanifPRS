@@ -2,7 +2,362 @@
 @model PlanifPRS.Pages.ValidationModel
 @{
     ViewData["Title"] = "Validation des PRS";
+    var loginName = User.Identity?.Name?.Split('\\').LastOrDefault();
 }
 
-<h2>Validation des PRS</h2>
-<p>Liste des PRS en attente de validation par Candide.</p>
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="fas fa-check-circle text-success me-2"></i>
+            Validation des PRS
+        </h2>
+        <div>
+            <span class="badge bg-info fs-6" id="prs-count">@Model.PrsCount PRS chargées</span>
+            @if (Model.Debug)
+            {
+                <a href="/Validation" class="btn btn-primary btn-sm ms-2">
+                    <i class="fas fa-filter me-1"></i>Mode Normal
+                </a>
+            }
+            else
+            {
+                <a href="/Validation?Debug=true" class="btn btn-warning btn-sm ms-2">
+                    <i class="fas fa-bug me-1"></i>Mode Debug
+                </a>
+            }
+        </div>
+    </div>
+
+    <!-- Panneau de filtres -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>Filtres dynamiques
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Filtres par type - VALEURS CORRIGÉES -->
+                <div class="col-md-6">
+                    <h6><i class="fas fa-filter text-primary"></i> Filtrer par type de PRS</h6>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <button id="toggleFiltersBtn" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-toggle-on me-1"></i>Tout décocher
+                        </button>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <label class="btn btn-outline-primary btn-sm filter-checkbox active" for="filterCMS">
+                            <input class="filter-check" type="checkbox" value="CMS" id="filterCMS" checked style="display: none;">
+                            <i class="fas fa-cogs me-1"></i>PRS CMS
+                        </label>
+                        <label class="btn btn-outline-primary btn-sm filter-checkbox active" for="filterFinition">
+                            <input class="filter-check" type="checkbox" value="Finition" id="filterFinition" checked style="display: none;">
+                            <i class="fas fa-paint-brush me-1"></i>PRS Finition
+                        </label>
+                        <label class="btn btn-outline-primary btn-sm filter-checkbox active" for="filterAbsence">
+                            <input class="filter-check" type="checkbox" value="Absences" id="filterAbsence" checked style="display: none;">
+                            <i class="fas fa-user-times me-1"></i>Absences
+                        </label>
+                        <label class="btn btn-outline-primary btn-sm filter-checkbox active" for="filterAudit">
+                            <input class="filter-check" type="checkbox" value="Audit" id="filterAudit" checked style="display: none;">
+                            <i class="fas fa-search me-1"></i>Audit
+                        </label>
+                        <label class="btn btn-outline-primary btn-sm filter-checkbox active" for="filterIntervention">
+                            <input class="filter-check" type="checkbox" value="Intervention" id="filterIntervention" checked style="display: none;">
+                            <i class="fas fa-tools me-1"></i>Intervention
+                        </label>
+                        <label class="btn btn-outline-primary btn-sm filter-checkbox active" for="filterVisiteClient">
+                            <input class="filter-check" type="checkbox" value="Visite Client" id="filterVisiteClient" checked style="display: none;">
+                            <i class="fas fa-handshake me-1"></i>Visite Client
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Filtres par statut et secteur -->
+                <div class="col-md-6">
+                    <h6><i class="fas fa-tasks text-success"></i> Filtrer par statut</h6>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <label class="btn btn-outline-warning btn-sm filter-checkbox active" for="filterPending">
+                            <input class="filter-check" type="checkbox" value="En attente" id="filterPending" checked style="display: none;">
+                            <i class="fas fa-clock me-1"></i>En attente
+                        </label>
+                        <label class="btn btn-outline-success btn-sm filter-checkbox" for="filterValide">
+                            <input class="filter-check" type="checkbox" value="Validé" id="filterValide" style="display: none;">
+                            <i class="fas fa-check me-1"></i>Validé
+                        </label>
+                        <label class="btn btn-outline-danger btn-sm filter-checkbox" for="filterRefuse">
+                            <input class="filter-check" type="checkbox" value="Refusé" id="filterRefuse" style="display: none;">
+                            <i class="fas fa-times me-1"></i>Refusé
+                        </label>
+                    </div>
+
+                    <h6><i class="fas fa-industry text-info"></i> Filtrer par secteur</h6>
+                    <select id="sectorFilter" class="form-select">
+                        <option value="Tous" selected>Tous les secteurs</option>
+                        @foreach (var ligne in Model.LigneList.Skip(1))
+                        {
+                            <option value="@ligne.Text">@ligne.Text</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des PRS -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>PRS à valider
+                <span class="badge bg-secondary" id="visible-count">0 visible(s)</span>
+            </h5>
+        </div>
+        <div class="card-body">
+            <div id="prs-container">
+                @if (!Model.PrsList.Any())
+                {
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Aucune PRS trouvée.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="prs-table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Titre</th>
+                                    <th>Type</th>
+                                    <th>Statut</th>
+                                    <th>Secteur</th>
+                                    <th>Date création</th>
+                                    <th>Créé par</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var prs in Model.PrsList)
+                                {
+                                    var equipement = prs.Equipement ?? "";
+                                    // Si Equipement est vide, c'est probablement une PRS CMS classique
+                                    var typeAffiche = string.IsNullOrEmpty(equipement) ? "CMS" : equipement;
+
+                                    <tr class="prs-row"
+                                        data-type="@typeAffiche"
+                                        data-statut="@(prs.Statut ?? "")"
+                                        data-secteur="@(prs.Ligne?.Nom ?? "Non défini")">
+                                        <td><strong>#@prs.Id</strong></td>
+                                        <td>@(prs.Titre ?? "")</td>
+                                        <td>
+                                            <span class="badge bg-primary">@typeAffiche</span>
+                                        </td>
+                                        <td>
+                                            @{
+                                                var statut = prs.Statut ?? "";
+                                            }
+                                            @if (statut == "En attente")
+                                            {
+                                                <span class="badge bg-warning text-dark">En attente</span>
+                                            }
+                                            else if (statut == "Validé")
+                                            {
+                                                <span class="badge bg-success">Validé</span>
+                                            }
+                                            else if (statut == "Refusé")
+                                            {
+                                                <span class="badge bg-danger">Refusé</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">@statut</span>
+                                            }
+                                        </td>
+                                        <td>@(prs.Ligne?.Nom ?? "Non défini")</td>
+                                        <td>@prs.DateCreation.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td>@(prs.CreatedByLogin ?? "Inconnu")</td>
+                                        <td>
+                                            @{
+                                                var editPage = "/Edit"; // Par défaut
+                                                if (equipement == "Audit" || equipement == "Intervention" || equipement == "Visite Client")
+                                                {
+                                                    editPage = "/EditAudit";
+                                                }
+                                            }
+                                            <a href="@editPage/@prs.Id" class="btn btn-primary btn-sm">
+                                                <i class="fas fa-edit me-1"></i>Valider
+                                            </a>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div id="no-results" class="alert alert-info text-center" style="display: none;">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Aucune PRS trouvée avec les filtres actuels.
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Styles pour les filtres */
+    .filter-checkbox {
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+        .filter-checkbox.active {
+            background-color: var(--bs-primary) !important;
+            color: white !important;
+            border-color: var(--bs-primary) !important;
+        }
+
+        .filter-checkbox:not(.active) {
+            background-color: transparent !important;
+            color: var(--bs-primary) !important;
+        }
+
+        .filter-checkbox:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Variables globales
+        let allChecked = true;
+        const filterChecks = document.querySelectorAll(".filter-check");
+        const toggleFiltersBtn = document.getElementById('toggleFiltersBtn');
+        const sectorFilter = document.getElementById('sectorFilter');
+        const visibleCount = document.getElementById('visible-count');
+        const noResults = document.getElementById('no-results');
+        const prsTable = document.getElementById('prs-table');
+
+        // Gestion des checkboxes visuelles
+        document.querySelectorAll('.filter-checkbox').forEach(label => {
+            const checkbox = label.querySelector('input');
+
+            label.addEventListener('click', function(e) {
+                e.preventDefault();
+                checkbox.checked = !checkbox.checked;
+
+                if (checkbox.checked) {
+                    label.classList.add('active');
+                } else {
+                    label.classList.remove('active');
+                }
+
+                filterPrs();
+            });
+
+            // État initial
+            if (checkbox.checked) {
+                label.classList.add('active');
+            }
+        });
+
+        // FONCTION DE FILTRAGE - LOGIQUE ET
+        function filterPrs() {
+            // Séparer les filtres par catégorie
+            const typeFilters = [];
+            const statusFilters = [];
+
+            filterChecks.forEach(chk => {
+                if (chk.checked) {
+                    const value = chk.value;
+                    if (value === "En attente" || value === "Validé" || value === "Refusé") {
+                        statusFilters.push(value);
+                    } else {
+                        typeFilters.push(value);
+                    }
+                }
+            });
+
+            const selectedSector = sectorFilter.value;
+
+            let visibleRows = 0;
+            const allRows = document.querySelectorAll('.prs-row');
+
+            allRows.forEach(row => {
+                const prsType = row.getAttribute('data-type');
+                const prsStatut = row.getAttribute('data-statut');
+                const prsSecteur = row.getAttribute('data-secteur');
+
+                let isVisible = false;
+
+                // LOGIQUE ET : La PRS doit correspondre aux critères cochés
+                let matchType = true;  // Par défaut OK si aucun filtre de type
+                let matchStatus = true; // Par défaut OK si aucun filtre de statut
+
+                // Vérifier les filtres de type (si au moins un est coché)
+                if (typeFilters.length > 0) {
+                    matchType = typeFilters.includes(prsType);
+                }
+
+                // Vérifier les filtres de statut (si au moins un est coché)
+                if (statusFilters.length > 0) {
+                    matchStatus = statusFilters.includes(prsStatut);
+                }
+
+                // Vérifier le secteur
+                const matchSector = (selectedSector === "Tous" || prsSecteur === selectedSector);
+
+                // La PRS est visible si elle correspond à TOUS les critères cochés
+                isVisible = matchType && matchStatus && matchSector;
+
+                if (isVisible) {
+                    row.style.display = '';
+                    visibleRows++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Mettre à jour les compteurs
+            visibleCount.textContent = `${visibleRows} visible(s)`;
+
+            // Afficher/cacher le message "aucun résultat"
+            if (visibleRows === 0) {
+                if (prsTable) prsTable.style.display = 'none';
+                noResults.style.display = 'block';
+            } else {
+                if (prsTable) prsTable.style.display = 'table';
+                noResults.style.display = 'none';
+            }
+        }
+
+        // Bouton toggle
+        toggleFiltersBtn.addEventListener("click", () => {
+            allChecked = !allChecked;
+            filterChecks.forEach(chk => {
+                chk.checked = allChecked;
+                const label = chk.closest('.filter-checkbox');
+                if (allChecked) {
+                    label.classList.add('active');
+                } else {
+                    label.classList.remove('active');
+                }
+            });
+
+            toggleFiltersBtn.innerHTML = allChecked
+                ? '<i class="fas fa-toggle-on me-1"></i>Tout décocher'
+                : '<i class="fas fa-toggle-off me-1"></i>Tout cocher';
+
+            filterPrs();
+        });
+
+        // Événements
+        filterChecks.forEach(chk => chk.addEventListener("change", filterPrs));
+        sectorFilter.addEventListener("change", filterPrs);
+
+        // Filtrage initial
+        filterPrs();
+    });
+</script>
