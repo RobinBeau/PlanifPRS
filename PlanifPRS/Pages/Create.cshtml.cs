@@ -359,6 +359,7 @@ namespace PlanifPRS.Pages.Prs
         {
             return await _context.PrsChecklists
                 .Where(c => c.PRSId == prsId)
+                .OrderBy(c => c.Id)
                 .Select(c => c.Id)
                 .ToListAsync();
         }
@@ -371,109 +372,106 @@ namespace PlanifPRS.Pages.Prs
                 return;
             }
 
-            // Extraire les affectations depuis ChecklistData
-            List<int> usersToAssign = new List<int>();
-            List<int> groupsToAssign = new List<int>();
-
             try
             {
-                if (!string.IsNullOrEmpty(ChecklistData))
+                if (string.IsNullOrEmpty(ChecklistData))
                 {
-                    _logger.LogInformation($"Analyse de ChecklistData: {ChecklistData}");
-
-                    var checklistForm = JsonSerializer.Deserialize<ChecklistFormDto>(ChecklistData, new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    });
-
-                    if (checklistForm?.elements != null)
-                    {
-                        // Collecter toutes les affectations des éléments
-                        var allUsers = new HashSet<int>();
-                        var allGroups = new HashSet<int>();
-
-                        foreach (var element in checklistForm.elements)
-                        {
-                            if (element.assignedUsers != null)
-                            {
-                                foreach (var userId in element.assignedUsers)
-                                {
-                                    allUsers.Add(userId);
-                                }
-                            }
-
-                            if (element.assignedGroups != null)
-                            {
-                                foreach (var groupId in element.assignedGroups)
-                                {
-                                    allGroups.Add(groupId);
-                                }
-                            }
-                        }
-
-                        usersToAssign = allUsers.ToList();
-                        groupsToAssign = allGroups.ToList();
-
-                        _logger.LogInformation($"Affectations extraites depuis ChecklistData: {usersToAssign.Count} utilisateurs [{string.Join(", ", usersToAssign)}], {groupsToAssign.Count} groupes [{string.Join(", ", groupsToAssign)}]");
-                    }
-                }
-
-                if (!usersToAssign.Any() && !groupsToAssign.Any())
-                {
-                    _logger.LogInformation("Aucune affectation trouvée dans ChecklistData");
+                    _logger.LogInformation("Aucune donnée ChecklistData pour les affectations");
                     return;
                 }
 
-                // Créer les affectations en base de données
+                _logger.LogInformation($"Analyse de ChecklistData: {ChecklistData}");
+
+                var checklistForm = JsonSerializer.Deserialize<ChecklistFormDto>(ChecklistData, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (checklistForm?.elements == null || !checklistForm.elements.Any())
+                {
+                    _logger.LogInformation("Aucun élément de checklist trouvé");
+                    return;
+                }
+
+                // Vérifier que le nombre d'éléments correspond au nombre de checklists créées
+                if (checklistForm.elements.Count != checklistIds.Count)
+                {
+                    _logger.LogWarning($"Mismatch: {checklistForm.elements.Count} éléments vs {checklistIds.Count} checklists créées");
+                }
+
                 var currentUser = CurrentUserLogin;
                 var dateAffectation = DateTime.Now;
                 int totalAffectations = 0;
 
-                foreach (var checklistId in checklistIds)
+                // Traiter chaque élément individuellement avec sa checklist correspondante
+                for (int i = 0; i < Math.Min(checklistForm.elements.Count, checklistIds.Count); i++)
                 {
-                    // Affectations utilisateurs
-                    foreach (var userId in usersToAssign)
-                    {
-                        var affectation = new ChecklistAffectation
-                        {
-                            ChecklistId = checklistId,
-                            UtilisateurId = userId,
-                            GroupeId = null,
-                            TypeAffectation = "Utilisateur",
-                            DateAffectation = dateAffectation,
-                            AffectePar = currentUser
-                        };
+                    var element = checklistForm.elements[i];
+                    var checklistId = checklistIds[i];
 
-                        _context.ChecklistAffectations.Add(affectation);
-                        totalAffectations++;
-                        _logger.LogInformation($"Affectation utilisateur créée: ChecklistId={checklistId}, UserId={userId}");
+                    _logger.LogInformation($"Traitement élément {i + 1}: ChecklistId={checklistId}");
+                    _logger.LogInformation($"  - assignedUsers: [{string.Join(", ", element.assignedUsers ?? new List<int>())}]");
+                    _logger.LogInformation($"  - assignedGroups: [{string.Join(", ", element.assignedGroups ?? new List<int>())}]");
+
+                    // Affectations utilisateurs pour cet élément spécifique
+                    if (element.assignedUsers != null && element.assignedUsers.Any())
+                    {
+                        foreach (var userId in element.assignedUsers)
+                        {
+                            var affectation = new ChecklistAffectation
+                            {
+                                ChecklistId = checklistId,
+                                UtilisateurId = userId,
+                                GroupeId = null,
+                                TypeAffectation = "Utilisateur",
+                                DateAffectation = dateAffectation,
+                                AffectePar = currentUser
+                            };
+
+                            _context.ChecklistAffectations.Add(affectation);
+                            totalAffectations++;
+                            _logger.LogInformation($"Affectation utilisateur créée: ChecklistId={checklistId}, UserId={userId} (élément {i + 1})");
+                        }
                     }
 
-                    // Affectations groupes
-                    foreach (var groupId in groupsToAssign)
+                    // Affectations groupes pour cet élément spécifique
+                    if (element.assignedGroups != null && element.assignedGroups.Any())
                     {
-                        var affectation = new ChecklistAffectation
+                        foreach (var groupId in element.assignedGroups)
                         {
-                            ChecklistId = checklistId,
-                            UtilisateurId = null,
-                            GroupeId = groupId,
-                            TypeAffectation = "Groupe",
-                            DateAffectation = dateAffectation,
-                            AffectePar = currentUser
-                        };
+                            var affectation = new ChecklistAffectation
+                            {
+                                ChecklistId = checklistId,
+                                UtilisateurId = null,
+                                GroupeId = groupId,
+                                TypeAffectation = "Groupe",
+                                DateAffectation = dateAffectation,
+                                AffectePar = currentUser
+                            };
 
-                        _context.ChecklistAffectations.Add(affectation);
-                        totalAffectations++;
-                        _logger.LogInformation($"Affectation groupe créée: ChecklistId={checklistId}, GroupId={groupId}");
+                            _context.ChecklistAffectations.Add(affectation);
+                            totalAffectations++;
+                            _logger.LogInformation($"Affectation groupe créée: ChecklistId={checklistId}, GroupId={groupId} (élément {i + 1})");
+                        }
+                    }
+
+                    // Log si aucune affectation pour cet élément
+                    if ((element.assignedUsers == null || !element.assignedUsers.Any()) &&
+                        (element.assignedGroups == null || !element.assignedGroups.Any()))
+                    {
+                        _logger.LogInformation($"Aucune affectation pour l'élément {i + 1} (ChecklistId={checklistId})");
                     }
                 }
 
-                await _context.SaveChangesAsync();
-                _logger.LogInformation($"Total de {totalAffectations} affectations créées pour {checklistIds.Count} checklists");
-
                 if (totalAffectations > 0)
                 {
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation($"Total de {totalAffectations} affectations créées pour {checklistIds.Count} checklists individuelles");
                     Flash += $" {totalAffectations} affectation(s) créée(s).";
+                }
+                else
+                {
+                    _logger.LogInformation("Aucune affectation à sauvegarder");
                 }
             }
             catch (Exception ex)
