@@ -2,7 +2,7 @@
 @model PlanifPRS.Pages.Prs.CreateModel
 @{
     ViewData["Title"] = "Créer une PRS";
-
+    
     // Vérifier si l'utilisateur est admin ou validateur
     var isAdminOrValidateur = Model.IsAdminOrValidateur;
     var currentUserLogin = Model.CurrentUserLogin;
@@ -1049,7 +1049,7 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/checklist-manager.js" asp-append-version="true"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         // Variables globales
         const dateDebutInput = document.querySelector("#Prs_DateDebut");
@@ -2597,6 +2597,52 @@
                 console.log('Soumission du formulaire - valeurs finales:');
                 console.log('Users:', $('#selectedUsersHidden').val());
                 console.log('Groups:', $('#selectedGroupsHidden').val());
+            });
+        });
+
+        
+        $(document).ready(function() {
+            // Variable pour suivre si l'utilisateur a confirmé
+            let confirmationDonnee = false;
+
+            // Intercepter la soumission du formulaire
+            $('form').on('submit', function(e) {
+                // Vérifier si le champ affectationsData est vide et si l'utilisateur n'a pas déjà confirmé
+                const affectationsValue = $('#affectationsData').val();
+                if (!confirmationDonnee && (!affectationsValue || affectationsValue === '[]')) {
+                    // Empêcher la soumission du formulaire
+                    e.preventDefault();
+
+                    // Afficher la boîte de dialogue de confirmation
+                    Swal.fire({
+                        title: 'Aucune affectation',
+                        html: 'Êtes-vous sûr de ne pas affecter de personne ou de groupe à cette PRS?<br><br>Le support et autres services seront peut-être mobilisés sur une autre PRS et ne pourront pas vous aider.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Oui, continuer sans affectation',
+                        cancelButtonText: 'Non, ajouter des affectations',
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Marquer que l'utilisateur a confirmé
+                            confirmationDonnee = true;
+
+                            // Ajouter un champ caché pour indiquer que la confirmation a été donnée
+                            $('<input>').attr({
+                                type: 'hidden',
+                                name: 'AffectationConfirmee',
+                                value: 'true'
+                            }).appendTo('form');
+
+                            // Soumettre le formulaire
+                            $('form').submit();
+                        } else {
+                            // Focus sur le select d'utilisateur pour faciliter l'ajout
+                            $('#userSelect').focus();
+                        }
+                    });
+                }
             });
         });
     </script>

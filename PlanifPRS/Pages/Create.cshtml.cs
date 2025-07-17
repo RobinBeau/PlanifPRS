@@ -32,7 +32,7 @@ namespace PlanifPRS.Pages.Prs
         }
 
         [BindProperty]
-        public string AffectationsData { get; set; }
+        public string? AffectationsData { get; set; }
 
         [BindProperty]
         public string ChecklistAffectationsData { get; set; }
