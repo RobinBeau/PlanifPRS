@@ -21,19 +21,25 @@ namespace PlanifPRS.Controllers
         {
             try
             {
-                // Supprimer les assignations existantes
-                var existingAssignations = await _context.ChecklistUtilisateurs
-                    .Where(cu => cu.ChecklistId == checklistId)
-                    .ToListAsync();
-                _context.ChecklistUtilisateurs.RemoveRange(existingAssignations);
+                var currentUser = User.Identity?.Name ?? "RobinBeau";
 
-                // Ajouter les nouvelles assignations
+                // Supprimer les affectations utilisateur existantes pour cette checklist
+                var existingUserAssignations = await _context.ChecklistAffectations
+                    .Where(ca => ca.ChecklistId == checklistId && ca.TypeAffectation == "Utilisateur")
+                    .ToListAsync();
+                _context.ChecklistAffectations.RemoveRange(existingUserAssignations);
+
+                // Ajouter les nouvelles affectations utilisateur
                 foreach (var userId in userIds)
                 {
-                    _context.ChecklistUtilisateurs.Add(new ChecklistUtilisateur
+                    _context.ChecklistAffectations.Add(new ChecklistAffectation
                     {
                         ChecklistId = checklistId,
-                        UtilisateurId = userId
+                        UtilisateurId = userId,
+                        GroupeId = null,
+                        TypeAffectation = "Utilisateur",
+                        DateAffectation = DateTime.Now,
+                        AffectePar = currentUser
                     });
                 }
 
@@ -51,19 +57,25 @@ namespace PlanifPRS.Controllers
         {
             try
             {
-                // Supprimer les assignations existantes
-                var existingAssignations = await _context.ChecklistGroupes
-                    .Where(cg => cg.ChecklistId == checklistId)
-                    .ToListAsync();
-                _context.ChecklistGroupes.RemoveRange(existingAssignations);
+                var currentUser = User.Identity?.Name ?? "RobinBeau";
 
-                // Ajouter les nouvelles assignations
+                // Supprimer les affectations groupe existantes pour cette checklist
+                var existingGroupAssignations = await _context.ChecklistAffectations
+                    .Where(ca => ca.ChecklistId == checklistId && ca.TypeAffectation == "Groupe")
+                    .ToListAsync();
+                _context.ChecklistAffectations.RemoveRange(existingGroupAssignations);
+
+                // Ajouter les nouvelles affectations groupe
                 foreach (var groupId in groupIds)
                 {
-                    _context.ChecklistGroupes.Add(new ChecklistGroupe
+                    _context.ChecklistAffectations.Add(new ChecklistAffectation
                     {
                         ChecklistId = checklistId,
-                        GroupeId = groupId
+                        UtilisateurId = null,
+                        GroupeId = groupId,
+                        TypeAffectation = "Groupe",
+                        DateAffectation = DateTime.Now,
+                        AffectePar = currentUser
                     });
                 }
 
@@ -86,7 +98,6 @@ namespace PlanifPRS.Controllers
             return Ok(users);
         }
 
-        // Le controller reste le même
         [HttpGet("groups")]
         public async Task<IActionResult> GetGroups()
         {
@@ -95,6 +106,26 @@ namespace PlanifPRS.Controllers
                 .Select(g => new { g.Id, g.NomGroupe, g.Description })
                 .ToListAsync();
             return Ok(groups);
+        }
+
+        // Nouvelle méthode pour récupérer les affectations existantes
+        [HttpGet("assignments/{checklistId}")]
+        public async Task<IActionResult> GetAssignments(int checklistId)
+        {
+            var assignments = await _context.ChecklistAffectations
+                .Include(ca => ca.Utilisateur)
+                .Include(ca => ca.Groupe)
+                .Where(ca => ca.ChecklistId == checklistId)
+                .Select(ca => new {
+                    ca.Id,
+                    ca.TypeAffectation,
+                    ca.DateAffectation,
+                    ca.AffectePar,
+                    Utilisateur = ca.Utilisateur != null ? new { ca.Utilisateur.Id, ca.Utilisateur.Nom, ca.Utilisateur.Prenom } : null,
+                    Groupe = ca.Groupe != null ? new { ca.Groupe.Id, ca.Groupe.NomGroupe } : null
+                })
+                .ToListAsync();
+            return Ok(assignments);
         }
     }
 }

@@ -18,6 +18,11 @@
             elements: []
         };
 
+        this.currentAffectations = {
+            users: [],
+            groups: []
+        };
+
         this.searchTimeout = null;
         this.elementIdCounter = 0;
         this.users = [];
@@ -26,32 +31,195 @@
     }
 
     init() {
-        this.bindEvents();
+        // 1. Initialiser les structures de données
         this.initializeChecklistData();
+        this.initializeAffectationsData();
+
+        // 2. Mettre à jour les champs cachés
         this.updateChecklistData();
+        this.updateAffectationsData();
+
+        // 3. Configurer les événements
+        this.bindEvents();
         this.setupFormValidation();
+
+        // 4. Charger les données externes
         this.loadUsersAndGroups();
     }
 
     async loadUsersAndGroups() {
         try {
             console.log('Chargement des utilisateurs et groupes...');
-            const [usersResponse, groupsResponse] = await Promise.all([
-                fetch('/api/ChecklistAssignation/users'),
-                fetch('/api/ChecklistAssignation/groups')
-            ]);
 
-            if (usersResponse.ok && groupsResponse.ok) {
-                this.users = await usersResponse.json();
-                this.groups = await groupsResponse.json();
+            // Utiliser l'endpoint existant du formulaire
+            const response = await fetch(window.location.pathname + '?handler=UtilisateursEtGroupes');
+
+            if (response.ok) {
+                const data = await response.json();
+                this.users = data.utilisateurs || [];
+                this.groups = data.groupes || [];
                 console.log('Utilisateurs chargés:', this.users.length);
                 console.log('Groupes chargés:', this.groups.length);
+                this.renderAssignmentInterface();
             } else {
                 console.warn('Erreur lors du chargement des utilisateurs/groupes');
             }
         } catch (error) {
             console.error('Erreur lors du chargement des utilisateurs et groupes:', error);
         }
+    }
+
+    initializeAffectationsData() {
+        console.log('Initialisation du champ ChecklistAffectationsData...');
+
+        const $form = $(this.options.formSelector);
+        if ($form.length === 0) {
+            console.error('Formulaire principal non trouvé');
+            return;
+        }
+
+        let $hiddenField = $('#checklistAffectationsData');
+        if ($hiddenField.length === 0) {
+            $hiddenField = $('<input type="hidden" id="checklistAffectationsData" name="ChecklistAffectationsData">');
+            $form.append($hiddenField);
+            console.log('Champ ChecklistAffectationsData créé');
+        }
+
+        const defaultData = {
+            users: [],
+            groups: []
+        };
+
+        $hiddenField.val(JSON.stringify(defaultData));
+        console.log('ChecklistAffectationsData initialisé');
+    }
+
+    updateAffectationsData() {
+        // Vérification de sécurité
+        if (!this.currentAffectations) {
+            console.warn('currentAffectations non initialisé, initialisation...');
+            this.currentAffectations = {
+                users: [],
+                groups: []
+            };
+        }
+
+        const data = {
+            users: this.currentAffectations.users || [],
+            groups: this.currentAffectations.groups || []
+        };
+
+        const $hiddenField = $('#checklistAffectationsData');
+        if ($hiddenField.length > 0) {
+            $hiddenField.val(JSON.stringify(data));
+            console.log('ChecklistAffectationsData mis à jour:', data);
+        }
+    }
+
+    renderAssignmentInterface() {
+        const $container = $('#checklistAssignments');
+        if ($container.length === 0) {
+            console.log('Container #checklistAssignments non trouvé');
+            return;
+        }
+
+        let html = '<div class="row">';
+
+        // Utilisateurs
+        html += '<div class="col-md-6">';
+        html += '<label class="form-label">👤 Utilisateurs responsables</label>';
+        html += '<div class="user-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #ced4da; border-radius: 0.375rem; padding: 0.5rem;">';
+
+        this.users.forEach(user => {
+            html += `
+            <div class="form-check">
+                <input class="form-check-input user-assignment-checkbox" 
+                       type="checkbox" 
+                       data-user-id="${user.Id}" 
+                       id="user_${user.Id}">
+                <label class="form-check-label" for="user_${user.Id}">
+                    ${user.Prenom} ${user.Nom}
+                </label>
+            </div>
+        `;
+        });
+        html += '</div></div>';
+
+        // Groupes
+        html += '<div class="col-md-6">';
+        html += '<label class="form-label">👥 Groupes responsables</label>';
+        html += '<div class="group-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #ced4da; border-radius: 0.375rem; padding: 0.5rem;">';
+
+        this.groups.forEach(group => {
+            html += `
+            <div class="form-check">
+                <input class="form-check-input group-assignment-checkbox" 
+                       type="checkbox" 
+                       data-group-id="${group.Id}" 
+                       id="group_${group.Id}">
+                <label class="form-check-label" for="group_${group.Id}">
+                    ${group.NomGroupe}
+                </label>
+            </div>
+        `;
+        });
+        html += '</div></div>';
+        html += '</div>';
+
+        $container.html(html);
+
+        // Bind events
+        $('.user-assignment-checkbox').on('change', (e) => {
+            const userId = parseInt($(e.target).data('user-id'));
+            this.toggleUserAssignment(userId);
+        });
+
+        $('.group-assignment-checkbox').on('change', (e) => {
+            const groupId = parseInt($(e.target).data('group-id'));
+            this.toggleGroupAssignment(groupId);
+        });
+
+        console.log('Interface d\'assignation rendue avec succès');
+    }
+
+    toggleUserAssignment(userId) {
+        // Vérification de sécurité
+        if (!this.currentAffectations) {
+            this.currentAffectations = { users: [], groups: [] };
+        }
+        if (!this.currentAffectations.users) {
+            this.currentAffectations.users = [];
+        }
+
+        const index = this.currentAffectations.users.indexOf(userId);
+        if (index > -1) {
+            this.currentAffectations.users.splice(index, 1);
+            console.log(`Utilisateur ${userId} retiré des affectations`);
+        } else {
+            this.currentAffectations.users.push(userId);
+            console.log(`Utilisateur ${userId} ajouté aux affectations`);
+        }
+        this.updateAffectationsData();
+    }
+
+    toggleGroupAssignment(groupId) {
+        // Vérification de sécurité
+        if (!this.currentAffectations) {
+            this.currentAffectations = { users: [], groups: [] };
+        }
+        if (!this.currentAffectations.groups) {
+            this.currentAffectations.groups = [];
+        }
+
+        const index = this.currentAffectations.groups.indexOf(groupId);
+        if (index > -1) {
+            this.currentAffectations.groups.splice(index, 1);
+            console.log(`Groupe ${groupId} retiré des affectations`);
+        } else {
+            this.currentAffectations.groups.push(groupId);
+            console.log(`Groupe ${groupId} ajouté aux affectations`);
+        }
+        this.updateAffectationsData();
     }
 
     initializeChecklistData() {
@@ -85,6 +253,10 @@
         $(this.options.formSelector).on('submit', (e) => {
             console.log('Soumission du formulaire détectée');
 
+            // S'assurer que les données sont à jour
+            this.updateChecklistData();
+            this.updateAffectationsData(); // AJOUTER CETTE LIGNE
+
             if (!this.validateBeforeSubmit()) {
                 e.preventDefault();
                 return false;
@@ -98,39 +270,39 @@
         console.log('Validation avant soumission...');
 
         const $form = $(this.options.formSelector);
-        let $hiddenField = $('#checklistData');
 
-        if ($hiddenField.length === 0 || $hiddenField.closest('form')[0] !== $form[0]) {
-            console.log('Champ ChecklistData manquant ou mal placé, recréation...');
-
-            $hiddenField.remove();
-            $hiddenField = $('<input type="hidden" id="checklistData" name="ChecklistData">');
-            $form.append($hiddenField);
-
-            this.updateChecklistData();
-            console.log('Champ ChecklistData recréé dans le formulaire');
+        // Vérifier le champ ChecklistData
+        let $checklistField = $('#checklistData');
+        if ($checklistField.length === 0 || $checklistField.closest('form')[0] !== $form[0]) {
+            console.log('Champ ChecklistData manquant, recréation...');
+            $checklistField = $('<input type="hidden" id="checklistData" name="ChecklistData">');
+            $form.append($checklistField);
         }
 
-        const checklistData = $hiddenField.val();
-        console.log('Données checklist avant soumission:', checklistData);
-        console.log('Champ dans le formulaire:', $hiddenField.closest('form')[0] === $form[0]);
-
-        try {
-            const parsed = JSON.parse(checklistData);
-            console.log('JSON valide:', parsed);
-
-            const validation = this.validateChecklist();
-            if (!validation.isValid) {
-                this.showNotification(validation.message, 'danger');
-                return false;
-            }
-
-            return true;
-        } catch (e) {
-            console.error('JSON invalide dans ChecklistData:', e);
-            this.updateChecklistData();
-            return true;
+        // AJOUTER CETTE SECTION pour ChecklistAffectationsData
+        let $affectationsField = $('#checklistAffectationsData');
+        if ($affectationsField.length === 0 || $affectationsField.closest('form')[0] !== $form[0]) {
+            console.log('Champ ChecklistAffectationsData manquant, recréation...');
+            $affectationsField = $('<input type="hidden" id="checklistAffectationsData" name="ChecklistAffectationsData">');
+            $form.append($affectationsField);
         }
+
+        // Mettre à jour les valeurs
+        $checklistField.val(JSON.stringify(this.currentChecklist));
+        $affectationsField.val(JSON.stringify(this.currentAffectations)); // AJOUTER CETTE LIGNE
+
+        console.log('Données finales à envoyer:');
+        console.log('ChecklistData:', this.currentChecklist);
+        console.log('ChecklistAffectationsData:', this.currentAffectations); // AJOUTER CETTE LIGNE
+
+        // Votre validation existante...
+        const validation = this.validateChecklist();
+        if (!validation.isValid) {
+            this.showNotification(validation.message, 'danger');
+            return false;
+        }
+
+        return true;
     }
 
     bindEvents() {

@@ -44,12 +44,9 @@ namespace PlanifPRS.Models
         // Délai en jours depuis le début de la PRS
         public int DelaiDefautJours { get; set; } = 1;
 
-        // Ajoutez ces propriétés dans votre modèle PrsChecklist existant
-        public virtual ICollection<ChecklistUtilisateur> ChecklistUtilisateurs { get; set; } = new List<ChecklistUtilisateur>();
-      
 
-        // Ajoutez cette propriété dans votre classe PrsChecklist existante
-        public virtual ICollection<ChecklistGroupe> ChecklistGroupes { get; set; } = new List<ChecklistGroupe>();
+
+        public ICollection<ChecklistAffectation> Affectations { get; set; } = new List<ChecklistAffectation>();
 
         // Gestion des dates
         public DateTime? DateEcheance { get; set; }
@@ -64,7 +61,6 @@ namespace PlanifPRS.Models
 
         public DateTime DateCreation { get; set; } = DateTime.Now;
 
-        public ICollection<ChecklistAffectation> Affectations { get; set; } = new List<ChecklistAffectation>();
 
         // Sources possibles
         public int? ChecklistModeleSourceId { get; set; }

@@ -164,393 +164,16 @@ namespace PlanifPRS.Pages.Prs
                 await _context.SaveChangesAsync();
                 _logger.LogInformation($"PRS créée avec succès. ID: {Prs.Id}, Titre: {Prs.Titre}");
 
-                // GESTION DES AFFECTATIONS
-                if (!string.IsNullOrEmpty(AffectationsData))
-                {
-                    try
-                    {
-                        _logger.LogInformation($"Traitement des affectations: {AffectationsData}");
+                // GESTION DES AFFECTATIONS PRS
+                await TraiterAffectationsPrsAsync();
 
-                        var affectations = JsonSerializer.Deserialize<List<AffectationDto>>(AffectationsData, new JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true
-                        });
+                // GESTION DE LA CHECKLIST ET SES AFFECTATIONS
+                await TraiterChecklistsEtAffectationsAsync();
 
-                        if (affectations != null && affectations.Any())
-                        {
-                            int affectationsCount = 0;
-                            foreach (var affectation in affectations)
-                            {
-                                var prsAffectation = new PrsAffectation
-                                {
-                                    PrsId = Prs.Id,
-                                    TypeAffectation = affectation.type,
-                                    AffectePar = CurrentUserLogin,
-                                    DateAffectation = DateTime.Now
-                                };
-
-                                if (affectation.type == "Utilisateur")
-                                {
-                                    prsAffectation.UtilisateurId = affectation.id;
-                                }
-                                else if (affectation.type == "Groupe")
-                                {
-                                    prsAffectation.GroupeId = affectation.id;
-                                }
-
-                                _context.PrsAffectations.Add(prsAffectation);
-                                affectationsCount++;
-
-                                _logger.LogInformation($"Affectation ajoutée: {affectation.type} ID {affectation.id} pour PRS {Prs.Id}");
-                            }
-
-                            await _context.SaveChangesAsync();
-                            _logger.LogInformation($"{affectationsCount} affectation(s) créée(s) pour la PRS {Prs.Id}");
-
-                            if (affectationsCount > 0)
-                            {
-                                Flash += $" {affectationsCount} affectation(s) créée(s).";
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"Erreur lors du traitement des affectations: {ex.Message}");
-                        ErrorMessage += " Erreur lors de la création des affectations.";
-                    }
-                }
-
-                // GESTION DE LA CHECKLIST SI PRÉSENTE
-                if (!string.IsNullOrWhiteSpace(ChecklistData))
-                {
-                    try
-                    {
-                        _logger.LogInformation($"Traitement des données de checklist: {ChecklistData}");
-
-                        var checklistForm = JsonSerializer.Deserialize<ChecklistFormDto>(ChecklistData, new JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true
-                        });
-
-                        if (checklistForm != null)
-                        {
-                            var userLogin = GetCurrentUserLogin();
-
-                            switch (checklistForm.type)
-                            {
-                                case "modele":
-                                    if (checklistForm.sourceId.HasValue)
-                                    {
-                                        var success = await _checklistService.ApplyChecklistModeleAsync(Prs.Id, checklistForm.sourceId.Value, userLogin);
-                                        if (success)
-                                        {
-                                            _logger.LogInformation($"Modèle de checklist {checklistForm.sourceId.Value} appliqué avec succès au PRS {Prs.Id}");
-                                            Flash += " Checklist créée à partir du modèle.";
-                                        }
-                                        else
-                                        {
-                                            _logger.LogWarning($"Échec de l'application du modèle de checklist {checklistForm.sourceId.Value}");
-                                            ErrorMessage += " Erreur lors de l'application du modèle de checklist.";
-                                        }
-                                    }
-                                    break;
-
-                                case "copy":
-                                    if (checklistForm.sourceId.HasValue)
-                                    {
-                                        var success = await _checklistService.CopyChecklistFromPrsAsync(Prs.Id, checklistForm.sourceId.Value, userLogin);
-                                        if (success)
-                                        {
-                                            _logger.LogInformation($"Checklist copiée du PRS {checklistForm.sourceId.Value} vers le PRS {Prs.Id}");
-                                            Flash += " Checklist copiée à partir d'un autre PRS.";
-                                        }
-                                        else
-                                        {
-                                            _logger.LogWarning($"Échec de la copie de la checklist du PRS {checklistForm.sourceId.Value}");
-                                            ErrorMessage += " Erreur lors de la copie de la checklist.";
-                                        }
-                                    }
-                                    break;
-
-                                case "custom":
-                                    if (checklistForm.elements?.Any() == true)
-                                    {
-                                        var elements = checklistForm.elements.Select(e => new PrsChecklist
-                                        {
-                                            Categorie = e.categorie,
-                                            SousCategorie = e.sousCategorie,
-                                            Libelle = e.libelle,
-                                            Tache = e.libelle, // Compatibilité
-                                            Priorite = e.priorite > 0 ? e.priorite : 3,
-                                            DelaiDefautJours = e.delaiDefautJours > 0 ? e.delaiDefautJours : 1,
-                                            Obligatoire = e.obligatoire,
-                                            EstCoche = false,
-                                            Statut = null
-                                        }).ToList();
-
-                                        var success = await _checklistService.CreateCustomChecklistAsync(Prs.Id, elements, userLogin);
-                                        if (success)
-                                        {
-                                            _logger.LogInformation($"Checklist personnalisée créée pour le PRS {Prs.Id} avec {elements.Count} éléments");
-                                            Flash += " Checklist personnalisée créée.";
-                                        }
-                                        else
-                                        {
-                                            _logger.LogWarning($"Échec de la création de la checklist personnalisée pour le PRS {Prs.Id}");
-                                            ErrorMessage += " Erreur lors de la création de la checklist personnalisée.";
-                                        }
-                                    }
-                                    break;
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"Erreur lors du traitement des données de checklist: {ex.Message}");
-                        ErrorMessage += " Erreur lors de la création de la checklist.";
-                    }
-                }
-
-                // GESTION DES AFFECTATIONS DE CHECKLIST
-                if (!string.IsNullOrEmpty(ChecklistAffectationsData))
-                {
-                    try
-                    {
-                        _logger.LogInformation($"Traitement des affectations de checklist: {ChecklistAffectationsData}");
-
-                        var checklistAffectations = JsonSerializer.Deserialize<List<ChecklistAffectationDto>>(ChecklistAffectationsData, new JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true
-                        });
-
-                        if (checklistAffectations != null && checklistAffectations.Any())
-                        {
-                            int totalAffectations = 0;
-                            foreach (var checklistAff in checklistAffectations)
-                            {
-                                if (checklistAff.affectations?.Any() == true)
-                                {
-                                    foreach (var affectation in checklistAff.affectations)
-                                    {
-                                        var checklistAffectation = new ChecklistAffectation
-                                        {
-                                            ChecklistId = checklistAff.checklistId,
-                                            TypeAffectation = affectation.type,
-                                            AffectePar = CurrentUserLogin,
-                                            DateAffectation = DateTime.Now
-                                        };
-
-                                        if (affectation.type == "Utilisateur")
-                                        {
-                                            checklistAffectation.UtilisateurId = affectation.id;
-                                        }
-                                        else if (affectation.type == "Groupe")
-                                        {
-                                            checklistAffectation.GroupeId = affectation.id;
-                                        }
-
-                                        _context.ChecklistAffectations.Add(checklistAffectation);
-                                        totalAffectations++;
-
-                                        _logger.LogInformation($"Affectation checklist ajoutée: {affectation.type} ID {affectation.id} pour checklist {checklistAff.checklistId}");
-                                    }
-                                }
-                            }
-
-                            await _context.SaveChangesAsync();
-                            _logger.LogInformation($"{totalAffectations} affectation(s) de checklist créée(s)");
-
-                            if (totalAffectations > 0)
-                            {
-                                Flash += $" {totalAffectations} affectation(s) de checklist créée(s).";
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"Erreur lors du traitement des affectations de checklist: {ex.Message}");
-                        ErrorMessage += " Erreur lors de la création des affectations de checklist.";
-                    }
-                }
-
-                // -- UPLOAD FICHIERS
-                if (UploadedFiles != null && UploadedFiles.Any())
-                {
-                    _logger.LogInformation($"Traitement de {UploadedFiles.Count} fichiers uploadés");
-
-                    var fileResults = await _fileService.SaveMultipleFilesAsync(
-                        UploadedFiles,
-                        Prs.Id.ToString(),
-                        Prs.Titre ?? "PRS"
-                    );
-
-                    int successCount = 0;
-                    int errorCount = 0;
-
-                    foreach (var (Success, FilePath, ErrorMsg) in fileResults)
-                    {
-                        if (Success && !string.IsNullOrEmpty(FilePath))
-                        {
-                            var file = UploadedFiles[fileResults.IndexOf((Success, FilePath, ErrorMsg))];
-                            var prsFichier = new PrsFichier
-                            {
-                                PrsId = Prs.Id,
-                                NomOriginal = file.FileName,
-                                CheminFichier = FilePath,
-                                TypeMime = file.ContentType,
-                                Taille = file.Length,
-                                DateUpload = DateTime.Now,
-                                UploadParLogin = GetCurrentUserLogin()
-                            };
-
-                            _logger.LogInformation($"Ajout du fichier à la BDD: {prsFichier.NomOriginal}");
-                            _context.PrsFichiers.Add(prsFichier);
-                            successCount++;
-                        }
-                        else
-                        {
-                            _logger.LogError($"Erreur lors de l'upload: {ErrorMsg}");
-                            errorCount++;
-                            ModelState.AddModelError(string.Empty, ErrorMsg);
-                        }
-                    }
-
-                    await _context.SaveChangesAsync();
-                    _logger.LogInformation($"Fichiers traités: {successCount} succès, {errorCount} erreurs");
-
-                    if (successCount > 0)
-                    {
-                        Flash += $" {successCount} fichier(s) téléchargé(s) avec succès.";
-                    }
-
-                    if (errorCount > 0)
-                    {
-                        ErrorMessage = $"{errorCount} fichier(s) n'ont pas pu être téléchargés. Vérifiez les erreurs.";
-                    }
-                }
-                else
-                {
-                    _logger.LogInformation("Aucun fichier à uploader");
-                }
-
-                // -- TRAITEMENT DES DOSSIERS
-                if (!string.IsNullOrEmpty(PrsFolderLinks))
-                {
-                    try
-                    {
-                        _logger.LogInformation($"Traitement des liens de dossiers. JSON reçu: {PrsFolderLinks}");
-
-                        var options = new JsonSerializerOptions
-                        {
-                            PropertyNameCaseInsensitive = true,
-                            ReadCommentHandling = JsonCommentHandling.Skip,
-                            AllowTrailingCommas = true
-                        };
-
-                        List<FolderLinkDto> folderLinks = null;
-                        try
-                        {
-                            folderLinks = JsonSerializer.Deserialize<List<FolderLinkDto>>(PrsFolderLinks, options);
-
-                            if (folderLinks != null)
-                            {
-                                foreach (var link in folderLinks)
-                                {
-                                    _logger.LogInformation($"Lien désérialisé - Chemin: '{link.Chemin}', Description: '{link.Description}'");
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError($"Erreur lors de la désérialisation: {ex.Message}");
-
-                            folderLinks = new List<FolderLinkDto>();
-
-                            var pathRegex1 = new Regex(@"""path""\s*:\s*""([^""]+)""");
-                            var pathRegex2 = new Regex(@"""Chemin""\s*:\s*""([^""]+)""");
-                            var descRegex1 = new Regex(@"""description""\s*:\s*""([^""]*)""");
-                            var descRegex2 = new Regex(@"""Description""\s*:\s*""([^""]*)""");
-
-                            var pathMatches1 = pathRegex1.Matches(PrsFolderLinks);
-                            var pathMatches2 = pathRegex2.Matches(PrsFolderLinks);
-                            var descMatches1 = descRegex1.Matches(PrsFolderLinks);
-                            var descMatches2 = descRegex2.Matches(PrsFolderLinks);
-
-                            if (pathMatches1.Count > 0)
-                            {
-                                for (int i = 0; i < pathMatches1.Count; i++)
-                                {
-                                    string path = pathMatches1[i].Groups[1].Value;
-                                    string desc = (i < descMatches1.Count && descMatches1[i].Groups.Count > 1) ?
-                                        descMatches1[i].Groups[1].Value : "";
-
-                                    folderLinks.Add(new FolderLinkDto { Chemin = path, Description = desc });
-                                }
-                            }
-                            else if (pathMatches2.Count > 0)
-                            {
-                                for (int i = 0; i < pathMatches2.Count; i++)
-                                {
-                                    string path = pathMatches2[i].Groups[1].Value;
-                                    string desc = (i < descMatches2.Count && descMatches2[i].Groups.Count > 1) ?
-                                        descMatches2[i].Groups[1].Value : "";
-
-                                    folderLinks.Add(new FolderLinkDto { Chemin = path, Description = desc });
-                                }
-                            }
-                        }
-
-                        if (folderLinks != null && folderLinks.Any())
-                        {
-                            int addedCount = 0;
-                            foreach (var link in folderLinks)
-                            {
-                                if (!string.IsNullOrEmpty(link.Chemin))
-                                {
-                                    string chemin = link.Chemin.Replace("\\\\", "\\");
-
-                                    var lienDossier = new LienDossierPrs
-                                    {
-                                        PrsId = Prs.Id,
-                                        Chemin = chemin,
-                                        Description = link.Description ?? "",
-                                        DateAjout = DateTime.Now,
-                                        AjouteParLogin = GetCurrentUserLogin()
-                                    };
-
-                                    _logger.LogInformation($"Ajout du lien de dossier: {lienDossier.Chemin}, Description: {lienDossier.Description}");
-                                    _context.LiensDossierPrs.Add(lienDossier);
-                                    addedCount++;
-                                }
-                                else
-                                {
-                                    _logger.LogWarning($"Lien de dossier ignoré car chemin vide. Description: {link.Description}");
-                                }
-                            }
-
-                            var changesCount = await _context.SaveChangesAsync();
-                            _logger.LogInformation($"SaveChanges: {changesCount} enregistrements modifiés pour les liens de dossiers");
-
-                            if (addedCount > 0)
-                            {
-                                Flash += $" {addedCount} lien(s) de dossier ajouté(s).";
-                            }
-                        }
-                        else
-                        {
-                            _logger.LogWarning("Aucun lien de dossier valide trouvé dans les données JSON");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError($"Erreur lors du traitement des liens de dossiers: {ex.Message}");
-                        _logger.LogError($"Stack trace: {ex.StackTrace}");
-                        ErrorMessage += " Erreur lors du traitement des liens de dossiers.";
-                    }
-                }
+                // GESTION DES FICHIERS ET LIENS
+                await TraiterFichiersEtLiensAsync();
 
                 Flash = "PRS ajoutée avec succès ✅";
-
                 return RedirectToPage("./Index");
             }
             catch (Exception ex)
@@ -563,6 +186,449 @@ namespace PlanifPRS.Pages.Prs
             }
         }
 
+        private async Task TraiterAffectationsPrsAsync()
+        {
+            if (!string.IsNullOrEmpty(AffectationsData))
+            {
+                try
+                {
+                    _logger.LogInformation($"Traitement des affectations PRS: {AffectationsData}");
+
+                    var affectations = JsonSerializer.Deserialize<List<AffectationDto>>(AffectationsData, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    if (affectations != null && affectations.Any())
+                    {
+                        int affectationsCount = 0;
+                        foreach (var affectation in affectations)
+                        {
+                            var prsAffectation = new PrsAffectation
+                            {
+                                PrsId = Prs.Id,
+                                TypeAffectation = affectation.type,
+                                AffectePar = CurrentUserLogin,
+                                DateAffectation = DateTime.Now
+                            };
+
+                            if (affectation.type == "Utilisateur")
+                            {
+                                prsAffectation.UtilisateurId = affectation.id;
+                            }
+                            else if (affectation.type == "Groupe")
+                            {
+                                prsAffectation.GroupeId = affectation.id;
+                            }
+
+                            _context.PrsAffectations.Add(prsAffectation);
+                            affectationsCount++;
+
+                            _logger.LogInformation($"Affectation PRS ajoutée: {affectation.type} ID {affectation.id} pour PRS {Prs.Id}");
+                        }
+
+                        await _context.SaveChangesAsync();
+                        _logger.LogInformation($"{affectationsCount} affectation(s) PRS créée(s) pour la PRS {Prs.Id}");
+
+                        if (affectationsCount > 0)
+                        {
+                            Flash += $" {affectationsCount} affectation(s) PRS créée(s).";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Erreur lors du traitement des affectations PRS: {ex.Message}");
+                    ErrorMessage += " Erreur lors de la création des affectations PRS.";
+                }
+            }
+        }
+
+        private async Task TraiterChecklistsEtAffectationsAsync()
+        {
+            if (string.IsNullOrWhiteSpace(ChecklistData))
+            {
+                _logger.LogInformation("Aucune donnée de checklist à traiter");
+                return;
+            }
+
+            try
+            {
+                _logger.LogInformation($"Traitement des données de checklist: {ChecklistData}");
+
+                var checklistForm = JsonSerializer.Deserialize<ChecklistFormDto>(ChecklistData, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (checklistForm != null)
+                {
+                    var userLogin = GetCurrentUserLogin();
+                    var checklistIds = new List<int>();
+
+                    switch (checklistForm.type)
+                    {
+                        case "modele":
+                            if (checklistForm.sourceId.HasValue)
+                            {
+                                var success = await _checklistService.ApplyChecklistModeleAsync(Prs.Id, checklistForm.sourceId.Value, userLogin);
+                                if (success)
+                                {
+                                    // Récupérer les IDs des checklists créées
+                                    checklistIds = await GetChecklistIdsForPrs(Prs.Id);
+                                    _logger.LogInformation($"Modèle de checklist {checklistForm.sourceId.Value} appliqué avec succès au PRS {Prs.Id}");
+                                    Flash += " Checklist créée à partir du modèle.";
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"Échec de l'application du modèle de checklist {checklistForm.sourceId.Value}");
+                                    ErrorMessage += " Erreur lors de l'application du modèle de checklist.";
+                                }
+                            }
+                            break;
+
+                        case "copy":
+                            if (checklistForm.sourceId.HasValue)
+                            {
+                                var success = await _checklistService.CopyChecklistFromPrsAsync(Prs.Id, checklistForm.sourceId.Value, userLogin);
+                                if (success)
+                                {
+                                    // Récupérer les IDs des checklists créées
+                                    checklistIds = await GetChecklistIdsForPrs(Prs.Id);
+                                    _logger.LogInformation($"Checklist copiée du PRS {checklistForm.sourceId.Value} vers le PRS {Prs.Id}");
+                                    Flash += " Checklist copiée à partir d'un autre PRS.";
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"Échec de la copie de la checklist du PRS {checklistForm.sourceId.Value}");
+                                    ErrorMessage += " Erreur lors de la copie de la checklist.";
+                                }
+                            }
+                            break;
+
+                        case "custom":
+                            if (checklistForm.elements?.Any() == true)
+                            {
+                                var elements = checklistForm.elements.Select(e => new PrsChecklist
+                                {
+                                    Categorie = e.categorie,
+                                    SousCategorie = e.sousCategorie,
+                                    Libelle = e.libelle,
+                                    Tache = e.libelle, // Compatibilité
+                                    Priorite = e.priorite > 0 ? e.priorite : 3,
+                                    DelaiDefautJours = e.delaiDefautJours > 0 ? e.delaiDefautJours : 1,
+                                    Obligatoire = e.obligatoire,
+                                    EstCoche = false,
+                                    Statut = null
+                                }).ToList();
+
+                                var success = await _checklistService.CreateCustomChecklistAsync(Prs.Id, elements, userLogin);
+                                if (success)
+                                {
+                                    // Récupérer les IDs des checklists créées
+                                    checklistIds = await GetChecklistIdsForPrs(Prs.Id);
+                                    _logger.LogInformation($"Checklist personnalisée créée pour le PRS {Prs.Id} avec {elements.Count} éléments");
+                                    Flash += " Checklist personnalisée créée.";
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"Échec de la création de la checklist personnalisée pour le PRS {Prs.Id}");
+                                    ErrorMessage += " Erreur lors de la création de la checklist personnalisée.";
+                                }
+                            }
+                            break;
+                    }
+
+                    // Traiter les affectations pour toutes les checklists créées
+                    if (checklistIds.Any())
+                    {
+                        await TraiterAffectationsChecklistAsync(checklistIds);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Erreur lors du traitement des données de checklist: {ex.Message}");
+                ErrorMessage += " Erreur lors de la création de la checklist.";
+            }
+        }
+
+        private async Task<List<int>> GetChecklistIdsForPrs(int prsId)
+        {
+            return await _context.PrsChecklists
+                .Where(c => c.PRSId == prsId)
+                .Select(c => c.Id)
+                .ToListAsync();
+        }
+
+        private async Task TraiterAffectationsChecklistAsync(List<int> checklistIds)
+        {
+            if (string.IsNullOrEmpty(ChecklistAffectationsData) || !checklistIds.Any())
+            {
+                _logger.LogInformation("Aucune affectation de checklist à traiter");
+                return;
+            }
+
+            try
+            {
+                _logger.LogInformation($"Traitement des affectations de checklist: {ChecklistAffectationsData}");
+
+                var affectationsData = JsonSerializer.Deserialize<ChecklistAffectationsDataModel>(ChecklistAffectationsData, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (affectationsData != null && (affectationsData.users?.Any() == true || affectationsData.groups?.Any() == true))
+                {
+                    var currentUser = CurrentUserLogin;
+                    var dateAffectation = DateTime.Now;
+                    int totalAffectations = 0;
+
+                    // Créer les affectations pour chaque checklist créée
+                    foreach (var checklistId in checklistIds)
+                    {
+                        // Affectations utilisateurs
+                        if (affectationsData.users != null)
+                        {
+                            foreach (var userId in affectationsData.users)
+                            {
+                                var affectation = new ChecklistAffectation
+                                {
+                                    ChecklistId = checklistId,
+                                    UtilisateurId = userId,
+                                    GroupeId = null,
+                                    TypeAffectation = "Utilisateur",
+                                    DateAffectation = dateAffectation,
+                                    AffectePar = currentUser
+                                };
+
+                                _context.ChecklistAffectations.Add(affectation);
+                                totalAffectations++;
+                                _logger.LogInformation($"Affectation utilisateur créée: ChecklistId={checklistId}, UserId={userId}");
+                            }
+                        }
+
+                        // Affectations groupes
+                        if (affectationsData.groups != null)
+                        {
+                            foreach (var groupId in affectationsData.groups)
+                            {
+                                var affectation = new ChecklistAffectation
+                                {
+                                    ChecklistId = checklistId,
+                                    UtilisateurId = null,
+                                    GroupeId = groupId,
+                                    TypeAffectation = "Groupe",
+                                    DateAffectation = dateAffectation,
+                                    AffectePar = currentUser
+                                };
+
+                                _context.ChecklistAffectations.Add(affectation);
+                                totalAffectations++;
+                                _logger.LogInformation($"Affectation groupe créée: ChecklistId={checklistId}, GroupId={groupId}");
+                            }
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation($"{totalAffectations} affectation(s) de checklist créée(s)");
+
+                    if (totalAffectations > 0)
+                    {
+                        Flash += $" {totalAffectations} affectation(s) de checklist créée(s).";
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors du traitement des affectations de checklist");
+                ErrorMessage += " Erreur lors de la création des affectations de checklist.";
+            }
+        }
+
+        private async Task TraiterFichiersEtLiensAsync()
+        {
+            // UPLOAD FICHIERS
+            if (UploadedFiles != null && UploadedFiles.Any())
+            {
+                _logger.LogInformation($"Traitement de {UploadedFiles.Count} fichiers uploadés");
+
+                var fileResults = await _fileService.SaveMultipleFilesAsync(
+                    UploadedFiles,
+                    Prs.Id.ToString(),
+                    Prs.Titre ?? "PRS"
+                );
+
+                int successCount = 0;
+                int errorCount = 0;
+
+                foreach (var (Success, FilePath, ErrorMsg) in fileResults)
+                {
+                    if (Success && !string.IsNullOrEmpty(FilePath))
+                    {
+                        var file = UploadedFiles[fileResults.IndexOf((Success, FilePath, ErrorMsg))];
+                        var prsFichier = new PrsFichier
+                        {
+                            PrsId = Prs.Id,
+                            NomOriginal = file.FileName,
+                            CheminFichier = FilePath,
+                            TypeMime = file.ContentType,
+                            Taille = file.Length,
+                            DateUpload = DateTime.Now,
+                            UploadParLogin = GetCurrentUserLogin()
+                        };
+
+                        _logger.LogInformation($"Ajout du fichier à la BDD: {prsFichier.NomOriginal}");
+                        _context.PrsFichiers.Add(prsFichier);
+                        successCount++;
+                    }
+                    else
+                    {
+                        _logger.LogError($"Erreur lors de l'upload: {ErrorMsg}");
+                        errorCount++;
+                        ModelState.AddModelError(string.Empty, ErrorMsg);
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                _logger.LogInformation($"Fichiers traités: {successCount} succès, {errorCount} erreurs");
+
+                if (successCount > 0)
+                {
+                    Flash += $" {successCount} fichier(s) téléchargé(s) avec succès.";
+                }
+
+                if (errorCount > 0)
+                {
+                    ErrorMessage = $"{errorCount} fichier(s) n'ont pas pu être téléchargés. Vérifiez les erreurs.";
+                }
+            }
+
+            // TRAITEMENT DES DOSSIERS
+            if (!string.IsNullOrEmpty(PrsFolderLinks))
+            {
+                try
+                {
+                    _logger.LogInformation($"Traitement des liens de dossiers. JSON reçu: {PrsFolderLinks}");
+
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true,
+                        ReadCommentHandling = JsonCommentHandling.Skip,
+                        AllowTrailingCommas = true
+                    };
+
+                    List<FolderLinkDto> folderLinks = null;
+                    try
+                    {
+                        folderLinks = JsonSerializer.Deserialize<List<FolderLinkDto>>(PrsFolderLinks, options);
+
+                        if (folderLinks != null)
+                        {
+                            foreach (var link in folderLinks)
+                            {
+                                _logger.LogInformation($"Lien désérialisé - Chemin: '{link.Chemin}', Description: '{link.Description}'");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"Erreur lors de la désérialisation: {ex.Message}");
+
+                        folderLinks = new List<FolderLinkDto>();
+
+                        var pathRegex1 = new Regex(@"""path""\s*:\s*""([^""]+)""");
+                        var pathRegex2 = new Regex(@"""Chemin""\s*:\s*""([^""]+)""");
+                        var descRegex1 = new Regex(@"""description""\s*:\s*""([^""]*)""");
+                        var descRegex2 = new Regex(@"""Description""\s*:\s*""([^""]*)""");
+
+                        var pathMatches1 = pathRegex1.Matches(PrsFolderLinks);
+                        var pathMatches2 = pathRegex2.Matches(PrsFolderLinks);
+                        var descMatches1 = descRegex1.Matches(PrsFolderLinks);
+                        var descMatches2 = descRegex2.Matches(PrsFolderLinks);
+
+                        if (pathMatches1.Count > 0)
+                        {
+                            for (int i = 0; i < pathMatches1.Count; i++)
+                            {
+                                string path = pathMatches1[i].Groups[1].Value;
+                                string desc = (i < descMatches1.Count && descMatches1[i].Groups.Count > 1) ?
+                                    descMatches1[i].Groups[1].Value : "";
+
+                                folderLinks.Add(new FolderLinkDto { Chemin = path, Description = desc });
+                            }
+                        }
+                        else if (pathMatches2.Count > 0)
+                        {
+                            for (int i = 0; i < pathMatches2.Count; i++)
+                            {
+                                string path = pathMatches2[i].Groups[1].Value;
+                                string desc = (i < descMatches2.Count && descMatches2[i].Groups.Count > 1) ?
+                                    descMatches2[i].Groups[1].Value : "";
+
+                                folderLinks.Add(new FolderLinkDto { Chemin = path, Description = desc });
+                            }
+                        }
+                    }
+
+                    if (folderLinks != null && folderLinks.Any())
+                    {
+                        int addedCount = 0;
+                        foreach (var link in folderLinks)
+                        {
+                            if (!string.IsNullOrEmpty(link.Chemin))
+                            {
+                                string chemin = link.Chemin.Replace("\\\\", "\\");
+
+                                var lienDossier = new LienDossierPrs
+                                {
+                                    PrsId = Prs.Id,
+                                    Chemin = chemin,
+                                    Description = link.Description ?? "",
+                                    DateAjout = DateTime.Now,
+                                    AjouteParLogin = GetCurrentUserLogin()
+                                };
+
+                                _logger.LogInformation($"Ajout du lien de dossier: {lienDossier.Chemin}, Description: {lienDossier.Description}");
+                                _context.LiensDossierPrs.Add(lienDossier);
+                                addedCount++;
+                            }
+                            else
+                            {
+                                _logger.LogWarning($"Lien de dossier ignoré car chemin vide. Description: {link.Description}");
+                            }
+                        }
+
+                        var changesCount = await _context.SaveChangesAsync();
+                        _logger.LogInformation($"SaveChanges: {changesCount} enregistrements modifiés pour les liens de dossiers");
+
+                        if (addedCount > 0)
+                        {
+                            Flash += $" {addedCount} lien(s) de dossier ajouté(s).";
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Aucun lien de dossier valide trouvé dans les données JSON");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Erreur lors du traitement des liens de dossiers: {ex.Message}");
+                    _logger.LogError($"Stack trace: {ex.StackTrace}");
+                    ErrorMessage += " Erreur lors du traitement des liens de dossiers.";
+                }
+            }
+        }
+
+        // Classes DTO pour la désérialisation
+        public class ChecklistAffectationsDataModel
+        {
+            public List<int> users { get; set; } = new List<int>();
+            public List<int> groups { get; set; } = new List<int>();
+        }
+
+        // Méthodes existantes conservées...
         private async Task ChargerDonneesAsync()
         {
             ChargerFamilles();
@@ -603,14 +669,14 @@ namespace PlanifPRS.Pages.Prs
                     .Where(g => g.Actif)
                     .Include(g => g.Membres)
                     .ThenInclude(gu => gu.Utilisateur)
-                    .OrderBy(g => g.NomGroupe)  // Tri alphabétique par nom de groupe
+                    .OrderBy(g => g.NomGroupe)
                     .ToListAsync();
 
                 _logger.LogInformation($"Chargé {GroupesUtilisateurs.Count} groupes");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Erreur lors du chargement des groupes - probablement car les tables n'existent pas encore");
+                _logger.LogError(ex, "Erreur lors du chargement des groupes");
                 GroupesUtilisateurs = new List<GroupeUtilisateurs>();
             }
         }
@@ -707,6 +773,7 @@ namespace PlanifPRS.Pages.Prs
                 return new JsonResult(new { error = ex.Message });
             }
         }
+
         private void ChargerFamilles()
         {
             try
@@ -808,7 +875,7 @@ namespace PlanifPRS.Pages.Prs
             }
         }
 
-        // Classe DTO pour désérialiser les liens de dossiers
+        // Classes DTO conservées
         public class FolderLinkDto
         {
             public string Chemin { get; set; }
@@ -817,7 +884,6 @@ namespace PlanifPRS.Pages.Prs
             public string description { get => Description; set => Description = value; }
         }
 
-        // DTO checklist pour la désérialisation JS
         public class ChecklistFormDto
         {
             public string type { get; set; }
@@ -833,11 +899,9 @@ namespace PlanifPRS.Pages.Prs
             public int priorite { get; set; } = 3;
             public int delaiDefautJours { get; set; } = 1;
             public bool obligatoire { get; set; }
-            // AJOUT : Affectations pour cet élément
             public List<AffectationDto> affectations { get; set; } = new();
         }
 
-        // DTO affectation pour la désérialisation JS
         public class AffectationDto
         {
             public int id { get; set; }
@@ -846,19 +910,10 @@ namespace PlanifPRS.Pages.Prs
             public string info { get; set; }
         }
 
-        // DTO pour les affectations de checklist
         public class ChecklistAffectationDto
         {
             public int checklistId { get; set; }
             public List<AffectationDto> affectations { get; set; } = new();
-        }
-
-        public class ChecklistAffectationCreationDto
-        {
-            public int checklistIndex { get; set; }
-            public string typeAffectation { get; set; }
-            public int? utilisateurId { get; set; }
-            public int? groupeId { get; set; }
         }
     }
 }
