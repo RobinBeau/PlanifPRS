@@ -1006,7 +1006,6 @@
                     <label class="form-check-label small">Obligatoire</label>
                 </div>
             </div>
-            <!-- Ajoutez cette section dans votre formulaire de création de checklist -->
             <div class="assignation-section mt-4">
                 <h5>👥 Assignation des responsables</h5>
                 <div class="row">
@@ -1025,6 +1024,9 @@
                 </div>
             </div>
 
+            <!-- Inputs cachés pour capturer les sélections -->
+            
+            <input type="hidden" id="checklistAffectationsData" name="ChecklistAffectationsData" value="" />
 
             <div class="col-md-1">
                 <button type="button" class="btn btn-sm btn-danger btn-remove-item"><i class="fas fa-trash"></i></button>
@@ -2545,6 +2547,56 @@
                     name: 'ChecklistAffectationsData',
                     value: JSON.stringify(affectationsChecklist)
                 }).appendTo(this);
+            });
+        });
+
+                $(document).ready(function() {
+            // Fonction pour mettre à jour les champs cachés
+            function updateHiddenFields() {
+                // Récupérer les utilisateurs sélectionnés
+                const selectedUsers = [];
+                $('#checklistUsers option:selected').each(function() {
+                    const value = parseInt($(this).val());
+                    if (!isNaN(value)) {
+                        selectedUsers.push(value);
+                    }
+                });
+
+                // Récupérer les groupes sélectionnés
+                const selectedGroups = [];
+                $('#checklistGroups option:selected').each(function() {
+                    const value = parseInt($(this).val());
+                    if (!isNaN(value)) {
+                        selectedGroups.push(value);
+                    }
+                });
+
+                // Mettre à jour les champs cachés
+                $('#selectedUsersHidden').val(selectedUsers.join(','));
+                $('#selectedGroupsHidden').val(selectedGroups.join(','));
+
+                console.log('Utilisateurs sélectionnés:', selectedUsers);
+                console.log('Groupes sélectionnés:', selectedGroups);
+                console.log('Champ users hidden:', $('#selectedUsersHidden').val());
+                console.log('Champ groups hidden:', $('#selectedGroupsHidden').val());
+
+                // Optionnel : mettre à jour aussi ChecklistAffectationsData pour compatibilité
+                const affectationsData = {
+                    users: selectedUsers,
+                    groups: selectedGroups
+                };
+                $('#checklistAffectationsData').val(JSON.stringify(affectationsData));
+            }
+
+            // Écouter les changements sur les selects
+            $('#checklistUsers, #checklistGroups').on('change', updateHiddenFields);
+
+            // Mettre à jour avant la soumission du formulaire
+            $('form').on('submit', function() {
+                updateHiddenFields();
+                console.log('Soumission du formulaire - valeurs finales:');
+                console.log('Users:', $('#selectedUsersHidden').val());
+                console.log('Groups:', $('#selectedGroupsHidden').val());
             });
         });
     </script>

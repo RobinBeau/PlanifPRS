@@ -117,110 +117,66 @@
     }
 
     renderAssignmentInterface() {
-        const $container = $('#checklistAssignments');
-        if ($container.length === 0) {
-            console.log('Container #checklistAssignments non trouvé');
-            return;
-        }
+        console.log('Rendu de l\'interface d\'assignation avec les éléments existants');
 
-        let html = '<div class="row">';
+        // Remplir le select des utilisateurs
+        const $usersSelect = $('#checklistUsers');
+        if ($usersSelect.length > 0) {
+            $usersSelect.empty();
 
-        // Utilisateurs
-        html += '<div class="col-md-6">';
-        html += '<label class="form-label">👤 Utilisateurs responsables</label>';
-        html += '<div class="user-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #ced4da; border-radius: 0.375rem; padding: 0.5rem;">';
+            // Ajouter une option vide
+            $usersSelect.append('<option value="">-- Sélectionner des utilisateurs --</option>');
 
-        this.users.forEach(user => {
-            html += `
-            <div class="form-check">
-                <input class="form-check-input user-assignment-checkbox" 
-                       type="checkbox" 
-                       data-user-id="${user.Id}" 
-                       id="user_${user.Id}">
-                <label class="form-check-label" for="user_${user.Id}">
-                    ${user.Prenom} ${user.Nom}
-                </label>
-            </div>
-        `;
-        });
-        html += '</div></div>';
+            // Ajouter les utilisateurs
+            this.users.forEach(user => {
+                const option = $(`<option value="${user.Id}">${user.Prenom} ${user.Nom}</option>`);
+                $usersSelect.append(option);
+            });
 
-        // Groupes
-        html += '<div class="col-md-6">';
-        html += '<label class="form-label">👥 Groupes responsables</label>';
-        html += '<div class="group-list" style="max-height: 200px; overflow-y: auto; border: 1px solid #ced4da; border-radius: 0.375rem; padding: 0.5rem;">';
+            // Gérer les changements de sélection
+            $usersSelect.off('change.checklistManager').on('change.checklistManager', () => {
+                const selectedValues = Array.from($usersSelect[0].selectedOptions).map(opt => parseInt(opt.value));
+                this.currentAffectations.users = selectedValues.filter(val => !isNaN(val));
+                console.log('Utilisateurs sélectionnés:', this.currentAffectations.users);
+                this.updateAffectationsData();
+            });
 
-        this.groups.forEach(group => {
-            html += `
-            <div class="form-check">
-                <input class="form-check-input group-assignment-checkbox" 
-                       type="checkbox" 
-                       data-group-id="${group.Id}" 
-                       id="group_${group.Id}">
-                <label class="form-check-label" for="group_${group.Id}">
-                    ${group.NomGroupe}
-                </label>
-            </div>
-        `;
-        });
-        html += '</div></div>';
-        html += '</div>';
-
-        $container.html(html);
-
-        // Bind events
-        $('.user-assignment-checkbox').on('change', (e) => {
-            const userId = parseInt($(e.target).data('user-id'));
-            this.toggleUserAssignment(userId);
-        });
-
-        $('.group-assignment-checkbox').on('change', (e) => {
-            const groupId = parseInt($(e.target).data('group-id'));
-            this.toggleGroupAssignment(groupId);
-        });
-
-        console.log('Interface d\'assignation rendue avec succès');
-    }
-
-    toggleUserAssignment(userId) {
-        // Vérification de sécurité
-        if (!this.currentAffectations) {
-            this.currentAffectations = { users: [], groups: [] };
-        }
-        if (!this.currentAffectations.users) {
-            this.currentAffectations.users = [];
-        }
-
-        const index = this.currentAffectations.users.indexOf(userId);
-        if (index > -1) {
-            this.currentAffectations.users.splice(index, 1);
-            console.log(`Utilisateur ${userId} retiré des affectations`);
+            console.log('Select utilisateurs configuré avec', this.users.length, 'options');
         } else {
-            this.currentAffectations.users.push(userId);
-            console.log(`Utilisateur ${userId} ajouté aux affectations`);
-        }
-        this.updateAffectationsData();
-    }
-
-    toggleGroupAssignment(groupId) {
-        // Vérification de sécurité
-        if (!this.currentAffectations) {
-            this.currentAffectations = { users: [], groups: [] };
-        }
-        if (!this.currentAffectations.groups) {
-            this.currentAffectations.groups = [];
+            console.warn('Élément #checklistUsers non trouvé dans le DOM');
         }
 
-        const index = this.currentAffectations.groups.indexOf(groupId);
-        if (index > -1) {
-            this.currentAffectations.groups.splice(index, 1);
-            console.log(`Groupe ${groupId} retiré des affectations`);
+        // Remplir le select des groupes
+        const $groupsSelect = $('#checklistGroups');
+        if ($groupsSelect.length > 0) {
+            $groupsSelect.empty();
+
+            // Ajouter une option vide
+            $groupsSelect.append('<option value="">-- Sélectionner des groupes --</option>');
+
+            // Ajouter les groupes
+            this.groups.forEach(group => {
+                const option = $(`<option value="${group.Id}">${group.NomGroupe}</option>`);
+                $groupsSelect.append(option);
+            });
+
+            // Gérer les changements de sélection
+            $groupsSelect.off('change.checklistManager').on('change.checklistManager', () => {
+                const selectedValues = Array.from($groupsSelect[0].selectedOptions).map(opt => parseInt(opt.value));
+                this.currentAffectations.groups = selectedValues.filter(val => !isNaN(val));
+                console.log('Groupes sélectionnés:', this.currentAffectations.groups);
+                this.updateAffectationsData();
+            });
+
+            console.log('Select groupes configuré avec', this.groups.length, 'options');
         } else {
-            this.currentAffectations.groups.push(groupId);
-            console.log(`Groupe ${groupId} ajouté aux affectations`);
+            console.warn('Élément #checklistGroups non trouvé dans le DOM');
         }
-        this.updateAffectationsData();
+
+        console.log('Interface d\'assignation configurée avec succès');
     }
+
+   
 
     initializeChecklistData() {
         console.log('Initialisation du champ ChecklistData...');
@@ -1215,6 +1171,26 @@
         return { isValid: true, message: '' };
     }
 }
+
+// À la fin de checklist-manager.js
+// Test manuel dans la console
+function testAffectations() {
+    console.log('=== TEST AFFECTATIONS ===');
+    console.log('Select users:', $('#checklistUsers').val());
+    console.log('Select groups:', $('#checklistGroups').val());
+    console.log('Hidden users:', $('#selectedUsersHidden').val());
+    console.log('Hidden groups:', $('#selectedGroupsHidden').val());
+
+    // Forcer la mise à jour
+    updateHiddenFields();
+
+    console.log('Après mise à jour:');
+    console.log('Hidden users:', $('#selectedUsersHidden').val());
+    console.log('Hidden groups:', $('#selectedGroupsHidden').val());
+}
+
+// Rendre la fonction accessible globalement
+window.testAffectations = testAffectations;
 
 // Initialisation avec le bon sélecteur de formulaire
 $(document).ready(() => {
