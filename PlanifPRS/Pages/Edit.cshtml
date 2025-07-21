@@ -114,6 +114,147 @@
                 margin-right: 5px;
                 color: #6c757d;
             }
+
+        /* Styles pour la zone d'upload */
+        .file-upload-container {
+            border: 2px dashed #dee2e6;
+            border-radius: 6px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            background-color: #f8f9fa;
+            position: relative;
+        }
+
+        .file-upload-container:hover, .file-upload-container.dragover {
+            border-color: #007bff;
+            background-color: #e3f2fd;
+        }
+
+        .file-upload-icon {
+            font-size: 3rem;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+
+        .file-upload-text {
+            color: #495057;
+        }
+
+        .file-upload-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 15px 0 0 0;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .checklist-item {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 8px;
+        }
+
+        .checklist-affectation {
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            padding: 6px;
+            margin: 4px 0;
+        }
+
+        .existing-files-section, .existing-checklist-section {
+            border-top: 1px solid #dee2e6;
+            padding-top: 1rem;
+            margin-top: 1rem;
+        }
+
+        .existing-file-item, .existing-folder-link {
+            transition: background-color 0.2s ease;
+        }
+
+        .existing-file-item:hover, .existing-folder-link:hover {
+            background-color: #f8f9fa;
+        }
+
+        .checklist-item-display {
+            transition: all 0.2s ease;
+        }
+
+        .checklist-item-display:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .bg-light-success {
+            background-color: #d4edda !important;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background-color: #e9ecef;
+            border-radius: 2px;
+            margin: 10px 0;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background-color: #007bff;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .upload-limits {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 10px;
+        }
+
+        .badge-checklist {
+            background-color: #17a2b8;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+
+        .btn-checklist {
+            background-color: #17a2b8;
+            color: white;
+            border: none;
+        }
+
+        .btn-checklist:hover {
+            background-color: #138496;
+            color: white;
+        }
     </style>
 }
 
@@ -480,6 +621,407 @@
                           rows="3"
                           placeholder="Ajoutez toute information utile pour cette PRS..."></textarea>
             </div>
+            
+            <!-- Section pour l'upload de fichiers -->
+            <div class="col-md-12">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-file-upload me-2"></i>Pièces jointes
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        @if (canEdit)
+                        {
+                            <div class="file-upload-container" id="dropZone">
+                                <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                                <p class="file-upload-text">
+                                    Glissez-déposez vos fichiers ici ou <strong>cliquez pour sélectionner</strong>
+                                </p>
+                                <input type="file" multiple name="UploadedFiles" class="file-upload-input" id="fileUpload" />
+                                <div class="progress-container" id="uploadProgress">
+                                    <div class="progress-bar" id="progressBar"></div>
+                                </div>
+                                <p class="upload-limits">
+                                    <i class="fas fa-info-circle"></i>
+                                    Taille max: 100 Mo par fichier | Tous formats acceptés
+                                </p>
+                            </div>
+                            <ul class="file-list" id="fileList"></ul>
+                        }
+                        
+                        <!-- Affichage des fichiers existants -->
+                        @if (Model.ExistingFiles != null && Model.ExistingFiles.Any())
+                        {
+                            <div class="existing-files-section mt-3">
+                                <h6><i class="fas fa-paperclip me-2"></i>Fichiers existants</h6>
+                                <div class="existing-files-list">
+                                    @foreach (var file in Model.ExistingFiles)
+                                    {
+                                        <div class="existing-file-item d-flex justify-content-between align-items-center p-2 border rounded mb-2">
+                                            <div class="file-info">
+                                                <i class="fas fa-file me-2"></i>
+                                                <span class="file-name">@file.NomOriginal</span>
+                                                <small class="text-muted ms-2">
+                                                    (@(Math.Round((double)file.Taille / 1024 / 1024, 2)) Mo)
+                                                    - Ajouté le @file.DateUpload.ToString("dd/MM/yyyy HH:mm")
+                                                </small>
+                                            </div>
+                                            <div class="file-actions">
+                                                <a href="/api/files/download/@file.Id" class="btn btn-sm btn-outline-primary me-1" target="_blank">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                                @if (canEdit)
+                                                {
+                                                    <button type="button" class="btn btn-sm btn-outline-danger delete-existing-file" data-file-id="@file.Id">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Affectations -->
+            <div class="col-md-12">
+                <div class="card border-info">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-users me-2"></i>Affectation des personnes
+                        </h5>
+                        <small>Affectez des utilisateurs ou des groupes à cette PRS</small>
+                    </div>
+                    <div class="card-body">
+                        @if (canEdit)
+                        {
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <!-- Sélection utilisateur -->
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">
+                                            <i class="fas fa-user me-1"></i>
+                                            Ajouter un utilisateur
+                                        </label>
+                                        <div class="input-group">
+                                            <select id="userSelect" class="form-select">
+                                                <option value="">Sélectionner un utilisateur...</option>
+                                                @foreach (var user in Model.Utilisateurs.OrderBy(u => u.Nom).ThenBy(u => u.Prenom))
+                                                {
+                                                    <option value="@user.Id" data-type="Utilisateur" data-name="@user.Prenom @user.Nom" data-service="@user.Service">
+                                                        @user.Nom @user.Prenom (@user.Service)
+                                                    </option>
+                                                }
+                                            </select>
+                                            <button type="button" class="btn btn-outline-primary" id="addUserBtn">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <!-- Sélection groupe -->
+                                    <div class="form-group mb-3">
+                                        <label class="form-label">
+                                            <i class="fas fa-users me-1"></i>
+                                            Ajouter un groupe
+                                        </label>
+                                        <div class="input-group">
+                                            <select id="groupSelect" class="form-select">
+                                                <option value="">Sélectionner un groupe...</option>
+                                                @foreach (var groupe in Model.GroupesUtilisateurs.OrderBy(g => g.NomGroupe))
+                                                {
+                                                    <option value="@groupe.Id" data-type="Groupe" data-name="@groupe.NomGroupe" data-count="@groupe.Membres.Count">
+                                                        @groupe.NomGroupe (@groupe.Membres.Count membres)
+                                                    </option>
+                                                }
+                                            </select>
+                                            <button type="button" class="btn btn-outline-success" id="addGroupBtn">
+                                                <i class="fas fa-plus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Liste des affectations existantes et nouvelles -->
+                        <div class="mt-3">
+                            <h6><i class="fas fa-list me-1"></i>Personnes affectées</h6>
+                            <ul id="affectationsList" class="list-group">
+                                @if (Model.ExistingPrsAffectations != null && Model.ExistingPrsAffectations.Any())
+                                {
+                                    @foreach (var affectation in Model.ExistingPrsAffectations)
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between align-items-center existing-affectation"
+                                            data-id="@(affectation.TypeAffectation == "Utilisateur" ? affectation.UtilisateurId : affectation.GroupeId)"
+                                            data-type="@affectation.TypeAffectation">
+                                            <div>
+                                                <i class="fas @(affectation.TypeAffectation == "Utilisateur" ? "fa-user" : "fa-users") me-2"></i>
+                                                <strong>
+                                                    @if (affectation.TypeAffectation == "Utilisateur" && affectation.Utilisateur != null)
+                                                    {
+                                                        @($"{affectation.Utilisateur.Prenom} {affectation.Utilisateur.Nom}")
+                                                        <span class="text-muted">(@affectation.Utilisateur.Service)</span>
+                                                    }
+                                                    else if (affectation.TypeAffectation == "Groupe" && affectation.Groupe != null)
+                                                    {
+                                                        @affectation.Groupe.NomGroupe
+                                                        <span class="text-muted">(@affectation.Groupe.Membres.Count membres)</span>
+                                                    }
+                                                </strong>
+                                            </div>
+                                            @if (canEdit)
+                                            {
+                                                <button type="button" class="btn btn-sm btn-outline-danger remove-affectation">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            }
+                                        </li>
+                                    }
+                                }
+                                else
+                                {
+                                    <li class="list-group-item text-muted no-affectations">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Aucune affectation pour le moment.
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+
+                        <!-- Champ caché pour les données -->
+                        <input type="hidden" name="AffectationsData" id="affectationsData" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Checklist -->
+            <div class="col-12">
+                <div class="card checklist-section border-primary shadow-lg mb-4">
+                    <div class="card-header bg-primary text-white d-flex align-items-center">
+                        <i class="fas fa-tasks me-2 fs-4"></i>
+                        <div>
+                            <h5 class="mb-0">📋 Checklist PRS</h5>
+                            <small>Gérez la checklist associée à cette PRS</small>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (canEdit)
+                        {
+                            <div class="checklist-type-selector mb-4 row">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-clipboard-list me-1 text-primary"></i>Type de checklist
+                                    </label>
+                                    <select id="checklistTypeSelector" class="form-select">
+                                        <option value="">-- Aucune checklist --</option>
+                                        <option value="modele">🎯 Modèle prédéfini</option>
+                                        <option value="copy">📋 Copier depuis PRS existante</option>
+                                        <option value="custom">✏️ Personnalisée</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4" id="modeleSelector" style="display:none;">
+                                    <label class="form-label fw-bold"><i class="fas fa-list me-1 text-success"></i>Modèle disponible</label>
+                                    <select id="checklistModele" class="form-select">
+                                        <option value="">-- Sélectionner un modèle --</option>
+                                        @foreach (var modele in Model.ChecklistModeles)
+                                        {
+                                            <option value="@modele.Id">@modele.Nom (@modele.FamilleAffichage)</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div class="col-md-4" id="prsSelector" style="display:none;">
+                                    <label class="form-label fw-bold">
+                                        <i class="fas fa-copy me-1 text-info"></i>PRS source
+                                    </label>
+                                    <select id="prsSourceSelect" class="form-select">
+                                        <option value="">-- Chargement des PRS... --</option>
+                                    </select>
+                                    <small class="text-muted mt-1 d-block">Sélectionnez une PRS existante avec une checklist à copier</small>
+                                </div>
+                            </div>
+                            <div id="prsSearchResults" class="prs-search-results" style="display:none;"></div>
+                            <div id="checklistEditor" class="checklist-editor" style="display:none;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="mb-0"><i class="fas fa-edit me-1"></i>Éléments de la checklist (<span id="checklistItemCount" class="badge-checklist">0</span> éléments)</h6>
+                                    <button type="button" class="btn btn-sm btn-checklist" id="btnAddChecklistItem">
+                                        <i class="fas fa-plus-circle me-1"></i>Ajouter un élément
+                                    </button>
+                                </div>
+                                <div id="checklistItemsContainer"></div>
+                            </div>
+                        }
+
+                        <!-- Affichage des checklists existantes -->
+                        @if (Model.ExistingChecklists != null && Model.ExistingChecklists.Any())
+                        {
+                            <div class="existing-checklist-section">
+                                <h6><i class="fas fa-clipboard-check me-2"></i>Checklist actuelle (@Model.ExistingChecklists.Count éléments)</h6>
+                                <div class="existing-checklist-list">
+                                    @foreach (var item in Model.ExistingChecklists.OrderBy(c => c.Priorite).ThenBy(c => c.Id))
+                                    {
+                                        <div class="checklist-item-display p-3 border rounded mb-2 @(item.EstCoche ? "bg-light-success" : "")">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="checklist-content flex-grow-1">
+                                                    <div class="d-flex align-items-center mb-2">
+                                                        <span class="badge bg-primary me-2">@item.Categorie</span>
+                                                        @if (!string.IsNullOrEmpty(item.SousCategorie))
+                                                        {
+                                                            <span class="badge bg-secondary me-2">@item.SousCategorie</span>
+                                                        }
+                                                        <span class="badge bg-info">Priorité @item.Priorite</span>
+                                                    </div>
+                                                    <h6 class="mb-1">@item.Libelle</h6>
+                                                    @if (item.Affectations != null && item.Affectations.Any())
+                                                    {
+                                                        <div class="affectations-info mt-2">
+                                                            <small class="text-muted">Affecté à :</small>
+                                                            @foreach (var affectation in item.Affectations)
+                                                            {
+                                                                if (affectation.TypeAffectation == "Utilisateur" && affectation.Utilisateur != null)
+                                                                {
+                                                                    <span class="badge bg-outline-primary me-1">
+                                                                        <i class="fas fa-user me-1"></i>@($"{affectation.Utilisateur.Prenom} {affectation.Utilisateur.Nom}")
+                                                                    </span>
+                                                                }
+                                                                else if (affectation.TypeAffectation == "Groupe" && affectation.Groupe != null)
+                                                                {
+                                                                    <span class="badge bg-outline-success me-1">
+                                                                        <i class="fas fa-users me-1"></i>@affectation.Groupe.NomGroupe
+                                                                    </span>
+                                                                }
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                                <div class="checklist-status">
+                                                    @if (item.EstCoche)
+                                                    {
+                                                        <i class="fas fa-check-circle text-success fs-5"></i>
+                                                    }
+                                                    else
+                                                    {
+                                                        <i class="far fa-circle text-muted fs-5"></i>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                                @if (canEdit)
+                                {
+                                    <div class="alert alert-info mt-3">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        <strong>Note :</strong> Pour modifier la checklist existante, sélectionnez un nouveau type de checklist ci-dessus. 
+                                        Cela remplacera la checklist actuelle.
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else if (!canEdit)
+                        {
+                            <div class="text-muted text-center py-3">
+                                <i class="fas fa-clipboard-list fa-2x mb-2 d-block"></i>
+                                Aucune checklist associée à cette PRS.
+                            </div>
+                        }
+
+                        <input type="hidden" id="checklistData" name="ChecklistData" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section Liens de dossiers -->
+            <div class="col-md-12">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="fas fa-folder-open me-2"></i>Liens vers dossiers partagés
+                        </h5>
+                        <small>Ajoutez des liens vers des dossiers réseau ou partagés</small>
+                    </div>
+                    <div class="card-body">
+                        @if (canEdit)
+                        {
+                            <div class="folder-links-input mb-3">
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <label class="form-label">
+                                            <i class="fas fa-folder me-1"></i>Chemin du dossier
+                                        </label>
+                                        <input type="text" id="folderPath" class="form-control" placeholder="\\serveur\dossier ou C:\chemin\local">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">
+                                            <i class="fas fa-tag me-1"></i>Description (optionnel)
+                                        </label>
+                                        <div class="input-group">
+                                            <input type="text" id="folderDescription" class="form-control" placeholder="Documentation, Plans...">
+                                            <button type="button" class="btn btn-outline-warning" id="addFolderBtn">
+                                                <i class="fas fa-plus"></i> Ajouter
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Liste des liens de dossiers existants et nouveaux -->
+                        <div class="folder-links-list">
+                            <h6><i class="fas fa-list me-1"></i>Liens de dossiers</h6>
+                            <ul id="folderLinksList" class="list-group">
+                                @if (Model.ExistingFolderLinks != null && Model.ExistingFolderLinks.Any())
+                                {
+                                    @foreach (var link in Model.ExistingFolderLinks)
+                                    {
+                                        <li class="list-group-item d-flex justify-content-between align-items-center existing-folder-link"
+                                            data-path="@link.Chemin" data-description="@link.Description">
+                                            <div class="folder-link-info">
+                                                <div>
+                                                    <i class="fas fa-folder-open me-2 text-warning"></i>
+                                                    <strong>@link.Chemin</strong>
+                                                </div>
+                                                @if (!string.IsNullOrEmpty(link.Description))
+                                                {
+                                                    <small class="text-muted">@link.Description</small>
+                                                }
+                                                <small class="text-muted d-block">Ajouté le @link.DateAjout.ToString("dd/MM/yyyy HH:mm")</small>
+                                            </div>
+                                            <div class="folder-link-actions">
+                                                <a href="file://@link.Chemin" class="btn btn-sm btn-outline-primary me-1" target="_blank" title="Ouvrir le dossier">
+                                                    <i class="fas fa-external-link-alt"></i>
+                                                </a>
+                                                @if (canEdit)
+                                                {
+                                                    <button type="button" class="btn btn-sm btn-outline-danger remove-folder-link">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </li>
+                                    }
+                                }
+                                else
+                                {
+                                    <li class="list-group-item text-muted no-folder-links">
+                                        <i class="fas fa-info-circle me-2"></i>
+                                        Aucun lien de dossier pour le moment.
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+
+                        <!-- Champ caché pour les données des dossiers -->
+                        <input type="hidden" name="PrsFolderLinks" id="prsFolderLinksData" />
+                    </div>
+                </div>
+            </div>
 
             <div class="col-12 text-center">
                 @if (canEdit)
@@ -509,6 +1051,10 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    
+    <!-- Include JavaScript files for enhanced functionality -->
+    <script src="~/js/file-upload.js" asp-append-version="true"></script>
+    <script src="~/js/checklist-manager.js" asp-append-version="true"></script>
 
     <script>
         // Déterminer si l'utilisateur est admin ou validateur et s'il peut éditer
@@ -669,6 +1215,349 @@
                 });
             }
         }
+
+        // =========== GESTION DES AFFECTATIONS PRS ===========
+        const affectationsList = document.getElementById('affectationsList');
+        const affectationsData = document.getElementById('affectationsData');
+        const userSelect = document.getElementById('userSelect');
+        const groupSelect = document.getElementById('groupSelect');
+        const addUserBtn = document.getElementById('addUserBtn');
+        const addGroupBtn = document.getElementById('addGroupBtn');
+
+        let prsAffectations = [];
+
+        // Initialiser avec les affectations existantes
+        function initializeExistingAffectations() {
+            const existingItems = document.querySelectorAll('.existing-affectation');
+            existingItems.forEach(item => {
+                const id = parseInt(item.dataset.id);
+                const type = item.dataset.type;
+                const nameElement = item.querySelector('strong');
+                const name = nameElement ? nameElement.textContent.trim() : '';
+                
+                if (id && type && name) {
+                    prsAffectations.push({ id, type, name, info: '' });
+                }
+            });
+            updateAffectationsData();
+        }
+
+        function addAffectation(id, type, name, info) {
+            // Vérifier si déjà ajouté
+            if (prsAffectations.some(a => a.id === id && a.type === type)) {
+                alert(`Cette ${type.toLowerCase()} est déjà affectée.`);
+                return;
+            }
+
+            prsAffectations.push({ id, type, name, info });
+            updateAffectationsList();
+            updateAffectationsData();
+        }
+
+        function removeAffectation(id, type) {
+            prsAffectations = prsAffectations.filter(a => !(a.id === id && a.type === type));
+            updateAffectationsList();
+            updateAffectationsData();
+        }
+
+        function updateAffectationsList() {
+            if (!affectationsList) return;
+            
+            // Supprimer les éléments dynamiques mais garder les existants
+            const dynamicItems = affectationsList.querySelectorAll('.dynamic-affectation');
+            dynamicItems.forEach(item => item.remove());
+            
+            // Supprimer le message "aucune affectation" s'il existe
+            const noAffectationsMsg = affectationsList.querySelector('.no-affectations');
+            if (noAffectationsMsg && prsAffectations.length > 0) {
+                noAffectationsMsg.remove();
+            }
+
+            // Ajouter les nouvelles affectations (qui ne sont pas dans les existantes)
+            const existingAffectations = Array.from(document.querySelectorAll('.existing-affectation'));
+            const existingIds = existingAffectations.map(item => ({
+                id: parseInt(item.dataset.id),
+                type: item.dataset.type
+            }));
+
+            prsAffectations.forEach(affectation => {
+                // Vérifier si cette affectation n'est pas déjà dans les existantes
+                const isExisting = existingIds.some(existing => 
+                    existing.id === affectation.id && existing.type === affectation.type
+                );
+                
+                if (!isExisting) {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center dynamic-affectation';
+                    
+                    const iconClass = affectation.type === 'Utilisateur' ? 'fa-user' : 'fa-users';
+                    li.innerHTML = `
+                        <div>
+                            <i class="fas ${iconClass} me-2"></i>
+                            <strong>${affectation.name}</strong>
+                            ${affectation.info ? `<span class="text-muted">(${affectation.info})</span>` : ''}
+                        </div>
+                        ${canEdit ? `<button type="button" class="btn btn-sm btn-outline-danger remove-affectation" data-id="${affectation.id}" data-type="${affectation.type}">
+                            <i class="fas fa-times"></i>
+                        </button>` : ''}
+                    `;
+                    
+                    affectationsList.appendChild(li);
+                }
+            });
+        }
+
+        function updateAffectationsData() {
+            if (affectationsData) {
+                // Combiner les affectations existantes et nouvelles
+                const allAffectations = [];
+                
+                // Ajouter les existantes
+                const existingItems = document.querySelectorAll('.existing-affectation');
+                existingItems.forEach(item => {
+                    allAffectations.push({
+                        id: parseInt(item.dataset.id),
+                        type: item.dataset.type,
+                        name: item.querySelector('strong')?.textContent.trim() || '',
+                        info: ''
+                    });
+                });
+                
+                // Ajouter les nouvelles (non existantes)
+                prsAffectations.forEach(affectation => {
+                    const isExisting = Array.from(existingItems).some(item => 
+                        parseInt(item.dataset.id) === affectation.id && item.dataset.type === affectation.type
+                    );
+                    if (!isExisting) {
+                        allAffectations.push(affectation);
+                    }
+                });
+                
+                affectationsData.value = JSON.stringify(allAffectations);
+            }
+        }
+
+        // Event listeners pour les affectations
+        if (canEdit && addUserBtn) {
+            addUserBtn.addEventListener('click', function() {
+                const selectedOption = userSelect.selectedOptions[0];
+                if (selectedOption && selectedOption.value) {
+                    const id = parseInt(selectedOption.value);
+                    const type = selectedOption.dataset.type;
+                    const name = selectedOption.dataset.name;
+                    const service = selectedOption.dataset.service;
+                    
+                    addAffectation(id, type, name, service);
+                    userSelect.value = '';
+                }
+            });
+        }
+
+        if (canEdit && addGroupBtn) {
+            addGroupBtn.addEventListener('click', function() {
+                const selectedOption = groupSelect.selectedOptions[0];
+                if (selectedOption && selectedOption.value) {
+                    const id = parseInt(selectedOption.value);
+                    const type = selectedOption.dataset.type;
+                    const name = selectedOption.dataset.name;
+                    const count = selectedOption.dataset.count;
+                    
+                    addAffectation(id, type, name, `${count} membres`);
+                    groupSelect.value = '';
+                }
+            });
+        }
+
+        // Event listener pour supprimer des affectations
+        if (canEdit && affectationsList) {
+            affectationsList.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-affectation') || e.target.closest('.remove-affectation')) {
+                    const button = e.target.closest('.remove-affectation');
+                    const id = parseInt(button.dataset.id);
+                    const type = button.dataset.type;
+                    
+                    if (button.closest('.existing-affectation')) {
+                        // Pour les affectations existantes, juste les cacher
+                        button.closest('.existing-affectation').style.display = 'none';
+                    } else {
+                        // Pour les nouvelles affectations, les supprimer de la liste
+                        removeAffectation(id, type);
+                    }
+                }
+            });
+        }
+
+        // =========== GESTION DES LIENS DE DOSSIERS ===========
+        const folderLinksList = document.getElementById('folderLinksList');
+        const prsFolderLinksData = document.getElementById('prsFolderLinksData');
+        const folderPathInput = document.getElementById('folderPath');
+        const folderDescriptionInput = document.getElementById('folderDescription');
+        const addFolderBtn = document.getElementById('addFolderBtn');
+
+        let folderLinks = [];
+
+        // Initialiser avec les liens existants
+        function initializeExistingFolderLinks() {
+            const existingItems = document.querySelectorAll('.existing-folder-link');
+            existingItems.forEach(item => {
+                const path = item.dataset.path;
+                const description = item.dataset.description || '';
+                
+                if (path) {
+                    folderLinks.push({ Chemin: path, Description: description });
+                }
+            });
+            updateFolderLinksData();
+        }
+
+        function addFolderLink(path, description) {
+            if (!path.trim()) {
+                alert('Le chemin du dossier est obligatoire.');
+                return;
+            }
+
+            // Vérifier si déjà ajouté
+            if (folderLinks.some(link => link.Chemin === path)) {
+                alert('Ce lien de dossier existe déjà.');
+                return;
+            }
+
+            folderLinks.push({ Chemin: path, Description: description });
+            updateFolderLinksList();
+            updateFolderLinksData();
+            
+            // Vider les champs
+            if (folderPathInput) folderPathInput.value = '';
+            if (folderDescriptionInput) folderDescriptionInput.value = '';
+        }
+
+        function removeFolderLink(path) {
+            folderLinks = folderLinks.filter(link => link.Chemin !== path);
+            updateFolderLinksList();
+            updateFolderLinksData();
+        }
+
+        function updateFolderLinksList() {
+            if (!folderLinksList) return;
+            
+            // Supprimer les éléments dynamiques mais garder les existants
+            const dynamicItems = folderLinksList.querySelectorAll('.dynamic-folder-link');
+            dynamicItems.forEach(item => item.remove());
+            
+            // Supprimer le message "aucun lien" s'il existe
+            const noLinksMsg = folderLinksList.querySelector('.no-folder-links');
+            if (noLinksMsg && folderLinks.length > 0) {
+                noLinksMsg.remove();
+            }
+
+            // Ajouter les nouveaux liens (qui ne sont pas dans les existants)
+            const existingLinks = Array.from(document.querySelectorAll('.existing-folder-link'));
+            const existingPaths = existingLinks.map(item => item.dataset.path);
+
+            folderLinks.forEach(link => {
+                if (!existingPaths.includes(link.Chemin)) {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-center dynamic-folder-link';
+                    
+                    li.innerHTML = `
+                        <div class="folder-link-info">
+                            <div>
+                                <i class="fas fa-folder-open me-2 text-warning"></i>
+                                <strong>${link.Chemin}</strong>
+                            </div>
+                            ${link.Description ? `<small class="text-muted">${link.Description}</small>` : ''}
+                        </div>
+                        <div class="folder-link-actions">
+                            <a href="file://${link.Chemin}" class="btn btn-sm btn-outline-primary me-1" target="_blank" title="Ouvrir le dossier">
+                                <i class="fas fa-external-link-alt"></i>
+                            </a>
+                            ${canEdit ? `<button type="button" class="btn btn-sm btn-outline-danger remove-folder-link" data-path="${link.Chemin}">
+                                <i class="fas fa-times"></i>
+                            </button>` : ''}
+                        </div>
+                    `;
+                    
+                    folderLinksList.appendChild(li);
+                }
+            });
+        }
+
+        function updateFolderLinksData() {
+            if (prsFolderLinksData) {
+                // Combiner les liens existants et nouveaux
+                const allLinks = [];
+                
+                // Ajouter les existants
+                const existingItems = document.querySelectorAll('.existing-folder-link');
+                existingItems.forEach(item => {
+                    if (item.style.display !== 'none') {
+                        allLinks.push({
+                            Chemin: item.dataset.path,
+                            Description: item.dataset.description || ''
+                        });
+                    }
+                });
+                
+                // Ajouter les nouveaux (non existants)
+                folderLinks.forEach(link => {
+                    const isExisting = Array.from(existingItems).some(item => 
+                        item.dataset.path === link.Chemin
+                    );
+                    if (!isExisting) {
+                        allLinks.push(link);
+                    }
+                });
+                
+                prsFolderLinksData.value = JSON.stringify(allLinks);
+            }
+        }
+
+        // Event listeners pour les liens de dossiers
+        if (canEdit && addFolderBtn) {
+            addFolderBtn.addEventListener('click', function() {
+                const path = folderPathInput ? folderPathInput.value.trim() : '';
+                const description = folderDescriptionInput ? folderDescriptionInput.value.trim() : '';
+                
+                addFolderLink(path, description);
+            });
+            
+            // Permettre l'ajout avec la touche Entrée
+            [folderPathInput, folderDescriptionInput].forEach(input => {
+                if (input) {
+                    input.addEventListener('keypress', function(e) {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addFolderBtn.click();
+                        }
+                    });
+                }
+            });
+        }
+
+        // Event listener pour supprimer des liens de dossiers
+        if (canEdit && folderLinksList) {
+            folderLinksList.addEventListener('click', function(e) {
+                if (e.target.classList.contains('remove-folder-link') || e.target.closest('.remove-folder-link')) {
+                    const button = e.target.closest('.remove-folder-link');
+                    const path = button.dataset.path;
+                    
+                    if (button.closest('.existing-folder-link')) {
+                        // Pour les liens existants, juste les cacher
+                        button.closest('.existing-folder-link').style.display = 'none';
+                        updateFolderLinksData();
+                    } else {
+                        // Pour les nouveaux liens, les supprimer de la liste
+                        removeFolderLink(path);
+                    }
+                }
+            });
+        }
+
+        // Initialisation au chargement de la page
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeExistingAffectations();
+            initializeExistingFolderLinks();
+        });
 
         // Validation du formulaire
         document.querySelector("#edit-form")?.addEventListener("submit", function (e) {
