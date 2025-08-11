@@ -115,7 +115,16 @@ namespace PlanifPRS.Controllers
                         LibelleAffichage = c.LibelleAffichage,
                         StatutAffichage = c.StatutAffichage,
                         CssClass = c.CssClass,
-                        PrioriteLibelle = c.PrioriteLibelle
+                        PrioriteLibelle = c.PrioriteLibelle,
+                        // AJOUT: renvoyer les IDs d'affectations pour que le front puisse les afficher
+                        assignedUsers = c.Affectations
+                            .Where(a => a.TypeAffectation == "Utilisateur" && a.UtilisateurId.HasValue)
+                            .Select(a => a.UtilisateurId!.Value)
+                            .ToList(),
+                        assignedGroups = c.Affectations
+                            .Where(a => a.TypeAffectation == "Groupe" && a.GroupeId.HasValue)
+                            .Select(a => a.GroupeId!.Value)
+                            .ToList()
                     }).ToList()
                 };
 
@@ -157,7 +166,16 @@ namespace PlanifPRS.Controllers
                         c.Commentaire,
                         LibelleAffichage = c.LibelleAffichage,
                         StatutAffichage = c.StatutAffichage,
-                        CssClass = c.CssClass
+                        CssClass = c.CssClass,
+                        // AJOUT: renvoyer les IDs d'affectations
+                        assignedUsers = c.Affectations
+                            .Where(a => a.TypeAffectation == "Utilisateur" && a.UtilisateurId.HasValue)
+                            .Select(a => a.UtilisateurId!.Value)
+                            .ToList(),
+                        assignedGroups = c.Affectations
+                            .Where(a => a.TypeAffectation == "Groupe" && a.GroupeId.HasValue)
+                            .Select(a => a.GroupeId!.Value)
+                            .ToList()
                     }).ToList()
                 });
             }
@@ -209,7 +227,16 @@ namespace PlanifPRS.Controllers
                         c.Commentaire,
                         LibelleAffichage = c.LibelleAffichage,
                         StatutAffichage = c.StatutAffichage,
-                        CssClass = c.CssClass
+                        CssClass = c.CssClass,
+                        // Par cohérence on renvoie aussi les affectations
+                        assignedUsers = c.Affectations
+                            .Where(a => a.TypeAffectation == "Utilisateur" && a.UtilisateurId.HasValue)
+                            .Select(a => a.UtilisateurId!.Value)
+                            .ToList(),
+                        assignedGroups = c.Affectations
+                            .Where(a => a.TypeAffectation == "Groupe" && a.GroupeId.HasValue)
+                            .Select(a => a.GroupeId!.Value)
+                            .ToList()
                     }).ToList()
                 });
             }

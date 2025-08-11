@@ -91,6 +91,7 @@ namespace PlanifPRS.Services
             return await _context.PrsChecklists
                 .Include(pc => pc.Famille)
                 .Include(pc => pc.ChecklistModeleSource)
+                .Include(pc => pc.Affectations) // Inclure les affectations pour pouvoir les exposer côté API
                 .Where(pc => pc.PRSId == prsId)
                 .OrderBy(pc => pc.Priorite)
                 .ThenBy(pc => pc.DelaiDefautJours)
@@ -303,7 +304,7 @@ namespace PlanifPRS.Services
                     {
                         DateTime dateDebut = prs.DateDebut != default(DateTime) ? prs.DateDebut : prs.DateCreation;
                         element.DateEcheance = dateDebut.AddDays(-element.DelaiDefautJours); // X jours AVANT la PRS
-                        _logger.LogInformation($"[CreateCustomChecklist] DateEcheance calculée pour {element.Libelle}: {element.DateEcheance} ({element.DelaiDefautJours} jours avant {dateDebut:yyyy-MM-dd})");
+                        _logger.LogInformation($"[CreateCustomChecklist] DateEcheance calculée pour {element.Libelle}: {element.DateEcheance} ({element.DelaiDefautJours} jours avant {dateDebut})");
                     }
                     else
                     {

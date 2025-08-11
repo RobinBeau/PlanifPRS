@@ -127,9 +127,12 @@
             // Ajouter une option vide
             $usersSelect.append('<option value="">-- Sélectionner des utilisateurs --</option>');
 
-            // Ajouter les utilisateurs
+            // Ajouter les utilisateurs (supporte Id/id, Prenom/prenom, Nom/nom)
             this.users.forEach(user => {
-                const option = $(`<option value="${user.Id}">${user.Prenom} ${user.Nom}</option>`);
+                const uid = user.Id ?? user.id;
+                const prenom = user.Prenom ?? user.prenom ?? '';
+                const nom = user.Nom ?? user.nom ?? '';
+                const option = $(`<option value="${uid}">${prenom} ${nom}</option>`);
                 $usersSelect.append(option);
             });
 
@@ -154,9 +157,11 @@
             // Ajouter une option vide
             $groupsSelect.append('<option value="">-- Sélectionner des groupes --</option>');
 
-            // Ajouter les groupes
+            // Ajouter les groupes (supporte Id/id, NomGroupe/nomGroupe)
             this.groups.forEach(group => {
-                const option = $(`<option value="${group.Id}">${group.NomGroupe}</option>`);
+                const gid = group.Id ?? group.id;
+                const nomGroupe = group.NomGroupe ?? group.nomGroupe ?? '';
+                const option = $(`<option value="${gid}">${nomGroupe}</option>`);
                 $groupsSelect.append(option);
             });
 
@@ -176,7 +181,6 @@
         console.log('Interface d\'assignation configurée avec succès');
     }
 
-   
 
     initializeChecklistData() {
         console.log('Initialisation du champ ChecklistData...');
@@ -211,7 +215,7 @@
 
             // S'assurer que les données sont à jour
             this.updateChecklistData();
-            this.updateAffectationsData(); // AJOUTER CETTE LIGNE
+            this.updateAffectationsData(); // Important
 
             if (!this.validateBeforeSubmit()) {
                 e.preventDefault();
@@ -235,7 +239,7 @@
             $form.append($checklistField);
         }
 
-        // AJOUTER CETTE SECTION pour ChecklistAffectationsData
+        // Vérifier/ajouter ChecklistAffectationsData
         let $affectationsField = $('#checklistAffectationsData');
         if ($affectationsField.length === 0 || $affectationsField.closest('form')[0] !== $form[0]) {
             console.log('Champ ChecklistAffectationsData manquant, recréation...');
@@ -245,13 +249,12 @@
 
         // Mettre à jour les valeurs
         $checklistField.val(JSON.stringify(this.currentChecklist));
-        $affectationsField.val(JSON.stringify(this.currentAffectations)); // AJOUTER CETTE LIGNE
+        $affectationsField.val(JSON.stringify(this.currentAffectations));
 
         console.log('Données finales à envoyer:');
         console.log('ChecklistData:', this.currentChecklist);
-        console.log('ChecklistAffectationsData:', this.currentAffectations); // AJOUTER CETTE LIGNE
+        console.log('ChecklistAffectationsData:', this.currentAffectations);
 
-        // Votre validation existante...
         const validation = this.validateChecklist();
         if (!validation.isValid) {
             this.showNotification(validation.message, 'danger');
@@ -293,7 +296,7 @@
             this.removeChecklistItem(e);
         });
 
-        // Nouveaux événements pour l'assignation améliorée
+        // Événements pour l'assignation
         $(document).on('click', '.btn-assign-user', (e) => {
             const elementId = parseInt($(e.target).closest('.btn-assign-user').data('element-id'));
             this.showUserSelectionModal(elementId);
@@ -445,6 +448,7 @@
             selector.addEventListener('change', (e) => {
                 const selectedPrsId = e.target.value;
                 if (selectedPrsId) {
+                    this.currentChecklist.type = 'copy';
                     this.currentChecklist.sourceId = parseInt(selectedPrsId);
                     this.updateChecklistData();
                     this.loadChecklistFromPrs(selectedPrsId);
@@ -514,6 +518,9 @@
 
             $(this.options.searchResults).find('.list-group-item').on('click', (e) => {
                 const prsId = $(e.currentTarget).data('prs-id');
+                this.currentChecklist.type = 'copy';
+                this.currentChecklist.sourceId = parseInt(prsId);
+                this.updateChecklistData();
                 this.loadChecklistFromPrs(prsId);
             });
 
@@ -539,6 +546,7 @@
 
             const data = await response.json();
 
+            this.currentChecklist.type = 'copy';
             this.currentChecklist.elements = (data.checklist || []).map(item => ({
                 id: ++this.elementIdCounter,
                 categorie: item.categorie || '',
@@ -547,15 +555,17 @@
                 priorite: item.priorite || 3,
                 delaiDefautJours: item.delaiDefautJours || 1,
                 obligatoire: item.obligatoire || false,
+                // Les endpoints renvoient des listes d'IDs
                 assignedUsers: item.assignedUsers || [],
                 assignedGroups: item.assignedGroups || []
             }));
 
-            this.currentChecklist.sourceId = prsId;
+            this.currentChecklist.sourceId = parseInt(prsId);
 
             this.hideLoading();
             this.showChecklistEditor();
             this.renderChecklistItems();
+            this.updateChecklistData();
 
             $(this.options.searchResults).hide();
             this.showNotification('Checklist copiée avec succès', 'success');
@@ -701,7 +711,7 @@
                     </div>
                 </div>
 
-                <!-- Section d'assignation des responsables - Style amélioré -->
+                <!-- Section d'assignation des responsables -->
                 <div class="assignation-section border-top pt-3">
                     <h6 class="mb-3">
                         <i class="fas fa-users me-2"></i>Assignation des responsables
@@ -713,7 +723,8 @@
                             <div class="card">
                                 <div class="card-header py-2">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <small class="fw-bold text-primary">👤 Utilisateurs responsables</small>
+                                        <small class="fw-bold text-primary">
+👤 Utilisateurs responsables</small>
                                         <button type="button" class="btn btn-outline-primary btn-sm btn-assign-user" 
                                                 data-element-id="${element.id}">
                                             <i class="fas fa-plus"></i> Ajouter
@@ -733,7 +744,8 @@
                             <div class="card">
                                 <div class="card-header py-2">
                                     <div class="d-flex justify-content-between align-items-center">
-                                        <small class="fw-bold text-success">👥 Groupes responsables</small>
+                                        <small class="fw-bold text-success">
+👥 Groupes responsables</small>
                                         <button type="button" class="btn btn-outline-success btn-sm btn-assign-group" 
                                                 data-element-id="${element.id}">
                                             <i class="fas fa-plus"></i> Ajouter
@@ -759,12 +771,14 @@
         }
 
         return assignedUserIds.map(userId => {
-            const user = this.users.find(u => u.id === userId);
+            const user = this.users.find(u => (u.id ?? u.Id) === userId);
             if (!user) return '';
 
+            const prenom = user.prenom ?? user.Prenom ?? '';
+            const nom = user.nom ?? user.Nom ?? '';
             return `
                 <span class="badge bg-primary me-1 mb-1 d-inline-flex align-items-center">
-                    ${user.prenom} ${user.nom}
+                    ${prenom} ${nom}
                     <button type="button" class="btn-close btn-close-white ms-1 btn-remove-user" 
                             data-user-id="${userId}" style="font-size: 0.7em;" title="Retirer"></button>
                 </span>
@@ -778,12 +792,13 @@
         }
 
         return assignedGroupIds.map(groupId => {
-            const group = this.groups.find(g => g.id === groupId);
+            const group = this.groups.find(g => (g.id ?? g.Id) === groupId);
             if (!group) return '';
 
+            const nomGroupe = group.nomGroupe ?? group.NomGroupe ?? '';
             return `
                 <span class="badge bg-success me-1 mb-1 d-inline-flex align-items-center">
-                    ${group.nomGroupe}
+                    ${nomGroupe}
                     <button type="button" class="btn-close btn-close-white ms-1 btn-remove-group" 
                             data-group-id="${groupId}" style="font-size: 0.7em;" title="Retirer"></button>
                 </span>
@@ -812,19 +827,19 @@
                             </div>
                             <div class="row" id="userList">
                                 ${this.users.map(user => `
-                                    <div class="col-md-6 mb-2 user-item" data-name="${user.prenom} ${user.nom}">
+                                    <div class="col-md-6 mb-2 user-item" data-name="${(user.prenom ?? user.Prenom ?? '')} ${(user.nom ?? user.Nom ?? '')}">
                                         <div class="form-check">
                                             <input class="form-check-input" type="checkbox" 
-                                                   value="${user.id}" id="user_${user.id}"
-                                                   ${assignedUserIds.includes(user.id) ? 'checked' : ''}>
-                                            <label class="form-check-label" for="user_${user.id}">
+                                                   value="${(user.id ?? user.Id)}" id="user_${(user.id ?? user.Id)}"
+                                                   ${assignedUserIds.includes((user.id ?? user.Id)) ? 'checked' : ''}>
+                                            <label class="form-check-label" for="user_${(user.id ?? user.Id)}">
                                                 <div class="d-flex align-items-center">
                                                     <div class="avatar-circle bg-primary text-white me-2">
-                                                        ${user.prenom.charAt(0)}${user.nom.charAt(0)}
+                                                        ${(user.prenom ?? user.Prenom ?? ' ')[0] ?? ''}${(user.nom ?? user.Nom ?? ' ')[0] ?? ''}
                                                     </div>
                                                     <div>
-                                                        <div class="fw-bold">${user.prenom} ${user.nom}</div>
-                                                        <small class="text-muted">${user.loginWindows || ''}</small>
+                                                        <div class="fw-bold">${(user.prenom ?? user.Prenom ?? '')} ${(user.nom ?? user.Nom ?? '')}</div>
+                                                        <small class="text-muted">${user.loginWindows ?? user.LoginWindows ?? ''}</small>
                                                     </div>
                                                 </div>
                                             </label>
@@ -895,16 +910,16 @@
                                     <div class="list-group-item">
                                         <div class="form-check">
                                             <input class="form-check-input" type="checkbox" 
-                                                   value="${group.id}" id="group_${group.id}"
-                                                   ${assignedGroupIds.includes(group.id) ? 'checked' : ''}>
-                                            <label class="form-check-label w-100" for="group_${group.id}">
+                                                   value="${(group.id ?? group.Id)}" id="group_${(group.id ?? group.Id)}"
+                                                   ${assignedGroupIds.includes((group.id ?? group.Id)) ? 'checked' : ''}>
+                                            <label class="form-check-label w-100" for="group_${(group.id ?? group.Id)}">
                                                 <div class="d-flex align-items-center">
                                                     <div class="avatar-circle bg-success text-white me-2">
                                                         <i class="fas fa-users"></i>
                                                     </div>
                                                     <div>
-                                                        <div class="fw-bold">${group.nomGroupe}</div>
-                                                        <small class="text-muted">${group.description || ''}</small>
+                                                        <div class="fw-bold">${group.nomGroupe ?? group.NomGroupe ?? ''}</div>
+                                                        <small class="text-muted">${group.description ?? group.Description ?? ''}</small>
                                                     </div>
                                                 </div>
                                             </label>
