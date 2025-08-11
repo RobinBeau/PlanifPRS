@@ -78,8 +78,7 @@ namespace PlanifPRS.Pages
             await ChargerFichiersEtLiensAsync(Prs.Id);
             await ChargerAffectationsExistantesAsync(Prs.Id);
 
-            // IMPORTANT: on force la valeur initiale du hidden ChecklistData en mode "copy" avec source = PRS actuelle.
-            // Les éléments seront récupérés via le handler de preview côté JS (voir Edit.cshtml).
+            // IMPORTANT: forcer la valeur initiale du hidden ChecklistData en mode "copy" avec source = PRS actuelle.
             ChecklistInitialJson = JsonSerializer.Serialize(new
             {
                 type = "copy",
@@ -87,14 +86,13 @@ namespace PlanifPRS.Pages
                 elements = Array.Empty<object>()
             }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
-            // Indique s'il existe une checklist existante (utile pour badges, etc.)
+            // Indique s'il existe une checklist existante
             HasExistingChecklist = await _context.PrsChecklists.AnyAsync(c => c.PRSId == Prs.Id);
 
             return Page();
         }
 
-        // Endpoint de PREVIEW: renvoie la checklist d’une PRS (éléments + responsables) pour affichage côté client.
-        // Appelé par le JS lors de la sélection d’une PRS source (y compris la PRS actuelle au chargement).
+        // Endpoint de PREVIEW pour le front (affiche éléments + responsables)
         public async Task<IActionResult> OnGetChecklistPreviewAsync(int prsId)
         {
             try
@@ -172,7 +170,7 @@ namespace PlanifPRS.Pages
 
         public async Task<IActionResult> OnPostAsync()
         {
-            // Normalisation des champs potentiellement vides + suppression de validations parasites
+            // Normalisation des champs + suppression de validations parasites
             if (string.IsNullOrWhiteSpace(AffectationsData)) AffectationsData = "[]";
             if (string.IsNullOrWhiteSpace(AffectationsToDelete)) AffectationsToDelete = "[]";
             ModelState.Remove(nameof(AffectationsData));
@@ -191,7 +189,7 @@ namespace PlanifPRS.Pages
                 return Page();
             }
 
-            // Semaine (utilisateurs non-admin)
+            // Mode "semaine" (utilisateurs non-admin)
             if (!IsAdminOrValidateur && Request.Form.ContainsKey("weekMode") && Request.Form["weekMode"] == "true")
             {
                 if (Request.Form.ContainsKey("selectedWeek") && DateTime.TryParse(Request.Form["selectedWeek"], out var weekStartDate))
@@ -498,9 +496,20 @@ namespace PlanifPRS.Pages
                         case "copy":
                             if (checklistForm.sourceId.HasValue)
                             {
-                                var success = await _checklistService.CopyChecklistFromPrsAsync(Prs.Id, checklistForm.sourceId.Value, userLogin);
-                                if (success) { checklistIds = await GetChecklistIdsForPrs(Prs.Id); Flash += " Checklist copiée à partir d'un autre PRS."; }
-                                else { ErrorMessage += " Erreur lors de la copie de la checklist."; }
+                                // IMPORTANT: si la source est la PRS courante, on n'appelle pas la copie,
+                                // on récupère les checklists existantes puis on applique les affectations postées.
+                                if (checklistForm.sourceId.Value == Prs.Id)
+                                {
+                                    _logger.LogInformation("[EDIT] Copie ignorée car source PRS == PRS courante. Application des affectations uniquement.");
+                                    checklistIds = await GetChecklistIdsForPrs(Prs.Id);
+                                    Flash += " Checklist conservée (copie ignorée).";
+                                }
+                                else
+                                {
+                                    var success = await _checklistService.CopyChecklistFromPrsAsync(Prs.Id, checklistForm.sourceId.Value, userLogin);
+                                    if (success) { checklistIds = await GetChecklistIdsForPrs(Prs.Id); Flash += " Checklist copiée à partir d'un autre PRS."; }
+                                    else { ErrorMessage += " Erreur lors de la copie de la checklist."; }
+                                }
                             }
                             break;
 
@@ -528,8 +537,8 @@ namespace PlanifPRS.Pages
                             break;
                     }
 
-                    // Si on vient d'appliquer un modèle ou créé custom, on ajoute les responsables passés dans le payload
-                    if (checklistIds.Any() && checklistForm.type != "copy")
+                    // APPLIQUER LES AFFECTATIONS POUR TOUS LES CAS (y compris copy)
+                    if (checklistIds.Any())
                     {
                         await TraiterAffectationsChecklistAsync(checklistIds);
                     }
