@@ -251,6 +251,8 @@ namespace PlanifPRS.Pages
 
                 Flash = "PRS modifiée avec succès ✅";
                 return RedirectToPage("/Index");
+
+
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -494,24 +496,47 @@ namespace PlanifPRS.Pages
                             break;
 
                         case "copy":
-                            if (checklistForm.sourceId.HasValue)
                             {
-                                // IMPORTANT: si la source est la PRS courante, on n'appelle pas la copie,
-                                // on récupère les checklists existantes puis on applique les affectations postées.
-                                if (checklistForm.sourceId.Value == Prs.Id)
+                                if (checklistForm.elements?.Any() == true)
                                 {
-                                    _logger.LogInformation("[EDIT] Copie ignorée car source PRS == PRS courante. Application des affectations uniquement.");
-                                    checklistIds = await GetChecklistIdsForPrs(Prs.Id);
-                                    Flash += " Checklist conservée (copie ignorée).";
+                                    var elements = checklistForm.elements.Select(e => new PrsChecklist
+                                    {
+                                        Categorie = e.categorie,
+                                        SousCategorie = e.sousCategorie,
+                                        Libelle = e.libelle,
+                                        Tache = e.libelle,
+                                        Priorite = e.priorite > 0 ? e.priorite : 3,
+                                        DelaiDefautJours = e.delaiDefautJours > 0 ? e.delaiDefautJours : 1,
+                                        Obligatoire = e.obligatoire,
+                                        EstCoche = false,
+                                        Statut = null
+                                    }).ToList();
+
+                                    _logger.LogInformation("[EDIT] Appel CreateCustomChecklistAsync | PRS: {prsId} | User: {user} | Elements: {count}",
+                                        Prs.Id, userLogin, elements.Count);
+
+                                    var success = await _checklistService.CreateCustomChecklistAsync(Prs.Id, elements, userLogin);
+
+                                    if (success)
+                                    {
+                                        checklistIds = await GetChecklistIdsForPrs(Prs.Id);
+                                        _logger.LogInformation("[EDIT] CreateCustomChecklistAsync OK | PRS: {prsId} | Checklists créées: {nb}",
+                                            Prs.Id, checklistIds.Count);
+                                        Flash += " Checklist copiée depuis l'IHM.";
+                                    }
+                                    else
+                                    {
+                                        _logger.LogError("[EDIT] CreateCustomChecklistAsync a renvoyé false sans exception | PRS: {prsId} | Elements: {count}", Prs.Id, elements.Count);
+                                        ErrorMessage += " Erreur lors de la création de la checklist (service a retourné false).";
+                                    }
                                 }
                                 else
                                 {
-                                    var success = await _checklistService.CopyChecklistFromPrsAsync(Prs.Id, checklistForm.sourceId.Value, userLogin);
-                                    if (success) { checklistIds = await GetChecklistIdsForPrs(Prs.Id); Flash += " Checklist copiée à partir d'un autre PRS."; }
-                                    else { ErrorMessage += " Erreur lors de la copie de la checklist."; }
+                                    _logger.LogWarning("[EDIT] Type=copy mais aucun élément fourni par l'IHM.");
+                                    ErrorMessage += " Aucun élément de checklist à enregistrer.";
                                 }
+                                break;
                             }
-                            break;
 
                         case "custom":
                             if (checklistForm.elements?.Any() == true)

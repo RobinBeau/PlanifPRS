@@ -290,20 +290,33 @@ namespace PlanifPRS.Pages.Prs
                             break;
 
                         case "copy":
-                            if (checklistForm.sourceId.HasValue)
+                            if (checklistForm.elements?.Any() == true)
                             {
-                                var success = await _checklistService.CopyChecklistFromPrsAsync(Prs.Id, checklistForm.sourceId.Value, userLogin);
+                                var elements = checklistForm.elements.Select(e => new PrsChecklist
+                                {
+                                    Categorie = e.categorie,
+                                    SousCategorie = e.sousCategorie,
+                                    Libelle = e.libelle,
+                                    Tache = e.libelle, // Compatibilité
+                                    Priorite = e.priorite > 0 ? e.priorite : 3,
+                                    DelaiDefautJours = e.delaiDefautJours > 0 ? e.delaiDefautJours : 1,
+                                    Obligatoire = e.obligatoire,
+                                    EstCoche = false,
+                                    Statut = null
+                                }).ToList();
+
+                                var success = await _checklistService.CreateCustomChecklistAsync(Prs.Id, elements, userLogin);
                                 if (success)
                                 {
                                     // Récupérer les IDs des checklists créées
                                     checklistIds = await GetChecklistIdsForPrs(Prs.Id);
-                                    _logger.LogInformation($"Checklist copiée du PRS {checklistForm.sourceId.Value} vers le PRS {Prs.Id}");
-                                    Flash += " Checklist copiée à partir d'un autre PRS.";
+                                    _logger.LogInformation($"Checklist (mode copy/IHM) créée pour le PRS {Prs.Id} avec {elements.Count} éléments");
+                                    Flash += " Checklist copiée depuis l'IHM.";
                                 }
                                 else
                                 {
-                                    _logger.LogWarning($"Échec de la copie de la checklist du PRS {checklistForm.sourceId.Value}");
-                                    ErrorMessage += " Erreur lors de la copie de la checklist.";
+                                    _logger.LogWarning($"Échec de la création de la checklist (mode copy/IHM) pour le PRS {Prs.Id}");
+                                    ErrorMessage += " Erreur lors de la création de la checklist.";
                                 }
                             }
                             break;
