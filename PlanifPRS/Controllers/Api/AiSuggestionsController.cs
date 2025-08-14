@@ -16,6 +16,9 @@ namespace PlanifPRS.Controllers.Api
     {
         private readonly PlanifPrsDbContext _context;
 
+        // Mémoire des préférences historiques pour la requête en cours
+        private HistoricalPreferences _historicalPrefs;
+
         public AiSuggestionsController(PlanifPrsDbContext context)
         {
             _context = context;
@@ -31,7 +34,8 @@ namespace PlanifPRS.Controllers.Api
                 return Ok(new
                 {
                     success = true,
-                    suggestions = suggestions.Select(s => new {
+                    suggestions = suggestions.Select(s => new
+                    {
                         dateDebut = s.DateDebut.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss"),
                         dateFin = s.DateFin.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss"),
                         score = s.Score,
@@ -40,12 +44,19 @@ namespace PlanifPRS.Controllers.Api
                     metadata = new
                     {
                         timestamp = DateTime.UtcNow,
-                        robia_version = "1.0",
+                        robia_version = "1.1",
                         duration_requested = request.DurationHours,
                         equipement = request.Equipement,
                         working_hours_french = "9h00-17h00 (UTC+2)",
                         french_holidays_excluded = true,
-                        day_scoring = "Lun/Mar/Mer=25pts, Jeu=10pts, Ven=5pts"
+                        day_scoring = "Lun/Mar/Mer=25pts, Jeu=10pts, Ven=5pts",
+                        ai_preference_learning = new
+                        {
+                            enabled = _historicalPrefs?.TotalCount > 0,
+                            scope = _historicalPrefs?.Scope ?? "none",
+                            window_days = _historicalPrefs?.WindowDays ?? 0,
+                            samples = _historicalPrefs?.TotalCount ?? 0
+                        }
                     }
                 });
             }
@@ -195,20 +206,32 @@ namespace PlanifPRS.Controllers.Api
             return holidayNames.FirstOrDefault(h => h.Key.Date == date.Date).Value ?? "Jour férié";
         }
 
-        // ===== MODIFICATION DES MÉTHODES EXISTANTES =====
+        // ===== MODIFICATION DES MÉTHODES EXISTANTES + APPRENTISSAGE PRÉFÉRENCES =====
 
         private async Task<List<SlotSuggestion>> GenerateSlotSuggestions(SlotSuggestionRequest request)
         {
             var suggestions = new List<SlotSuggestion>();
 
-            // Période d'analyse : 7h UTC = 9h FR, 15h UTC = 17h FR
-            var startAnalysis = new DateTime(2025, 7, 2, 7, 0, 0, DateTimeKind.Utc);
-            var endAnalysis = new DateTime(2025, 7, 29, 15, 0, 0, DateTimeKind.Utc);
+            // Période d'analyse dynamique - ne pas proposer dans le passé
+            // - Début = maintenant (UTC)
+            // - Fin = +28 jours à 15h UTC (17h FR)
+            var nowUtc = DateTime.UtcNow;
+            var startAnalysis = nowUtc;
+            var endAnalysis = nowUtc.Date.AddDays(28).AddHours(15); // 15h UTC = 17h FR
 
+            // Charger les infos de secteur + préférences historiques
             var secteurInfo = await GetSecteurInfoSecure(request.LigneId);
+            _historicalPrefs = await GetHistoricalPreferencesSecure(request.LigneId, secteurInfo?.SecteurId);
+
             if (secteurInfo == null)
             {
-                return await GenerateBasicSlotSuggestions(request, startAnalysis, endAnalysis);
+                var basic = await GenerateBasicSlotSuggestions(request, startAnalysis, endAnalysis);
+                // Filtre de sécurité: exclure toute proposition passée
+                return basic.Where(s => s.DateDebut >= DateTime.UtcNow)
+                            .OrderByDescending(s => s.Score)
+                            .ThenBy(s => s.DateDebut)
+                            .Take(5)
+                            .ToList();
             }
 
             var existingPrs = await GetExistingPrsSecure(startAnalysis, endAnalysis);
@@ -224,6 +247,7 @@ namespace PlanifPRS.Controllers.Api
 
             var topSuggestions = suggestions
                 .Where(s => s.Score > 20)
+                .Where(s => s.DateDebut >= DateTime.UtcNow) // Filtre de sécurité: pas de dates passées
                 .OrderByDescending(s => s.Score)
                 .ThenBy(s => s.DateDebut)
                 .Take(5)
@@ -240,15 +264,21 @@ namespace PlanifPRS.Controllers.Api
             SecteurInfo secteurInfo)
         {
             var suggestions = new List<SlotSuggestion>();
+            var todayUtc = DateTime.UtcNow.Date;
 
             for (var day = startAnalysis.Date; day <= endAnalysis.Date; day = day.AddDays(1))
             {
-                // ✅ MODIFICATION : Vérifier que le jour est ouvrable (ni weekend ni férié)
-                if (!IsWorkingDay(day))
-                    continue;
+                // Ne considérer que les jours présents/futurs et ouvrables
+                if (day < todayUtc) continue;
+                if (!IsWorkingDay(day)) continue;
 
+                // Créneaux par balayage standard
                 var daySlots = FindBestSlotsForDay(day, existingPrs, request, secteurInfo);
                 suggestions.AddRange(daySlots);
+
+                // Créneaux "IA" favoris du passé (surpondérés)
+                var preferredSlots = GeneratePreferredSlotsForDay(day, existingPrs, request, secteurInfo);
+                suggestions.AddRange(preferredSlots);
             }
 
             return suggestions;
@@ -263,12 +293,13 @@ namespace PlanifPRS.Controllers.Api
         {
             var suggestions = new List<SlotSuggestion>();
             var workingDaysNeeded = Math.Ceiling((double)request.DurationHours / 8);
+            var todayUtc = DateTime.UtcNow.Date;
 
             for (var testDay = startAnalysis.Date; testDay <= endAnalysis.Date.AddDays(-(int)workingDaysNeeded); testDay = testDay.AddDays(1))
             {
-                // ✅ MODIFICATION : Vérifier que le jour de début est ouvrable
-                if (!IsWorkingDay(testDay))
-                    continue;
+                // Vérifier que le jour de début est dans le présent/futur et ouvrable
+                if (testDay < todayUtc) continue;
+                if (!IsWorkingDay(testDay)) continue;
 
                 var multiDaySlot = AnalyzeMultiDaySlot(testDay, existingPrs, request, secteurInfo);
                 if (multiDaySlot != null)
@@ -283,6 +314,13 @@ namespace PlanifPRS.Controllers.Api
         private SlotSuggestion AnalyzeMultiDaySlot(DateTime startDay, List<PrsInfo> existingPrs, SlotSuggestionRequest request, SecteurInfo secteurInfo)
         {
             var slotStart = startDay.Date.AddHours(7); // 7h UTC = 9h FR
+            var nowUtc = DateTime.UtcNow;
+
+            // Ne pas proposer un démarrage aujourd'hui si l'heure de début (7h UTC) est déjà passée
+            if (startDay.Date == nowUtc.Date && nowUtc > slotStart)
+            {
+                return null;
+            }
 
             DateTime slotEnd;
             var remainingHours = request.DurationHours;
@@ -290,7 +328,7 @@ namespace PlanifPRS.Controllers.Api
 
             while (remainingHours > 0)
             {
-                // ✅ MODIFICATION : Vérifier que le jour est ouvrable
+                // Vérifier que le jour est ouvrable
                 if (IsWorkingDay(currentDay))
                 {
                     if (remainingHours >= 8)
@@ -315,7 +353,6 @@ namespace PlanifPRS.Controllers.Api
             // Vérifier conflits + que tous les jours de la période sont ouvrables
             for (var checkDay = startDay.Date; checkDay <= slotEnd.Date; checkDay = checkDay.AddDays(1))
             {
-                // ✅ MODIFICATION : Si un jour n'est pas ouvrable, rejeter ce slot
                 if (!IsWorkingDay(checkDay))
                 {
                     return null;
@@ -378,6 +415,7 @@ namespace PlanifPRS.Controllers.Api
 
             var workStart = day.Date.AddHours(7);  // 7h UTC = 9h FR
             var workEnd = day.Date.AddHours(15);   // 15h UTC = 17h FR
+            var nowUtc = DateTime.UtcNow;
 
             var dayPrsOnSameLine = allExistingPrs
                 .Where(p => p.LigneId == request.LigneId && p.DateDebut.Date == day.Date)
@@ -411,6 +449,10 @@ namespace PlanifPRS.Controllers.Api
 
                 foreach (var slot in longSlots.Where(s => s.End <= workEnd))
                 {
+                    // Ne pas proposer un créneau partiellement ou totalement dans le passé
+                    if (day.Date == nowUtc.Date && slot.Start < nowUtc)
+                        continue;
+
                     bool hasDirectConflict = dayPrsOnSameLine.Any(p =>
                         (slot.Start < p.DateFin && slot.End > p.DateDebut));
 
@@ -435,6 +477,10 @@ namespace PlanifPRS.Controllers.Api
                 {
                     var end = start.Add(duration);
 
+                    // Ne pas proposer un créneau partiellement ou totalement dans le passé
+                    if (day.Date == nowUtc.Date && start < nowUtc)
+                        continue;
+
                     bool hasDirectConflict = dayPrsOnSameLine.Any(p =>
                         (start < p.DateFin && end > p.DateDebut));
 
@@ -455,6 +501,93 @@ namespace PlanifPRS.Controllers.Api
             }
 
             return suggestions;
+        }
+
+        // Créneaux alignés sur les heures de début historiquement privilégiées (IA)
+        private List<SlotSuggestion> GeneratePreferredSlotsForDay(DateTime day, List<PrsInfo> allExistingPrs, SlotSuggestionRequest request, SecteurInfo secteurInfo)
+        {
+            var results = new List<SlotSuggestion>();
+            if (_historicalPrefs == null || _historicalPrefs.TotalCount == 0) return results;
+
+            var duration = TimeSpan.FromHours(request.DurationHours);
+            var workStart = day.Date.AddHours(7);
+            var workEnd = day.Date.AddHours(15);
+            var nowUtc = DateTime.UtcNow;
+
+            // Top 3 heures (UTC) pour ce jour (si connues), sinon top global
+            var candidateHours = _historicalPrefs
+                .GetTopHoursForDay(day.DayOfWeek, 3)
+                .DefaultIfEmpty()
+                .Where(h => h >= 7 && h <= 14) // doit pouvoir accueillir la durée
+                .Distinct()
+                .ToList();
+
+            // Fallback: si rien de spécifique au jour, utiliser top heures globales
+            if (candidateHours.Count == 1 && candidateHours[0] == default(int))
+            {
+                candidateHours = _historicalPrefs.GetTopHoursGlobal(3)
+                    .Where(h => h >= 7 && h <= 14)
+                    .Distinct()
+                    .ToList();
+            }
+
+            if (candidateHours.Count == 0) return results;
+
+            // Exclusions de conflits
+            var dayPrsOnSameLine = allExistingPrs
+                .Where(p => p.LigneId == request.LigneId && p.DateDebut.Date == day.Date)
+                .ToList();
+
+            foreach (var hour in candidateHours)
+            {
+                var start = day.Date.AddHours(hour);
+                var end = start.Add(duration);
+
+                // hors horaires ouvrés ou passé
+                if (start < workStart || end > workEnd) continue;
+                if (day.Date == nowUtc.Date && start < nowUtc) continue;
+                if (!IsWorkingDay(day)) continue;
+
+                bool hasDirectConflict = dayPrsOnSameLine.Any(p => start < p.DateFin && end > p.DateDebut);
+                if (hasDirectConflict) continue;
+
+                bool hasSectorConflictThisWeek = false;
+                List<PrsInfo> weekSectorPrs = new List<PrsInfo>();
+                if (secteurInfo.SecteurId.HasValue)
+                {
+                    var weekStart = GetStartOfWeek(day);
+                    var weekEnd = weekStart.AddDays(6);
+
+                    weekSectorPrs = allExistingPrs
+                        .Where(p => p.SecteurId == secteurInfo.SecteurId.Value &&
+                                   p.DateDebut.Date >= weekStart &&
+                                   p.DateDebut.Date <= weekEnd)
+                        .ToList();
+
+                    hasSectorConflictThisWeek = weekSectorPrs.Any();
+                }
+
+                var score = CalculateSlotScore(start, end, dayPrsOnSameLine.Count, allExistingPrs, request, secteurInfo, hasSectorConflictThisWeek, day);
+                var reason = GenerateReason(start, end, dayPrsOnSameLine.Count, weekSectorPrs, request, secteurInfo, hasSectorConflictThisWeek, day);
+
+                // Surligner le fait "préféré"
+                var frHour = (start.Hour + 2) % 24;
+                var pct = _historicalPrefs.GetDayHourSharePercent(day.DayOfWeek, start.Hour);
+                if (pct > 0)
+                {
+                    reason = $"🤖 IA: créneau historiquement privilégié ({pct:F0}% des PRS le {day.ToString("dddd", new CultureInfo("fr-FR"))} à {frHour:00}h), {reason}";
+                }
+
+                results.Add(new SlotSuggestion
+                {
+                    DateDebut = start,
+                    DateFin = end,
+                    Score = score + 10, // léger bonus pour remonter ces propositions IA
+                    Raison = reason
+                });
+            }
+
+            return results;
         }
 
         private int CalculateSlotScore(DateTime start, DateTime end, int dayPrsCount, List<PrsInfo> allPrs, SlotSuggestionRequest request, SecteurInfo secteurInfo, bool hasSectorConflictThisWeek, DateTime day)
@@ -485,7 +618,7 @@ namespace PlanifPRS.Controllers.Api
             }
 
             // Bonus charge journée
-            var dayAllPrs = allPrs.Where(p => p.DateDebut.Date == start.Date).Count();
+            var dayAllPrs = allPrs.Count(p => p.DateDebut.Date == start.Date);
             if (dayAllPrs == 0)
                 score += 40;
             else if (dayAllPrs <= 2)
@@ -493,36 +626,28 @@ namespace PlanifPRS.Controllers.Api
             else if (dayAllPrs >= 5)
                 score -= 20;
 
-            // ✅ NOUVEAU SYSTÈME DE SCORING PAR JOUR
+            // Système de scoring par jour
             switch (start.DayOfWeek)
             {
                 case DayOfWeek.Monday:
                 case DayOfWeek.Tuesday:
                 case DayOfWeek.Wednesday:
-                    // Lundi, Mardi, Mercredi = même score élevé
                     score += 25;
-                    // Bonus supplémentaire si lundi après férié
                     if (start.DayOfWeek == DayOfWeek.Monday && IsFreenchHoliday(start.AddDays(-1)))
-                        score += 10; // Bonus reprise après férié
+                        score += 10;
                     break;
 
                 case DayOfWeek.Thursday:
-                    // Jeudi = un peu moins de points
                     score += 10;
-                    // Vérifier si vendredi suivant est férié
                     if (IsFreenchHoliday(start.AddDays(1)))
-                        score -= 10; // Malus veille de férié
+                        score -= 10;
                     break;
 
                 case DayOfWeek.Friday:
-                    // Vendredi = beaucoup moins de points
                     score += 5;
-                    // Vérifier si pont (lundi suivant férié)
                     if (IsFreenchHoliday(start.AddDays(3)))
-                        score -= 15; // Malus pont
+                        score -= 15;
                     break;
-
-                    // Samedi et Dimanche sont déjà exclus par IsWorkingDay()
             }
 
             if (!hasSectorConflictThisWeek && secteurInfo.SecteurId.HasValue)
@@ -536,6 +661,9 @@ namespace PlanifPRS.Controllers.Api
             else if (request.DurationHours == 8 && start.Hour == 7)
                 score += 20;
 
+            // ===== AJOUT: Bonus de préférence historique (IA) =====
+            score += GetPreferenceBoost(start);
+
             return Math.Max(0, score);
         }
 
@@ -546,25 +674,25 @@ namespace PlanifPRS.Controllers.Api
             if (hasSectorConflict)
                 score -= 80;
 
-            // ✅ NOUVEAU SYSTÈME DE SCORING PAR JOUR POUR MULTI-DAY
+            // Scoring par jour pour multi-day
             switch (start.DayOfWeek)
             {
                 case DayOfWeek.Monday:
-                    score += 35; // Excellent pour commencer la semaine
+                    score += 35;
                     if (IsFreenchHoliday(start.AddDays(-1)))
-                        score += 10; // Bonus après férié
+                        score += 10;
                     break;
                 case DayOfWeek.Tuesday:
-                    score += 30; // Très bon
+                    score += 30;
                     break;
                 case DayOfWeek.Wednesday:
-                    score += 25; // Bon
+                    score += 25;
                     break;
                 case DayOfWeek.Thursday:
-                    score += 5; // Moins favorable
+                    score += 5;
                     break;
                 case DayOfWeek.Friday:
-                    score -= 10; // Défavorable pour commencer
+                    score -= 10;
                     break;
             }
 
@@ -587,6 +715,9 @@ namespace PlanifPRS.Controllers.Api
             if (end.DayOfWeek == DayOfWeek.Friday && end.Hour > 13)
                 score -= 15;
 
+            // ===== AJOUT: Bonus de préférence historique (IA) pour l'heure de début =====
+            score += GetPreferenceBoost(start);
+
             return Math.Max(0, score);
         }
 
@@ -595,7 +726,7 @@ namespace PlanifPRS.Controllers.Api
             var reasons = new List<string>();
             var frenchHour = start.Hour + 2; // UTC+2
 
-            // ✅ MODIFICATION : Vérifier les jours fériés dans les raisons
+            // Vérifier les jours fériés dans les raisons
             var holidayName = GetHolidayName(start.Date);
             if (!string.IsNullOrEmpty(holidayName))
             {
@@ -641,7 +772,7 @@ namespace PlanifPRS.Controllers.Api
                     reasons.Add("✨ Idéal pour finition après-midi (13h-15h)");
             }
 
-            // ✅ NOUVEAUX MESSAGES POUR LES JOURS
+            // Messages pour les jours
             switch (start.DayOfWeek)
             {
                 case DayOfWeek.Monday:
@@ -661,6 +792,13 @@ namespace PlanifPRS.Controllers.Api
                     break;
             }
 
+            // ===== AJOUT: Explication IA si boost significatif =====
+            var share = _historicalPrefs?.GetDayHourSharePercent(start.DayOfWeek, start.Hour) ?? 0;
+            if (share >= 10) // n'ajouter l'explication que si >=10% des historiques
+            {
+                reasons.Add($"🤖 IA: créneau historiquement privilégié ({share:F0}% des PRS le {start.ToString("dddd", new CultureInfo("fr-FR"))} à {frenchHour:00}h, {_historicalPrefs?.Scope})");
+            }
+
             return reasons.Count > 0 ? string.Join(", ", reasons) : "Créneau disponible";
         }
 
@@ -672,7 +810,7 @@ namespace PlanifPRS.Controllers.Api
 
             reasons.Add($"📅 Période de {duration}h sur {workingDays} jours ouvrés (9h-17h FR)");
 
-            // ✅ MODIFICATION : Vérifier fériés dans la période
+            // Vérifier fériés dans la période
             var holidaysInPeriod = new List<string>();
             for (var checkDay = start.Date; checkDay <= end.Date; checkDay = checkDay.AddDays(1))
             {
@@ -693,7 +831,7 @@ namespace PlanifPRS.Controllers.Api
             else if (hasSectorConflict)
                 reasons.Add($"⚠️ Conflit détecté secteur {secteurInfo.SecteurNom}");
 
-            // ✅ NOUVEAUX MESSAGES POUR MULTI-DAY
+            // Messages multi-jour
             switch (start.DayOfWeek)
             {
                 case DayOfWeek.Monday:
@@ -719,6 +857,14 @@ namespace PlanifPRS.Controllers.Api
                 reasons.Add("📊 Période de 3 jours étalés");
             else if (request.DurationHours == 40)
                 reasons.Add("📅 Semaine complète de production");
+
+            // ===== AJOUT: Explication IA sur l'heure de démarrage =====
+            var frenchHour = start.Hour + 2;
+            var share = _historicalPrefs?.GetDayHourSharePercent(start.DayOfWeek, start.Hour) ?? 0;
+            if (share >= 10)
+            {
+                reasons.Add($"🤖 IA: démarrage souvent privilégié ({share:F0}% des PRS à {frenchHour:00}h le {start.ToString("dddd", new CultureInfo("fr-FR"))}, {_historicalPrefs?.Scope})");
+            }
 
             return string.Join(", ", reasons);
         }
@@ -841,6 +987,7 @@ namespace PlanifPRS.Controllers.Api
         private async Task<List<SlotSuggestion>> GenerateBasicSlotSuggestions(SlotSuggestionRequest request, DateTime startAnalysis, DateTime endAnalysis)
         {
             var suggestions = new List<SlotSuggestion>();
+            var nowUtc = DateTime.UtcNow;
 
             try
             {
@@ -851,11 +998,11 @@ namespace PlanifPRS.Controllers.Api
                     .Select(p => new { p.DateDebut, p.DateFin })
                     .ToListAsync();
 
-                for (var day = startAnalysis; day <= endAnalysis; day = day.AddDays(1))
+                for (var day = startAnalysis.Date; day <= endAnalysis.Date; day = day.AddDays(1))
                 {
-                    // ✅ MODIFICATION : Vérifier que le jour est ouvrable
-                    if (!IsWorkingDay(day))
-                        continue;
+                    // Ne considérer que les jours présents/futurs et ouvrables
+                    if (day < nowUtc.Date) continue;
+                    if (!IsWorkingDay(day)) continue;
 
                     var workStart = day.Date.AddHours(7);  // 7h UTC = 9h FR
                     var workEnd = day.Date.AddHours(15);   // 15h UTC = 17h FR
@@ -866,12 +1013,25 @@ namespace PlanifPRS.Controllers.Api
                     {
                         var end = start.Add(duration);
 
+                        // Ne pas proposer un créneau dans le passé
+                        if (day.Date == nowUtc.Date && start < nowUtc)
+                            continue;
+
                         bool hasConflict = dayPrs.Any(p => (start < p.DateFin && end > p.DateDebut));
 
                         if (!hasConflict)
                         {
                             var score = CalculateBasicScore(start, dayPrs.Count, request);
                             var reason = GenerateBasicReason(start, dayPrs.Count, request);
+
+                            // Bonus IA de préférence aussi pour le mode basic
+                            score += GetPreferenceBoost(start);
+                            var share = _historicalPrefs?.GetDayHourSharePercent(start.DayOfWeek, start.Hour) ?? 0;
+                            if (share >= 10)
+                            {
+                                var frHour = (start.Hour + 2) % 24;
+                                reason = $"🤖 IA: créneau historiquement privilégié ({share:F0}% à {frHour:00}h), {reason}";
+                            }
 
                             suggestions.Add(new SlotSuggestion
                             {
@@ -889,7 +1049,12 @@ namespace PlanifPRS.Controllers.Api
                 // Erreur ignorée
             }
 
-            return suggestions.OrderByDescending(s => s.Score).Take(3).ToList();
+            return suggestions
+                .Where(s => s.DateDebut >= DateTime.UtcNow) // Filtre de sécurité: pas de dates passées
+                .OrderByDescending(s => s.Score)
+                .ThenBy(s => s.DateDebut)
+                .Take(3)
+                .ToList();
         }
 
         private int CalculateBasicScore(DateTime start, int dayPrsCount, SlotSuggestionRequest request)
@@ -903,7 +1068,7 @@ namespace PlanifPRS.Controllers.Api
             if (request.Equipement == "Finition" && frenchHour >= 13 && frenchHour < 15) score += 20; // 13h-15h FR
             score += Math.Max(0, 3 - dayPrsCount) * 10;
 
-            // ✅ NOUVEAU SYSTÈME DE SCORING PAR JOUR POUR BASIC
+            // SYSTÈME DE SCORING PAR JOUR POUR BASIC
             switch (start.DayOfWeek)
             {
                 case DayOfWeek.Monday:
@@ -919,7 +1084,7 @@ namespace PlanifPRS.Controllers.Api
                     break;
             }
 
-            // ✅ MODIFICATION : Bonus/malus fériés
+            // Bonus/malus fériés
             if (IsFreenchHoliday(start.AddDays(-1))) score += 25; // Après férié
             if (IsFreenchHoliday(start.AddDays(1))) score -= 15;  // Veille férié
 
@@ -931,7 +1096,7 @@ namespace PlanifPRS.Controllers.Api
             var reasons = new List<string>();
             var frenchHour = start.Hour + 2; // UTC+2
 
-            // ✅ MODIFICATION : Vérifier fériés
+            // Vérifier fériés
             if (IsFreenchHoliday(start.AddDays(-1))) reasons.Add("🎉 Reprise après férié");
             if (IsFreenchHoliday(start.AddDays(1))) reasons.Add("⚠️ Veille de férié");
 
@@ -940,7 +1105,7 @@ namespace PlanifPRS.Controllers.Api
             if (request.Equipement == "CMS" && frenchHour >= 9 && frenchHour < 11) reasons.Add("🔧 CMS matinal (9h-11h)");
             if (request.Equipement == "Finition" && frenchHour >= 13 && frenchHour < 15) reasons.Add("✨ Finition après-midi (13h-15h)");
 
-            // ✅ NOUVEAU : Messages par jour pour basic
+            // Messages par jour pour basic
             switch (start.DayOfWeek)
             {
                 case DayOfWeek.Monday:
@@ -967,6 +1132,210 @@ namespace PlanifPRS.Controllers.Api
         {
             var diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
             return date.AddDays(-1 * diff).Date;
+        }
+
+        // ====== APPRENTISSAGE DES PRÉFÉRENCES HISTORIQUES (IA) ======
+
+        private async Task<HistoricalPreferences> GetHistoricalPreferencesSecure(int ligneId, int? secteurId)
+        {
+            var prefs = new HistoricalPreferences { Scope = "none", WindowDays = 180 };
+            var windowStart = DateTime.UtcNow.Date.AddDays(-prefs.WindowDays);
+            var windowEnd = DateTime.UtcNow;
+
+            try
+            {
+                // 1) Essayer par ligne
+                var rows = await FetchPrsRows(windowStart, windowEnd, ligneId, null);
+                prefs = BuildPreferences(rows, "ligne", prefs.WindowDays);
+                if (prefs.TotalCount >= 20)
+                    return prefs;
+
+                // 2) Essayer par secteur
+                if (secteurId.HasValue)
+                {
+                    rows = await FetchPrsRows(windowStart, windowEnd, null, secteurId.Value);
+                    prefs = BuildPreferences(rows, "secteur", prefs.WindowDays);
+                    if (prefs.TotalCount >= 20)
+                        return prefs;
+                }
+
+                // 3) Fallback global
+                rows = await FetchPrsRows(windowStart, windowEnd, null, null);
+                prefs = BuildPreferences(rows, "global", prefs.WindowDays);
+                return prefs;
+            }
+            catch
+            {
+                return prefs;
+            }
+        }
+
+        private async Task<List<PrsRow>> FetchPrsRows(DateTime startDate, DateTime endDate, int? ligneId, int? secteurId)
+        {
+            var rows = new List<PrsRow>();
+
+            var connection = _context.Database.GetDbConnection();
+            if (connection.State != System.Data.ConnectionState.Open)
+                await connection.OpenAsync();
+
+            using var command = connection.CreateCommand();
+            // Base query
+            var sql = @"
+                SELECT p.DateDebut, p.DateFin, p.LigneId, l.idSecteur AS SecteurId
+                FROM [PlanifPRS].[dbo].[PRS] p
+                LEFT JOIN [PlanifPRS].[dbo].[Lignes] l ON p.LigneId = l.Id
+                WHERE p.DateDebut >= @startDate AND p.DateDebut <= @endDate";
+
+            if (ligneId.HasValue)
+            {
+                sql += " AND p.LigneId = @ligneId";
+            }
+            else if (secteurId.HasValue)
+            {
+                sql += " AND l.idSecteur = @secteurId";
+            }
+
+            command.CommandText = sql;
+
+            var startParam = command.CreateParameter();
+            startParam.ParameterName = "@startDate";
+            startParam.Value = startDate;
+            command.Parameters.Add(startParam);
+
+            var endParam = command.CreateParameter();
+            endParam.ParameterName = "@endDate";
+            endParam.Value = endDate;
+            command.Parameters.Add(endParam);
+
+            if (ligneId.HasValue)
+            {
+                var pLigne = command.CreateParameter();
+                pLigne.ParameterName = "@ligneId";
+                pLigne.Value = ligneId.Value;
+                command.Parameters.Add(pLigne);
+            }
+            else if (secteurId.HasValue)
+            {
+                var pSect = command.CreateParameter();
+                pSect.ParameterName = "@secteurId";
+                pSect.Value = secteurId.Value;
+                command.Parameters.Add(pSect);
+            }
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var row = new PrsRow
+                {
+                    DateDebut = reader["DateDebut"] != DBNull.Value ? (DateTime)reader["DateDebut"] : DateTime.MinValue,
+                    DateFin = reader["DateFin"] != DBNull.Value ? (DateTime)reader["DateFin"] : DateTime.MinValue,
+                    LigneId = reader["LigneId"] != DBNull.Value ? Convert.ToInt32(reader["LigneId"]) : 0,
+                    SecteurId = reader["SecteurId"] != DBNull.Value ? Convert.ToInt32(reader["SecteurId"]) : (int?)null
+                };
+                rows.Add(row);
+            }
+
+            return rows;
+        }
+
+        private HistoricalPreferences BuildPreferences(List<PrsRow> rows, string scope, int windowDays)
+        {
+            var prefs = new HistoricalPreferences { Scope = scope, WindowDays = windowDays };
+
+            foreach (var r in rows)
+            {
+                // On se base sur l'heure de démarrage UTC
+                var h = r.DateDebut.Hour;
+                var dow = r.DateDebut.DayOfWeek;
+
+                // On ne retient que les démarrages plausibles dans notre plage de travail (7h-15h UTC)
+                if (h < 7 || h > 15) continue;
+
+                // Comptages
+                if (!prefs.HourCountsUtc.ContainsKey(h)) prefs.HourCountsUtc[h] = 0;
+                prefs.HourCountsUtc[h]++;
+
+                if (!prefs.DayCounts.ContainsKey(dow)) prefs.DayCounts[dow] = 0;
+                prefs.DayCounts[dow]++;
+
+                var key = (dow, h);
+                if (!prefs.DayHourCounts.ContainsKey(key)) prefs.DayHourCounts[key] = 0;
+                prefs.DayHourCounts[key]++;
+
+                prefs.TotalCount++;
+            }
+
+            return prefs;
+        }
+
+        private int GetPreferenceBoost(DateTime start)
+        {
+            if (_historicalPrefs == null || _historicalPrefs.TotalCount == 0) return 0;
+
+            var dow = start.DayOfWeek;
+            var hour = start.Hour;
+
+            // Poids principal: distribution par (jour, heure)
+            var dayHourCount = _historicalPrefs.DayHourCounts.TryGetValue((dow, hour), out var dh) ? dh : 0;
+            var dayTotal = _historicalPrefs.DayCounts.TryGetValue(dow, out var dt) ? dt : 0;
+            double primaryRatio = dayTotal > 0 ? (double)dayHourCount / dayTotal : 0.0;
+
+            // Poids secondaire: popularité globale de l'heure
+            var hourCount = _historicalPrefs.HourCountsUtc.TryGetValue(hour, out var hc) ? hc : 0;
+            double hourRatio = _historicalPrefs.TotalCount > 0 ? (double)hourCount / _historicalPrefs.TotalCount : 0.0;
+
+            // Convertir en bonus de score (borné)
+            var bonus = (int)Math.Round(primaryRatio * 25.0 + hourRatio * 10.0); // max ~35
+            if (bonus > 35) bonus = 35;
+            if (bonus < 0) bonus = 0;
+            return bonus;
+        }
+
+        // ===== Types internes =====
+
+        private class PrsRow
+        {
+            public DateTime DateDebut { get; set; }
+            public DateTime DateFin { get; set; }
+            public int LigneId { get; set; }
+            public int? SecteurId { get; set; }
+        }
+
+        private class HistoricalPreferences
+        {
+            public Dictionary<int, int> HourCountsUtc { get; set; } = new Dictionary<int, int>();
+            public Dictionary<DayOfWeek, int> DayCounts { get; set; } = new Dictionary<DayOfWeek, int>();
+            public Dictionary<(DayOfWeek, int), int> DayHourCounts { get; set; } = new Dictionary<(DayOfWeek, int), int>();
+            public int TotalCount { get; set; }
+            public string Scope { get; set; } = "none";
+            public int WindowDays { get; set; } = 180;
+
+            public IEnumerable<int> GetTopHoursForDay(DayOfWeek dow, int topN)
+            {
+                var q = DayHourCounts
+                    .Where(kv => kv.Key.Item1 == dow)
+                    .OrderByDescending(kv => kv.Value)
+                    .Take(topN)
+                    .Select(kv => kv.Key.Item2);
+                return q;
+            }
+
+            public List<int> GetTopHoursGlobal(int topN)
+            {
+                return HourCountsUtc
+                    .OrderByDescending(kv => kv.Value)
+                    .Take(topN)
+                    .Select(kv => kv.Key)
+                    .ToList();
+            }
+
+            public double GetDayHourSharePercent(DayOfWeek dow, int hour)
+            {
+                var dayTotal = DayCounts.TryGetValue(dow, out var dt) ? dt : 0;
+                if (dayTotal == 0) return 0;
+                var dayHour = DayHourCounts.TryGetValue((dow, hour), out var dh) ? dh : 0;
+                return (double)dayHour / dayTotal * 100.0;
+            }
         }
     }
 
