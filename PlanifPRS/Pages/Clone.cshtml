@@ -14,6 +14,20 @@
     <link rel="stylesheet" href="~/css/create-prs.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/edit-prs.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/robia.css" asp-append-version="true" />
+
+    <style>
+        /* Surlignage vert de la suggestion sélectionnée (parité avec Edit) */
+        #robia-suggestions .list-group-item.active {
+            background-color: #f3fff6 !important; /* vert très clair */
+            border-color: #198754 !important; /* vert bootstrap */
+            color: #0f5132 !important; /* texte vert foncé */
+        }
+
+            #robia-suggestions .list-group-item.active .badge {
+                background-color: #d1e7dd !important; /* badge assorti */
+                color: #0f5132 !important;
+            }
+    </style>
 }
 
 <div class="page-container">
@@ -923,62 +937,184 @@
             });
         });
 
-        // ROBIA inline
+        // ROBIA inline — mêmes suggestions qu'Edit: liste d'alternatives, sélection/rotation, exclusion du créneau courant
         (function () {
             const btn = document.getElementById('suggest-slot-btn');
             const container = document.getElementById('robia-suggestions');
             const content = document.getElementById('suggestions-content');
-            if (!btn) return;
+            const applyBtn = document.getElementById('apply-suggestion');
+            const altBtn = document.getElementById('show-alternatives');
+            const closeBtn = document.getElementById('close-suggestions');
+
+            if (!btn || !container || !content) return;
+
+            let lastSuggestions = [];
+            let selectedIndex = 0;
+
+            function parseUtc(utcStr) {
+                const s = utcStr?.endsWith('Z') ? utcStr : (utcStr + 'Z');
+                return new Date(s);
+            }
+            function toInputValueLocal(d) {
+                const pad = n => String(n).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                const MM = pad(d.getMonth() + 1);
+                const dd = pad(d.getDate());
+                const hh = pad(d.getHours());
+                const mm = pad(d.getMinutes());
+                return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
+            }
+            function sameMinute(a, b) {
+                return a.getFullYear() === b.getFullYear()
+                    && a.getMonth() === b.getMonth()
+                    && a.getDate() === b.getDate()
+                    && a.getHours() === b.getHours()
+                    && a.getMinutes() === b.getMinutes();
+            }
+            function formatDisplay(date) {
+                try {
+                    return new Intl.DateTimeFormat('fr-FR', {
+                        weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                    }).format(date);
+                } catch { return date.toLocaleString(); }
+            }
+            function getCurrentSlot() {
+                const deb = document.getElementById('Prs_DateDebut')?.value;
+                const fin = document.getElementById('Prs_DateFin')?.value;
+                if (!deb || !fin) return null;
+                const a = new Date(deb), b = new Date(fin);
+                if (isNaN(a) || isNaN(b)) return null;
+                return { start: a, end: b };
+            }
+            function computeDurationHours() {
+                const select = document.getElementById('duration-select');
+                if (select && select.value) return parseInt(select.value, 10) || 1;
+                const cur = getCurrentSlot();
+                if (cur) {
+                    const h = Math.max(1, Math.round((cur.end - cur.start) / 3600000));
+                    return h;
+                }
+                return 1;
+            }
+
+            function renderSuggestions(list) {
+                content.innerHTML = '';
+                if (!list || !list.length) {
+                    content.innerHTML = '<div class="alert alert-warning mb-0">Aucune alternative disponible.</div>';
+                    applyBtn?.setAttribute('disabled', 'disabled');
+                    return;
+                }
+
+                // Liste Bootstrap pour limiter les ajouts de CSS
+                const ul = document.createElement('ul');
+                ul.className = 'list-group';
+
+                list.forEach((s, idx) => {
+                    const start = parseUtc(s.dateDebut);
+                    const end = parseUtc(s.dateFin);
+
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item d-flex justify-content-between align-items-start';
+                    li.dataset.index = String(idx);
+                    li.style.cursor = 'pointer';
+
+                    const left = document.createElement('div');
+                    left.className = 'me-3';
+                    left.innerHTML = `
+                        <div><strong>${formatDisplay(start)} → ${formatDisplay(end)}</strong></div>
+                        <div class="text-muted" style="font-size:.9rem;">${s.raison || ''}</div>
+                    `;
+
+                    const right = document.createElement('div');
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-light text-dark';
+                    badge.textContent = `Score ${s.score}`;
+                    right.appendChild(badge);
+
+                    li.appendChild(left);
+                    li.appendChild(right);
+
+                    li.addEventListener('click', () => selectIndex(idx));
+                    ul.appendChild(li);
+                });
+
+                content.appendChild(ul);
+                selectedIndex = 0;
+                highlightSelected();
+                applyBtn?.removeAttribute('disabled');
+            }
+
+                    function highlightSelected() {
+          const rows = content.querySelectorAll('li.list-group-item');
+          rows.forEach((r, i) => {
+            const on = i === selectedIndex;
+            r.classList.toggle('active', on);
+            r.classList.toggle('border-success', on);
+          });
+        }
+
+            function selectIndex(i) {
+                if (!lastSuggestions.length) return;
+                selectedIndex = Math.max(0, Math.min(i, lastSuggestions.length - 1));
+                highlightSelected();
+            }
+
+            async function fetchSuggestions() {
+                const ligneIdRaw = document.getElementById('ligne-select')?.value || '';
+                const ligneId = parseInt(ligneIdRaw, 10);
+                if (!ligneId) {
+                    content.innerHTML = '<div class="alert alert-info mb-0">Veuillez d’abord sélectionner une ligne.</div>';
+                    container.style.display = 'block';
+                    return [];
+                }
+
+                const equipement = document.getElementById('Prs_Equipement')?.value || null;
+                const duration = computeDurationHours();
+
+                const body = {
+                    LigneId: ligneId,
+                    Equipement: equipement,
+                    DurationHours: duration
+                };
+
+                const resp = await fetch('/api/ai-suggestions/suggest-slot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok || !data?.success) {
+                    throw new Error(data?.message || 'Erreur lors de la récupération des suggestions');
+                }
+                return Array.isArray(data.suggestions) ? data.suggestions : [];
+            }
 
             async function suggest() {
                 try {
                     btn.classList.add('analyzing');
                     btn.disabled = true;
+                    content.innerHTML = '<div class="text-muted">Analyse en cours...</div>';
+                    container.style.display = 'block';
 
-                    const equipement = document.getElementById('Prs_Equipement')?.value || '';
-                    const duration = parseInt(document.getElementById('duration-select')?.value || '8');
+                    const raw = await fetchSuggestions();
 
-                    const body = {
-                        Equipement: equipement || 'CMS',
-                        DurationHours: duration || 8,
-                        LigneId: parseInt(document.getElementById('ligne-select')?.value || '0') || null
-                    };
-
-                    const resp = await fetch('/api/ai-suggestions/suggest-slot', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(body)
-                    });
-                    const data = await resp.json();
-
-                    if (!resp.ok || !data.success) {
-                        content.innerHTML = '<div class="alert alert-danger">Erreur ROBIA: ' + (data.message || 'inconnue') + '</div>';
-                        container.style.display = 'block';
-                        return;
+                    // Exclure le créneau identique au courant
+                    const cur = getCurrentSlot();
+                    let filtered = raw;
+                    if (cur) {
+                        filtered = raw.filter(s => {
+                            const sStart = parseUtc(s.dateDebut);
+                            const sEnd = parseUtc(s.dateFin);
+                            return !(sameMinute(cur.start, sStart) && sameMinute(cur.end, sEnd));
+                        });
                     }
 
-                    const s = data.suggestions?.[0];
-                    if (s) {
-                        content.innerHTML = '' +
-                          '<div class="suggestion-main p-3">' +
-                            '<div class="robia-score mb-3"><div class="score-number">' + s.score + '</div><div>Score</div></div>' +
-                            '<div><strong>Début:</strong> ' + s.dateDebut.replace('T',' ') + '</div>' +
-                            '<div><strong>Fin:</strong> ' + s.dateFin.replace('T',' ') + '</div>' +
-                            '<div class="mt-2"><em>' + (s.raison || '') + '</em></div>' +
-                          '</div>';
-                        container.style.display = 'block';
-                        document.getElementById('apply-suggestion')?.addEventListener('click', () => {
-                            const start = s.dateDebut?.slice(0,16); const end = s.dateFin?.slice(0,16);
-                            const deb = document.getElementById('Prs_DateDebut'); const fin = document.getElementById('Prs_DateFin');
-                            if (deb && fin) { deb.value = start; fin.value = end; }
-                        }, { once: true });
-                    } else {
-                        content.innerHTML = '<div class="alert alert-warning">Aucune suggestion trouvée.</div>';
-                        container.style.display = 'block';
-                    }
+                    lastSuggestions = filtered.slice(0, 5);
+                    renderSuggestions(lastSuggestions);
                 } catch (e) {
-                    console.error('[ROBIA] Exception', e);
-                    content.innerHTML = '<div class="alert alert-danger">Erreur: ' + (e?.message || e) + '</div>';
+                    console.error('[ROBIA][CLONE] Exception', e);
+                    content.innerHTML = `<div class="alert alert-danger mb-0">Erreur ROBIA: ${(e && e.message) || e}</div>`;
                     container.style.display = 'block';
                 } finally {
                     btn.classList.remove('analyzing');
@@ -986,9 +1122,44 @@
                 }
             }
 
+            function applySelected() {
+                if (!lastSuggestions.length) return;
+                const s = lastSuggestions[selectedIndex];
+                if (!s) return;
+
+                const start = parseUtc(s.dateDebut);
+                const end = parseUtc(s.dateFin);
+
+                const deb = document.getElementById('Prs_DateDebut');
+                const fin = document.getElementById('Prs_DateFin');
+                if (deb && fin) {
+                    deb.value = toInputValueLocal(start);
+                    fin.value = toInputValueLocal(end);
+                }
+            }
+
+            function rotateAlternative() {
+                if (lastSuggestions.length > 1) {
+                    selectedIndex = (selectedIndex + 1) % lastSuggestions.length;
+                    highlightSelected();
+                    return;
+                }
+                // Si une seule sugg, relancer pour tenter d’en obtenir d’autres
+                suggest();
+            }
+
             btn.addEventListener('click', suggest);
-            document.getElementById('close-suggestions')?.addEventListener('click', () => { container.style.display = 'none'; });
-            document.getElementById('show-alternatives')?.addEventListener('click', suggest);
+            applyBtn?.addEventListener('click', applySelected);
+            altBtn?.addEventListener('click', rotateAlternative);
+            closeBtn?.addEventListener('click', () => { container.style.display = 'none'; });
+
+            // Auto-regénération si le panneau est ouvert et que les paramètres changent
+            ['ligne-select', 'Prs_Equipement', 'duration-select', 'Prs_DateDebut', 'Prs_DateFin'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('change', () => {
+                    if (container.style.display === 'block') suggest();
+                });
+            });
         })();
     </script>
 }

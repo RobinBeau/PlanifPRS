@@ -14,6 +14,69 @@
     <link rel="stylesheet" href="~/css/create-prs.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/edit-prs.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/robia.css" asp-append-version="true" />
+    <style>
+
+        /* Styles légers pour la liste des suggestions (uniforme avec Create) */
+        #robia-suggestions .sugg-list {
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+        }
+
+        #robia-suggestions .sugg-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: .75rem;
+            border: 1px solid #e9ecef;
+            border-radius: .5rem;
+            padding: .6rem .75rem;
+            cursor: pointer;
+            background: #fff;
+        }
+
+            #robia-suggestions .sugg-item:hover {
+                background: #f8f9fa;
+            }
+
+            #robia-suggestions .sugg-item.active {
+                outline: 2px solid #198754;
+                background: #f3fff6;
+            }
+
+        #robia-suggestions .sugg-left {
+            max-width: 75%;
+        }
+
+        #robia-suggestions .sugg-dates {
+            font-weight: 600;
+        }
+
+        #robia-suggestions .sugg-reason {
+            color: #555;
+            font-size: .92rem;
+            margin-top: .15rem;
+        }
+
+        #robia-suggestions .sugg-right {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+
+        #robia-suggestions .sugg-score {
+            background: #eef2f7;
+            color: #111;
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: .8rem;
+        }
+
+        #robia-suggestions .robia-sugg-empty {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
 }
 
 <div class="page-container">
@@ -927,62 +990,189 @@
             });
         });
 
-        // ROBIA inline (suggestions IA)
+        // ROBIA inline (suggestions IA) — unifié avec Create: plusieurs alternatives + exclusion du créneau actuel
         (function () {
             const btn = document.getElementById('suggest-slot-btn');
             const container = document.getElementById('robia-suggestions');
             const content = document.getElementById('suggestions-content');
-            if (!btn) return;
+            const applyBtn = document.getElementById('apply-suggestion');
+            const altBtn = document.getElementById('show-alternatives');
+            const closeBtn = document.getElementById('close-suggestions');
+
+            if (!btn || !container || !content) return;
+
+            let lastSuggestions = [];
+            let selectedIndex = 0;
+
+            function parseUtc(utcStr) {
+                const s = utcStr?.endsWith('Z') ? utcStr : (utcStr + 'Z');
+                const d = new Date(s);
+                return d;
+            }
+            function toInputValueLocal(d) {
+                const pad = n => String(n).padStart(2, '0');
+                const yyyy = d.getFullYear();
+                const MM = pad(d.getMonth() + 1);
+                const dd = pad(d.getDate());
+                const hh = pad(d.getHours());
+                const mm = pad(d.getMinutes());
+                return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
+            }
+            function sameMinute(a, b) {
+                return a.getFullYear() === b.getFullYear()
+                    && a.getMonth() === b.getMonth()
+                    && a.getDate() === b.getDate()
+                    && a.getHours() === b.getHours()
+                    && a.getMinutes() === b.getMinutes();
+            }
+            function formatDisplay(date) {
+                try {
+                    return new Intl.DateTimeFormat('fr-FR', {
+                        weekday: 'short', year: 'numeric', month: '2-digit', day: '2-digit',
+                        hour: '2-digit', minute: '2-digit'
+                    }).format(date);
+                } catch { return date.toLocaleString(); }
+            }
+            function getCurrentSlot() {
+                const deb = document.getElementById('Prs_DateDebut')?.value;
+                const fin = document.getElementById('Prs_DateFin')?.value;
+                if (!deb || !fin) return null;
+                const a = new Date(deb), b = new Date(fin);
+                if (isNaN(a) || isNaN(b)) return null;
+                return { start: a, end: b };
+            }
+            function computeDurationHours() {
+                // Admin: prend la sélection si présente, sinon calcule depuis Début/Fin; sinon défaut 8h
+                const select = document.getElementById('duration-select');
+                if (select && select.value) return parseInt(select.value, 10) || 8;
+                const cur = getCurrentSlot();
+                if (cur) {
+                    const h = Math.max(1, Math.round((cur.end - cur.start) / 3600000));
+                    return h;
+                }
+                return 8;
+            }
+
+            function renderSuggestions(list) {
+                content.innerHTML = '';
+                const wrap = document.createElement('div');
+                wrap.className = 'sugg-list';
+
+                if (!list || !list.length) {
+                    const empty = document.createElement('div');
+                    empty.className = 'robia-sugg-empty';
+                    empty.textContent = 'Aucune alternative disponible.';
+                    wrap.appendChild(empty);
+                    content.appendChild(wrap);
+                    applyBtn?.setAttribute('disabled', 'disabled');
+                    return;
+                }
+
+                list.forEach((s, idx) => {
+                    const start = parseUtc(s.dateDebut);
+                    const end = parseUtc(s.dateFin);
+
+                    const row = document.createElement('div');
+                    row.className = 'sugg-item';
+                    row.dataset.index = String(idx);
+
+                    const left = document.createElement('div');
+                    left.className = 'sugg-left';
+                    left.innerHTML = `
+                        <div class="sugg-dates">${formatDisplay(start)} → ${formatDisplay(end)}</div>
+                        <div class="sugg-reason">${s.raison || ''}</div>
+                    `;
+
+                    const right = document.createElement('div');
+                    right.className = 'sugg-right';
+                    const score = document.createElement('span');
+                    score.className = 'sugg-score';
+                    score.textContent = `Score ${s.score}`;
+                    right.appendChild(score);
+
+                    row.appendChild(left);
+                    row.appendChild(right);
+                    row.addEventListener('click', () => selectIndex(idx));
+                    wrap.appendChild(row);
+                });
+
+                content.appendChild(wrap);
+                // Sélection par défaut: 1ère ligne
+                selectedIndex = 0;
+                highlightSelected();
+                applyBtn?.removeAttribute('disabled');
+            }
+
+            function highlightSelected() {
+                const rows = content.querySelectorAll('.sugg-item');
+                rows.forEach((r, i) => {
+                    if (i === selectedIndex) r.classList.add('active');
+                    else r.classList.remove('active');
+                });
+            }
+
+            function selectIndex(i) {
+                if (!lastSuggestions.length) return;
+                selectedIndex = Math.max(0, Math.min(i, lastSuggestions.length - 1));
+                highlightSelected();
+            }
+
+            async function fetchSuggestions() {
+                const ligneIdRaw = document.getElementById('ligne-select')?.value || '';
+                const ligneId = parseInt(ligneIdRaw, 10);
+                if (!ligneId) {
+                    content.innerHTML = '<div class="robia-sugg-empty">Veuillez d’abord sélectionner une ligne.</div>';
+                    container.style.display = 'block';
+                    return [];
+                }
+
+                const equipement = document.getElementById('Prs_Equipement')?.value || null;
+                const duration = computeDurationHours();
+
+                const body = {
+                    LigneId: ligneId,
+                    Equipement: equipement,
+                    DurationHours: duration
+                };
+
+                const resp = await fetch('/api/ai-suggestions/suggest-slot', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok || !data?.success) {
+                    throw new Error(data?.message || 'Erreur lors de la récupération des suggestions');
+                }
+                return Array.isArray(data.suggestions) ? data.suggestions : [];
+            }
 
             async function suggest() {
                 try {
                     btn.classList.add('analyzing');
                     btn.disabled = true;
+                    content.innerHTML = '<div class="robia-sugg-empty">Analyse en cours...</div>';
+                    container.style.display = 'block';
 
-                    const equipement = document.getElementById('Prs_Equipement')?.value || '';
-                    const duration = parseInt(document.getElementById('duration-select')?.value || '8');
+                    const raw = await fetchSuggestions();
 
-                    const body = {
-                        Equipement: equipement || 'CMS',
-                        DurationHours: duration || 8,
-                        LigneId: parseInt(document.getElementById('ligne-select')?.value || '0') || null
-                    };
-
-                    const resp = await fetch('/api/ai-suggestions/suggest-slot', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(body)
-                    });
-                    const data = await resp.json();
-
-                    if (!resp.ok || !data.success) {
-                        content.innerHTML = '<div class="alert alert-danger">Erreur ROBIA: ' + (data.message || 'inconnue') + '</div>';
-                        container.style.display = 'block';
-                        return;
+                    // Exclure le créneau identique au courant (sur Edit)
+                    const cur = getCurrentSlot();
+                    let filtered = raw;
+                    if (cur) {
+                        filtered = raw.filter(s => {
+                            const sStart = parseUtc(s.dateDebut);
+                            const sEnd = parseUtc(s.dateFin);
+                            return !(sameMinute(cur.start, sStart) && sameMinute(cur.end, sEnd));
+                        });
                     }
 
-                    const s = data.suggestions?.[0];
-                    if (s) {
-                        content.innerHTML = '' +
-                          '<div class="suggestion-main p-3">' +
-                            '<div class="robia-score mb-3"><div class="score-number">' + s.score + '</div><div>Score</div></div>' +
-                            '<div><strong>Début:</strong> ' + s.dateDebut.replace('T',' ') + '</div>' +
-                            '<div><strong>Fin:</strong> ' + s.dateFin.replace('T',' ') + '</div>' +
-                            '<div class="mt-2"><em>' + (s.raison || '') + '</em></div>' +
-                          '</div>';
-                        container.style.display = 'block';
-                        document.getElementById('apply-suggestion')?.addEventListener('click', () => {
-                            const start = s.dateDebut?.slice(0,16); const end = s.dateFin?.slice(0,16);
-                            const deb = document.getElementById('Prs_DateDebut'); const fin = document.getElementById('Prs_DateFin');
-                            if (deb && fin) { deb.value = start; fin.value = end; }
-                        }, { once: true });
-                    } else {
-                        content.innerHTML = '<div class="alert alert-warning">Aucune suggestion trouvée.</div>';
-                        container.style.display = 'block';
-                    }
+                    // Garder jusqu'à 5
+                    lastSuggestions = filtered.slice(0, 5);
+                    renderSuggestions(lastSuggestions);
                 } catch (e) {
                     console.error('[ROBIA] Exception', e);
-                    content.innerHTML = '<div class="alert alert-danger">Erreur: ' + (e?.message || e) + '</div>';
+                    content.innerHTML = `<div class="alert alert-danger">Erreur ROBIA: ${(e && e.message) || e}</div>`;
                     container.style.display = 'block';
                 } finally {
                     btn.classList.remove('analyzing');
@@ -990,9 +1180,44 @@
                 }
             }
 
+            function applySelected() {
+                if (!lastSuggestions.length) return;
+                const s = lastSuggestions[selectedIndex];
+                if (!s) return;
+
+                const start = parseUtc(s.dateDebut);
+                const end = parseUtc(s.dateFin);
+
+                const deb = document.getElementById('Prs_DateDebut');
+                const fin = document.getElementById('Prs_DateFin');
+                if (deb && fin) {
+                    deb.value = toInputValueLocal(start);
+                    fin.value = toInputValueLocal(end);
+                }
+            }
+
+            function rotateAlternative() {
+                if (lastSuggestions.length > 1) {
+                    selectedIndex = (selectedIndex + 1) % lastSuggestions.length;
+                    highlightSelected();
+                    return;
+                }
+                // Si aucune autre alternative en mémoire, relancer une analyse
+                suggest();
+            }
+
             btn.addEventListener('click', suggest);
-            document.getElementById('close-suggestions')?.addEventListener('click', () => { container.style.display = 'none'; });
-            document.getElementById('show-alternatives')?.addEventListener('click', suggest);
+            applyBtn?.addEventListener('click', applySelected);
+            altBtn?.addEventListener('click', rotateAlternative);
+            closeBtn?.addEventListener('click', () => { container.style.display = 'none'; });
+
+            // Auto-regénération quand la ligne/équipement/durée changent (parité avec Create)
+            ['ligne-select', 'Prs_Equipement', 'duration-select', 'Prs_DateDebut', 'Prs_DateFin'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('change', () => {
+                    if (container.style.display === 'block') suggest();
+                });
+            });
         })();
     </script>
 }
