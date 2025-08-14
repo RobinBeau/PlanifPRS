@@ -86,6 +86,12 @@
             <input type="hidden" asp-for="Prs.Id" />
             <input type="hidden" asp-for="Prs.DateCreation" />
             <input type="hidden" asp-for="Prs.CreatedByLogin" />
+            @* Toujours poster les dates même en lecture seule *@
+            @if (!canEdit)
+            {
+                <input type="hidden" asp-for="Prs.DateDebut" value="@Model.Prs.DateDebut.ToString("yyyy-MM-ddTHH:mm")" />
+                <input type="hidden" asp-for="Prs.DateFin" value="@Model.Prs.DateFin.ToString("yyyy-MM-ddTHH:mm")" />
+            }
 
             <div class="col-md-6">
                 <label asp-for="Prs.Titre" class="form-label"><i class="fas fa-tag"></i> Titre de la PRS</label>
@@ -100,6 +106,10 @@
                     <option value="CMS">🏭 CMS</option>
                     <option value="Finition">✨ Finition</option>
                 </select>
+                @if (!canEdit)
+                {
+                    <input type="hidden" name="Prs.Equipement" value="@Model.Prs.Equipement" />
+                }
             </div>
 
             <div class="col-md-6">
@@ -119,6 +129,10 @@
                     <option value="Besoin opérateur">👨‍🔧 Besoin opérateur</option>
                     <option value="Aucun">❌ Aucun</option>
                 </select>
+                @if (!canEdit)
+                {
+                    <input type="hidden" name="Prs.BesoinOperateur" value="@Model.Prs.BesoinOperateur" />
+                }
             </div>
 
             <div class="col-md-6">
@@ -129,6 +143,10 @@
                     <option value="Client absent">❌ Client absent</option>
                     <option value="Non spécifié">❓ Non spécifié</option>
                 </select>
+                @if (!canEdit)
+                {
+                    <input type="hidden" name="Prs.PresenceClient" value="@Model.Prs.PresenceClient" />
+                }
             </div>
 
             <!-- ROB.I.A -->
@@ -225,6 +243,10 @@
                 <select asp-for="Prs.LigneId" asp-items="Model.LigneList" class="form-select @(!canEdit ? "readonly-field" : "")" id="ligne-select" disabled="@(!canEdit)" required>
                     <option value="">-- Choisir une ligne --</option>
                 </select>
+                @if (!canEdit)
+                {
+                    <input type="hidden" name="Prs.LigneId" value="@Model.Prs.LigneId" />
+                }
                 <span asp-validation-for="Prs.LigneId" class="text-danger"></span>
             </div>
 
@@ -237,6 +259,10 @@
                         <option value="@fam.Id" selected="@(Model.Prs.FamilleId == fam.Id)">@fam.Libelle</option>
                     }
                 </select>
+                @if (!canEdit)
+                {
+                    <input type="hidden" name="Prs.FamilleId" value="@(Model.Prs.FamilleId?.ToString() ?? "")" />
+                }
             </div>
 
             <!-- Liens PRS -->
@@ -299,6 +325,7 @@
                         <input type="color" class="form-control form-control-color readonly-field" style="width: 60px; height: 38px;" readonly value="@Model.Prs.CouleurPRS" />
                         <input type="text" class="form-control readonly-field" readonly value="@Model.Prs.CouleurPRS" />
                     </div>
+                    <input type="hidden" name="Prs.CouleurPRS" value="@Model.Prs.CouleurPRS" />
                 </div>
             }
 
@@ -515,18 +542,18 @@
             </div>
 
             <div class="col-12 text-center">
-                
-                    <!-- Appelle le handler OnPostCreateNewAsync ci-dessous -->
-                    <button type="submit" asp-page-handler="CreateNew" class="btn btn-success btn-lg px-5 me-3">
-                        <i class="fas fa-save me-2"></i>Enregistrer
-                    </button>
-                
+
+                <!-- Appelle le handler OnPostCreateNewAsync ci-dessous -->
+                <button type="submit" asp-page-handler="CreateNew" class="btn btn-success btn-lg px-5 me-3">
+                    <i class="fas fa-save me-2"></i>Enregistrer
+                </button>
+
                 <a href="javascript:history.back()" class="btn btn-secondary btn-lg px-5">
                     <i class="fas fa-times me-2"></i>@(canEdit ? "Annuler" : "Retour")
                 </a>
 
             </div>
-            
+
         </form>
     </div>
 </div>

@@ -100,6 +100,10 @@
                     <option value="CMS">🏭 CMS</option>
                     <option value="Finition">✨ Finition</option>
                 </select>
+                @if (!canEdit)
+                {
+                    <input type="hidden" name="Prs.Equipement" value="@Model.Prs.Equipement" />
+                }
             </div>
 
             <div class="col-md-6">
@@ -119,6 +123,10 @@
                     <option value="Besoin opérateur">👨‍🔧 Besoin opérateur</option>
                     <option value="Aucun">❌ Aucun</option>
                 </select>
+                @if (!canEdit)
+                {
+                    <input type="hidden" name="Prs.BesoinOperateur" value="@Model.Prs.BesoinOperateur" />
+                }
             </div>
 
             <div class="col-md-6">
@@ -129,6 +137,10 @@
                     <option value="Client absent">❌ Client absent</option>
                     <option value="Non spécifié">❓ Non spécifié</option>
                 </select>
+                @if (!canEdit)
+                {
+                    <input type="hidden" name="Prs.PresenceClient" value="@Model.Prs.PresenceClient" />
+                }
             </div>
 
             <!-- ROB.I.A -->
@@ -161,7 +173,7 @@
                                         <option value="1">⏱️ 1h</option>
                                         <option value="2">⏱️ 2h</option>
                                         <option value="4">🕐 4h</option>
-                                        <option value="8" selected>🕓 8h</option>
+                                        <option value="8">🕓 8h</option>
                                         <option value="16">📅 16h</option>
                                         <option value="24">📅 24h</option>
                                         <option value="40">📅 40h</option>
@@ -225,6 +237,10 @@
                 <select asp-for="Prs.LigneId" asp-items="Model.LigneList" class="form-select @(!canEdit ? "readonly-field" : "")" id="ligne-select" disabled="@(!canEdit)" required>
                     <option value="">-- Choisir une ligne --</option>
                 </select>
+                @if (!canEdit)
+                {
+                    <input type="hidden" name="Prs.LigneId" value="@Model.Prs.LigneId" />
+                }
                 <span asp-validation-for="Prs.LigneId" class="text-danger"></span>
             </div>
 
@@ -237,6 +253,10 @@
                         <option value="@fam.Id" selected="@(Model.Prs.FamilleId == fam.Id)">@fam.Libelle</option>
                     }
                 </select>
+                @if (!canEdit)
+                {
+                    <input type="hidden" name="Prs.FamilleId" value="@(Model.Prs.FamilleId?.ToString() ?? "")" />
+                }
             </div>
 
             <!-- Liens PRS -->
@@ -299,73 +319,13 @@
                         <input type="color" class="form-control form-control-color readonly-field" style="width: 60px; height: 38px;" readonly value="@Model.Prs.CouleurPRS" />
                         <input type="text" class="form-control readonly-field" readonly value="@Model.Prs.CouleurPRS" />
                     </div>
+                    <input type="hidden" name="Prs.CouleurPRS" value="@Model.Prs.CouleurPRS" />
                 </div>
             }
 
             <div class="col-md-12">
                 <label asp-for="Prs.InfoDiverses" class="form-label"><i class="fas fa-comment-alt"></i> Informations complémentaires</label>
                 <textarea asp-for="Prs.InfoDiverses" class="form-control @(!canEdit ? "readonly-field" : "")" readonly="@(!canEdit)" rows="3"></textarea>
-            </div>
-
-            <!-- Pièces jointes -->
-            <div class="col-md-12">
-                <div class="card border-primary">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-file-upload me-2"></i>Pièces jointes</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="file-upload-container @(canEdit ? "" : "disabled-field")" id="dropZone">
-                            <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
-                            <p class="file-upload-text">
-                                Glissez-déposez vos fichiers ici ou <strong>cliquez pour sélectionner</strong>
-                            </p>
-                            <input type="file" multiple name="UploadedFiles" class="file-upload-input" id="fileUpload" @(canEdit ? null : "disabled") />
-                            <div class="progress-container" id="uploadProgress">
-                                <div class="progress-bar" id="progressBar"></div>
-                            </div>
-                            <p class="upload-limits">
-                                <i class="fas fa-info-circle"></i> Taille max: 100 Mo par fichier | Tous formats acceptés
-                            </p>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h6 class="mt-2">Fichiers existants</h6>
-                                <ul class="file-list" id="existingFileList">
-                                    @foreach (var f in Model.PrsFichiers)
-                                    {
-                                        <li class="file-item" data-file-id="@f.Id" data-file-path="@f.CheminFichier">
-                                            <div class="d-flex align-items-center">
-                                                <i class="fas fa-file file-icon"></i>
-                                                <span class="file-name">@f.NomOriginal</span>
-                                                <span class="file-size">(@(Math.Round((decimal)f.Taille / 1024m / 1024m, 2)) Mo)</span>
-                                            </div>
-                                            <div class="d-flex align-items-center">
-                                                <a class="btn btn-sm btn-outline-primary me-2"
-                                                   href="@Url.Page("Edit", "DownloadFile", new { id = Model.Prs.Id, fileId = f.Id })"
-                                                   title="Télécharger">
-                                                    <i class="fas fa-download"></i>
-                                                </a>
-                                                <button type="button"
-                                                        class="btn btn-sm btn-outline-danger remove-file"
-                                                        data-file-id="@f.Id"
-                                                        title="Supprimer"
-                                                @(canEdit ? null : "disabled")>
-                                                    <i class="fas fa-trash-alt"></i>
-                                                </button>
-                                            </div>
-                                        </li>
-                                    }
-                                </ul>
-                            </div>
-
-                            <div class="col-md-6">
-                                <h6 class="mt-2">Nouveaux fichiers (à uploader)</h6>
-                                <ul class="file-list" id="newFileList"></ul>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Affectations PRS -->
@@ -420,10 +380,12 @@
                             {
                                 <li class="list-group-item d-flex align-items-center" data-existing="true" data-affectation-id="@a.Id" data-type="@a.Type">
                                     <i class="fas @(a.Type == "Utilisateur" ? "fa-user" : "fa-users") me-2"></i>
-                                    <span class="me-auto">@a.Name @if (!string.IsNullOrEmpty(a.Info))
+                                    <span class="me-auto">
+                                        @a.Name @if (!string.IsNullOrEmpty(a.Info))
                                         {
                                             <span class="text-muted">(@a.Info)</span>
-                                        }</span>
+                                        }
+                                    </span>
                                     <button type="button" class="btn btn-sm btn-outline-danger btn-remove-aff" title="Retirer cette affectation" @(canEdit ? null : "disabled")>
                                         <i class="fas fa-trash"></i>
                                     </button>
@@ -512,21 +474,32 @@
                 </div>
             </div>
 
-            <div class="col-12 text-center">
-                @if (canEdit)
-                {
-                    <button type="submit" class="btn btn-primary btn-lg px-5 me-3"><i class="fas fa-save me-2"></i>Enregistrer les modifications</button>
-                }
-                <a href="javascript:history.back()" class="btn btn-secondary btn-lg px-5">
-                    <i class="fas @(canEdit ? "fa-times" : "fa-arrow-left") me-2"></i>@(canEdit ? "Annuler" : "Retour")
-                </a>
-               
-            </div>
-            @* Bouton Cloner (toujours visible) *@
-            <div class="mt-3">
-                <a class="btn btn-success" asp-page="/Clone" asp-route-id="@Model.Prs.Id">
-                    <i class="fas fa-clone me-1"></i> Cloner cette PRS
-                </a>
+            <div class="col-12">
+                <div class="actions-bar border-top pt-3 mt-2">
+                    <div class="btn-toolbar justify-content-center flex-wrap gap-2" role="toolbar" aria-label="Actions PRS">
+                        <div class="btn-group btn-group-lg" role="group" aria-label="Annuler">
+                            <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                                <i class="fas @(canEdit ? "fa-times" : "fa-arrow-left") me-2"></i>@(canEdit ? "Annuler" : "Retour")
+                            </a>
+                        </div>
+
+                        <div class="btn-group btn-group-lg" role="group" aria-label="Cloner">
+                            <a class="btn btn-success px-4"
+                               asp-page="/Clone" asp-route-id="@Model.Prs.Id" title="Créer une nouvelle PRS à partir de celle-ci">
+                                <i class="fas fa-clone me-2"></i>Cloner cette PRS
+                            </a>
+                        </div>
+
+                        @if (canEdit)
+                        {
+                            <div class="btn-group btn-group-lg" role="group" aria-label="Enregistrer">
+                                <button type="submit" class="btn btn-robia px-5">
+                                    <i class="fas fa-save me-2"></i>Enregistrer les modifications
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
             </div>
         </form>
     </div>
@@ -593,15 +566,12 @@
                 return false;
             }
 
-            // Premier essai direct
             if (!trySetPrsSource()) {
-                // Poll court pour attendre le remplissage asynchrone du manager
-                let attempts = 0, max = 100; // ~5s avec 50ms
+                let attempts = 0, max = 100;
                 const timer = setInterval(() => {
                     attempts++;
                     if (trySetPrsSource() || attempts >= max) {
                         if (!trySetPrsSource() && prsSel) {
-                            // Fallback: injecte l'option si elle n'est pas encore présente
                             const opt = new Option('PRS #' + prsId + ' (courante)', String(prsId), true, true);
                             prsSel.appendChild(opt);
                             prsSel.dispatchEvent(new Event('change', { bubbles: true }));
@@ -612,7 +582,7 @@
                 }, 50);
             }
 
-            // 4) Le manager écrase parfois le hidden au démarrage: re-force après 300ms
+            // 4) Fix post-init si le manager écrase le hidden
             setTimeout(() => {
                 try {
                     const parsed = JSON.parse(hidden?.value || '{}');
@@ -620,7 +590,6 @@
                         if (hidden) hidden.value = JSON.stringify({ type: 'copy', sourceId: prsId, elements: [] });
                         if (typeSel) typeSel.value = 'copy';
                         updateChecklistTypeVisibility();
-                        // Déclenche une mise à jour globale pour le manager
                         typeSel?.dispatchEvent(new Event('change', { bubbles: true }));
                         prsSel?.dispatchEvent(new Event('change', { bubbles: true }));
                         console.warn('[EDIT] Checklist: hidden restauré (post-init manager).');
@@ -629,11 +598,6 @@
                     console.error('[EDIT] Post-init checklist fix error:', e);
                 }
             }, 300);
-
-            console.log('[EDIT] ChecklistData (init hidden):', hidden ? hidden.value : null);
-
-            // Change handler pour afficher/cacher les sections quand l'utilisateur modifie le type
-            typeSel?.addEventListener('change', updateChecklistTypeVisibility);
         });
     </script>
 
@@ -641,7 +605,77 @@
     <script src="~/js/checklist-manager.js" asp-append-version="true"></script>
 
     <script>
-        // Semaine (utilisateurs non-admin)
+        // ============== Parité ROBIA avec Create: durée -> met à jour DateFin, et initialisation de la durée ==============
+        (function () {
+            if (!(canEdit && isAdminOrValidateur)) return;
+
+            const startInput = document.getElementById('Prs_DateDebut');
+            const endInput = document.getElementById('Prs_DateFin');
+            const durationSelect = document.getElementById('duration-select');
+            const allowedHours = [1, 2, 4, 8, 16, 24, 40];
+
+            if (!startInput || !endInput || !durationSelect) return;
+
+            function parseLocal(dt) {
+                // dt au format "YYYY-MM-DDTHH:mm"
+                if (!dt) return null;
+                const d = new Date(dt);
+                return isNaN(d.getTime()) ? null : d;
+            }
+
+            function toLocalDatetimeValue(date) {
+                // Renvoie "YYYY-MM-DDTHH:mm" en local
+                const pad = (n) => String(n).padStart(2, '0');
+                const y = date.getFullYear();
+                const m = pad(date.getMonth() + 1);
+                const d = pad(date.getDate());
+                const hh = pad(date.getHours());
+                const mm = pad(date.getMinutes());
+                return `${y}-${m}-${d}T${hh}:${mm}`;
+            }
+
+            function nearestAllowedHour(hours) {
+                let best = allowedHours[0];
+                let bestDiff = Math.abs(hours - best);
+                for (const h of allowedHours) {
+                    const diff = Math.abs(hours - h);
+                    if (diff < bestDiff) { best = h; bestDiff = diff; }
+                }
+                return best;
+            }
+
+            function syncDurationFromDates() {
+                const s = parseLocal(startInput.value);
+                const e = parseLocal(endInput.value);
+                if (!s || !e) return;
+                const diffMs = e - s;
+                const diffH = Math.max(0, diffMs / 36e5);
+                const h = nearestAllowedHour(diffH);
+                durationSelect.value = String(h);
+            }
+
+            function updateEndFromDuration() {
+                const s = parseLocal(startInput.value);
+                if (!s) return;
+                const hours = parseInt(durationSelect.value || '8', 10) || 8;
+                const e = new Date(s.getTime() + hours * 3600000);
+                endInput.value = toLocalDatetimeValue(e);
+            }
+
+            // Au chargement: caler le select sur l'écart actuel (si possible)
+            syncDurationFromDates();
+
+            // Quand on change la durée: recalculer la fin
+            durationSelect.addEventListener('change', updateEndFromDuration);
+
+            // Quand on change le début: recalcule la fin avec la durée sélectionnée
+            startInput.addEventListener('change', updateEndFromDuration);
+
+            // Si l'utilisateur modifie la fin: recaler la durée sur la plus proche
+            endInput.addEventListener('change', syncDurationFromDates);
+        })();
+
+        // ============== Semaine (utilisateurs non-admin) ==============
         const hiddenDateDebutInput = document.querySelector("#hiddenDateDebut");
         const hiddenDateFinInput = document.querySelector("#hiddenDateFin");
         const weekInfoElem = document.querySelector("#weekInfo");
@@ -783,7 +817,7 @@
             console.log('[EDIT] Lien dossier supprimé', { path });
         });
 
-        // Affectations PRS (ajout/suppression + logs via delegation) — version robuste
+        // Affectations PRS (ajout/suppression + logs via delegation)
         document.addEventListener('DOMContentLoaded', function () {
             function getList() {
                 return document.getElementById('affectationsList');
@@ -838,13 +872,11 @@
                 list.appendChild(li);
             }
 
-            console.log('[EDIT] affectationsList présent ?', !!getList());
-
             document.getElementById('addUserBtn')?.addEventListener('click', () => {
-                if (!getList()) { console.warn('[EDIT] Pas de #affectationsList au clic addUserBtn'); return; }
+                if (!getList()) { return; }
                 const sel = document.getElementById('userSelect');
                 const val = parseInt(sel?.value || '0', 10);
-                if (!val) { console.warn('[EDIT] Aucun utilisateur sélectionné'); return; }
+                if (!val) { return; }
                 const opt = sel.selectedOptions[0];
                 const name = opt?.getAttribute('data-name') || opt?.textContent || '';
                 const info = opt?.getAttribute('data-service') || '';
@@ -856,10 +888,10 @@
             });
 
             document.getElementById('addGroupBtn')?.addEventListener('click', () => {
-                if (!getList()) { console.warn('[EDIT] Pas de #affectationsList au clic addGroupBtn'); return; }
+                if (!getList()) { return; }
                 const sel = document.getElementById('groupSelect');
                 const val = parseInt(sel?.value || '0', 10);
-                if (!val) { console.warn('[EDIT] Aucun groupe sélectionné'); return; }
+                if (!val) { return; }
                 const opt = sel.selectedOptions[0];
                 const name = opt?.getAttribute('data-name') || opt?.textContent || '';
                 const count = opt?.getAttribute('data-count') || '';
@@ -884,20 +916,18 @@
                         const num = parseInt(affId, 10);
                         if (!arr.includes(num)) arr.push(num);
                         delField.value = JSON.stringify(arr);
-                        console.log('[EDIT] Affectation EXISTANTE marquée pour suppression', arr);
                     }
                 } else {
                     const nameText = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
                     const type = li.dataset.type || 'Utilisateur';
                     pending = pending.filter(x => !(x.name === nameText && x.type === type));
                     syncPending();
-                    console.log('[EDIT] Affectation (pending) retirée', { nameText, type });
                 }
                 li.remove();
             });
         });
 
-        // ROBIA inline
+        // ROBIA inline (suggestions IA)
         (function () {
             const btn = document.getElementById('suggest-slot-btn');
             const container = document.getElementById('robia-suggestions');

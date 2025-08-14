@@ -321,7 +321,8 @@ namespace PlanifPRS.Pages
                     InfoDiverses = Prs.InfoDiverses,
                     FamilleId = Prs.FamilleId,
                     LigneId = Prs.LigneId,
-                    CouleurPRS = IsAdminOrValidateur ? (string.IsNullOrWhiteSpace(Prs.CouleurPRS) ? null : Prs.CouleurPRS) : null,
+                    // Conserver la couleur (même pour non-admin) si présente dans le form
+                    CouleurPRS = string.IsNullOrWhiteSpace(Prs.CouleurPRS) ? null : Prs.CouleurPRS,
                     DateCreation = DateTime.Now,
                     DerniereModification = DateTime.Now,
                     CreatedByLogin = GetCurrentUserLogin()
@@ -335,16 +336,129 @@ namespace PlanifPRS.Pages
                 Prs.Id = newPrs.Id;
                 try
                 {
+                    // Fallback 1: affectations PRS — si aucune saisie IHM, pré-remplir depuis la PRS source
+                    if (string.IsNullOrWhiteSpace(AffectationsData) || AffectationsData.Trim() == "[]")
+                    {
+                        var srcAff = await _context.PrsAffectations.Where(a => a.PrsId == originalId).ToListAsync();
+                        if (srcAff.Any())
+                        {
+                            var list = srcAff.Select(a => new AffectationDto
+                            {
+                                id = a.UtilisateurId ?? a.GroupeId ?? 0,
+                                type = a.UtilisateurId.HasValue ? "Utilisateur" : "Groupe",
+                                name = "",
+                                info = ""
+                            }).Where(x => x.id > 0).ToList();
+                            if (list.Any())
+                            {
+                                AffectationsData = JsonSerializer.Serialize(list);
+                            }
+                        }
+                    }
+
                     await TraiterAffectationsPrsAsync();
+
+                    // Fallback 2: liens PRS — si le hidden est vide, recopier les liens
+                    if (string.IsNullOrWhiteSpace(PrsFolderLinks))
+                    {
+                        var srcLinks = await _context.LiensDossierPrs.Where(l => l.PrsId == originalId).ToListAsync();
+                        if (srcLinks.Any())
+                        {
+                            var links = srcLinks.Select(l => new FolderLinkDto { Chemin = l.Chemin, Description = l.Description }).ToList();
+                            PrsFolderLinks = JsonSerializer.Serialize(links);
+                        }
+                    }
+
+                    // Checklist: tenter l'IHM, puis fallback si rien n'a été créé
                     await TraiterChecklistsEtAffectationsAsync();
+
+                    var newHasChecklist = await _context.PrsChecklists.AnyAsync(c => c.PRSId == newPrs.Id);
+                    if (!newHasChecklist)
+                    {
+                        // Fallback 3: copier checklist + affectations depuis la PRS source
+                        var srcItems = await _context.PrsChecklists
+                            .Where(c => c.PRSId == originalId)
+                            .OrderBy(c => c.Priorite)
+                            .ThenBy(c => c.DelaiDefautJours)
+                            .ThenBy(c => c.Categorie)
+                            .ThenBy(c => c.SousCategorie)
+                            .ToListAsync();
+
+                        if (srcItems.Any())
+                        {
+                            var srcIds = srcItems.Select(i => i.Id).ToList();
+                            var affs = await _context.ChecklistAffectations
+                                .Where(a => srcIds.Contains(a.ChecklistId))
+                                .ToListAsync();
+
+                            var elements = srcItems.Select(i =>
+                            {
+                                var assignedUsers = affs.Where(a => a.ChecklistId == i.Id && a.UtilisateurId.HasValue)
+                                                        .Select(a => a.UtilisateurId!.Value).Distinct().ToList();
+                                var assignedGroups = affs.Where(a => a.ChecklistId == i.Id && a.GroupeId.HasValue)
+                                                         .Select(a => a.GroupeId!.Value).Distinct().ToList();
+
+                                return new ChecklistElementDto
+                                {
+                                    categorie = i.Categorie,
+                                    sousCategorie = i.SousCategorie,
+                                    libelle = string.IsNullOrWhiteSpace(i.Libelle) ? i.Tache : i.Libelle,
+                                    priorite = i.Priorite > 0 ? i.Priorite : 3,
+                                    delaiDefautJours = i.DelaiDefautJours > 0 ? i.DelaiDefautJours : 1,
+                                    obligatoire = i.Obligatoire,
+                                    assignedUsers = assignedUsers,
+                                    assignedGroups = assignedGroups
+                                };
+                            }).ToList();
+
+                            var dto = new ChecklistFormDto
+                            {
+                                type = "copy",
+                                sourceId = originalId,
+                                elements = elements
+                            };
+
+                            ChecklistData = JsonSerializer.Serialize(dto);
+                            await TraiterChecklistsEtAffectationsAsync();
+                            Flash += " Checklist copiée automatiquement.";
+                        }
+                    }
+
+                    // Fichiers: traiter uploads et liens via service
                     await TraiterFichiersEtLiensAsync();
+
+                    // Fallback 4: si aucun upload et aucun fichier ajouté, dupliquer les références de fichiers
+                    var hasNewFiles = await _context.PrsFichiers.AnyAsync(f => f.PrsId == newPrs.Id);
+                    if (!hasNewFiles)
+                    {
+                        var srcFiles = await _context.PrsFichiers.Where(f => f.PrsId == originalId).ToListAsync();
+                        if (srcFiles.Any())
+                        {
+                            foreach (var f in srcFiles)
+                            {
+                                _context.PrsFichiers.Add(new PrsFichier
+                                {
+                                    PrsId = newPrs.Id,
+                                    NomOriginal = f.NomOriginal,
+                                    CheminFichier = f.CheminFichier, // référence le même fichier physique
+                                    TypeMime = f.TypeMime,
+                                    Taille = f.Taille,
+                                    DateUpload = DateTime.Now,
+                                    UploadParLogin = CurrentUserLogin
+                                });
+                            }
+                            var count = await _context.SaveChangesAsync();
+                            if (count > 0)
+                                Flash += $" {srcFiles.Count} fichier(s) copiés.";
+                        }
+                    }
                 }
                 finally
                 {
                     Prs.Id = originalId;
                 }
 
-                Flash = "PRS créée avec succès ✅";
+                Flash = (Flash ?? "") + " PRS créée avec succès ✅";
                 return RedirectToPage("/Index");
             }
             catch (Exception ex)
@@ -887,13 +1001,32 @@ namespace PlanifPRS.Pages
         private string CleanEmojis(string input)
         {
             if (string.IsNullOrEmpty(input)) return input;
-            string cleanedText = Regex.Replace(input, @"[\u00A0-\u9999\uD800-\uDFFF]", "", RegexOptions.Compiled);
+
+            string cleanedText = input;
+
+            // Conserver les lettres accentuées, ne retirer que les emojis/symboles concernés
+            // 1) Emojis en paires de substituts (surrogate pairs)
+            cleanedText = Regex.Replace(cleanedText, @"[\uD83C-\uDBFF][\uDC00-\uDFFF]", "");
+
+            // 2) Variation selector-16 et Zero-Width Joiner (utilisés par les emojis)
+            cleanedText = Regex.Replace(cleanedText, @"[\uFE0F\u200D]", "");
+
+            // 3) Optionnel: retirer quelques gammes de pictogrammes (flèches/dingbats), sans toucher aux accents
+            cleanedText = Regex.Replace(cleanedText, @"[\u2190-\u21FF\u2600-\u27BF]", "");
+
+            // Remplacer l’espace insécable par un espace normal plutôt que de supprimer (préserve les mots)
+            cleanedText = cleanedText.Replace('\u00A0', ' ');
+
+            // Nettoyage du début de texte (conserve les lettres Unicode)
             cleanedText = Regex.Replace(cleanedText, @"^\s*[^\w]*\s*", "");
+
+            // Mappages explicites des libellés s’ils contiennent des emojis en entrée
             cleanedText = cleanedText.Replace("👨‍🔧 Besoin opérateur", "Besoin opérateur")
                                      .Replace("❌ Aucun", "Aucun")
                                      .Replace("✅ Client présent", "Client présent")
                                      .Replace("❌ Client absent", "Client absent")
                                      .Replace("❓ Non spécifié", "Non spécifié");
+
             return cleanedText.Trim();
         }
 

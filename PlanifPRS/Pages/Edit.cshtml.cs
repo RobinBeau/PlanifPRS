@@ -800,13 +800,32 @@ namespace PlanifPRS.Pages
         private string CleanEmojis(string input)
         {
             if (string.IsNullOrEmpty(input)) return input;
-            string cleanedText = Regex.Replace(input, @"[\u00A0-\u9999\uD800-\uDFFF]", "", RegexOptions.Compiled);
+
+            string cleanedText = input;
+
+            // Conserver les lettres accentuées, ne retirer que les emojis/symboles concernés
+            // 1) Emojis en paires de substituts (surrogate pairs)
+            cleanedText = Regex.Replace(cleanedText, @"[\uD83C-\uDBFF][\uDC00-\uDFFF]", "");
+
+            // 2) Variation selector-16 et Zero-Width Joiner (utilisés par les emojis)
+            cleanedText = Regex.Replace(cleanedText, @"[\uFE0F\u200D]", "");
+
+            // 3) Optionnel: retirer quelques gammes de pictogrammes (flèches/dingbats), sans toucher aux accents
+            cleanedText = Regex.Replace(cleanedText, @"[\u2190-\u21FF\u2600-\u27BF]", "");
+
+            // Remplacer l’espace insécable par un espace normal plutôt que de supprimer (préserve les mots)
+            cleanedText = cleanedText.Replace('\u00A0', ' ');
+
+            // Nettoyage du début de texte (conserve les lettres Unicode)
             cleanedText = Regex.Replace(cleanedText, @"^\s*[^\w]*\s*", "");
+
+            // Mappages explicites des libellés s’ils contiennent des emojis en entrée
             cleanedText = cleanedText.Replace("👨‍🔧 Besoin opérateur", "Besoin opérateur")
                                      .Replace("❌ Aucun", "Aucun")
                                      .Replace("✅ Client présent", "Client présent")
                                      .Replace("❌ Client absent", "Client absent")
                                      .Replace("❓ Non spécifié", "Non spécifié");
+
             return cleanedText.Trim();
         }
 
