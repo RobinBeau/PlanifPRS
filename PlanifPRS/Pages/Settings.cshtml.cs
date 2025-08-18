@@ -19,164 +19,264 @@ namespace PlanifPRS.Pages
             _context = context;
         }
 
-        [BindProperty]
-        public List<PrsFamille> Familles { get; set; } = new List<PrsFamille>();
+        public List<PrsFamille> FamillesPRS { get; set; } = new List<PrsFamille>();
+        public List<GroupeUtilisateurs> GroupesUtilisateurs { get; set; } = new List<GroupeUtilisateurs>();
+        public List<Utilisateur> Utilisateurs { get; set; } = new List<Utilisateur>();
+        public List<GroupeUtilisateur> GroupeUtilisateurs { get; set; } = new List<GroupeUtilisateur>();
 
-        [BindProperty]
-        public PrsFamille NewFamille { get; set; } = new PrsFamille();
-
-        public async Task<IActionResult> OnGetAsync()
+        public async Task OnGetAsync()
         {
-            // Vérification des droits d'accès (admin uniquement)
-            var login = User.Identity?.Name?.Split('\\').LastOrDefault();
-            var user = await _context.Utilisateurs
-                .FirstOrDefaultAsync(u => u.LoginWindows == login);
-
-            if (user == null || user.Droits?.ToLower() != "admin")
-            {
-                // Rediriger vers la page AccessDenied au lieu de rediriger vers Index
-                return RedirectToPage("/AccessDenied");
-            }
-
-            try
-            {
-                Familles = await _context.PrsFamilles
-                    .OrderBy(f => f.Libelle)
-                    .ToListAsync();
-
-                TempData["InfoMessage"] = $"✅ {Familles.Count} famille(s) chargée(s) - Utilisateur: {login}";
-            }
-            catch (Exception ex)
-            {
-                TempData["ErrorMessage"] = $"❌ Erreur lors du chargement des familles: {ex.Message}";
-                Familles = new List<PrsFamille>();
-            }
-
-            return Page();
+            await LoadDataAsync();
         }
 
-        public async Task<IActionResult> OnPostAsync()
+        private async Task LoadDataAsync()
         {
+            FamillesPRS = await _context.PrsFamilles.OrderBy(f => f.Libelle).ToListAsync();
+            GroupesUtilisateurs = await _context.GroupesUtilisateurs
+                .OrderBy(g => g.NomGroupe)
+                .ToListAsync();
+            Utilisateurs = await _context.Utilisateurs
+                .Where(u => u.DateDeleted == null)
+                .OrderBy(u => u.Nom)
+                .ThenBy(u => u.Prenom)
+                .ToListAsync();
+            GroupeUtilisateurs = await _context.GroupeUtilisateurs.ToListAsync();
+        }
+
+        // Méthodes helper pour les équipes
+        public int GetTeamMembersCount(int teamId)
+        {
+            return GroupeUtilisateurs.Count(gu => gu.GroupeId == teamId);
+        }
+
+        public IEnumerable<Utilisateur> GetTeamMembers(int teamId)
+        {
+            var memberIds = GroupeUtilisateurs
+                .Where(gu => gu.GroupeId == teamId)
+                .Select(gu => gu.UtilisateurId)
+                .ToList();
+
+            return Utilisateurs.Where(u => memberIds.Contains(u.Id));
+        }
+
+        // Gestion des familles PRS
+        public async Task<IActionResult> OnPostSaveFamilyAsync(int familyId, string familyName, string familyColor)
+        {
+            if (string.IsNullOrWhiteSpace(familyName) || string.IsNullOrWhiteSpace(familyColor))
+            {
+                ViewData["Error"] = "Le nom et la couleur sont obligatoires.";
+                await LoadDataAsync();
+                return Page();
+            }
+
             try
             {
-                if (!string.IsNullOrWhiteSpace(NewFamille?.Libelle))
+                if (familyId == 0)
                 {
-                    // Vérification des doublons
-                    var existingFamille = await _context.PrsFamilles
-                        .FirstOrDefaultAsync(f => f.Libelle.ToLower() == NewFamille.Libelle.ToLower());
-
-                    if (existingFamille != null)
+                    // Nouvelle famille
+                    var famille = new PrsFamille
                     {
-                        TempData["ErrorMessage"] = $"⚠️ Une famille avec le nom '{NewFamille.Libelle}' existe déjà.";
-                        return RedirectToPage();
-                    }
-
-                    // Valeur par défaut pour la couleur si vide
-                    if (string.IsNullOrWhiteSpace(NewFamille.CouleurHex))
-                    {
-                        NewFamille.CouleurHex = "#3498db";
-                    }
-
-                    _context.PrsFamilles.Add(NewFamille);
-                    await _context.SaveChangesAsync();
-
-                    TempData["SuccessMessage"] = $"✅ Famille '{NewFamille.Libelle}' ajoutée avec succès!";
+                        Libelle = familyName.Trim(),
+                        CouleurHex = familyColor.Trim()
+                    };
+                    _context.PrsFamilles.Add(famille);
+                    ViewData["Message"] = "Famille ajoutée avec succès.";
                 }
                 else
                 {
-                    TempData["ErrorMessage"] = "⚠️ Le nom de la famille est obligatoire.";
-                }
-            }
-            catch (Exception ex)
-            {
-                TempData["ErrorMessage"] = $"❌ Erreur lors de l'ajout: {ex.Message}";
-            }
-
-            return RedirectToPage();
-        }
-
-        public async Task<IActionResult> OnPostUpdateAsync()
-        {
-            try
-            {
-                var updated = Familles?.FirstOrDefault();
-                if (updated != null && updated.Id > 0)
-                {
-                    var existing = await _context.PrsFamilles.FindAsync(updated.Id);
-                    if (existing != null)
+                    // Modification famille existante
+                    var famille = await _context.PrsFamilles.FindAsync(familyId);
+                    if (famille != null)
                     {
-                        // Vérification des doublons (sauf pour l'enregistrement courant)
-                        var duplicateFamille = await _context.PrsFamilles
-                            .FirstOrDefaultAsync(f => f.Libelle.ToLower() == updated.Libelle.ToLower()
-                                               && f.Id != updated.Id);
-
-                        if (duplicateFamille != null)
-                        {
-                            TempData["ErrorMessage"] = $"⚠️ Une autre famille avec le nom '{updated.Libelle}' existe déjà.";
-                            return RedirectToPage();
-                        }
-
-                        var ancienLibelle = existing.Libelle;
-                        existing.Libelle = updated.Libelle?.Trim();
-                        existing.CouleurHex = updated.CouleurHex;
-
-                        await _context.SaveChangesAsync();
-
-                        TempData["SuccessMessage"] = $"✅ Famille '{ancienLibelle}' mise à jour vers '{existing.Libelle}'!";
+                        famille.Libelle = familyName.Trim();
+                        famille.CouleurHex = familyColor.Trim();
+                        ViewData["Message"] = "Famille modifiée avec succès.";
                     }
                     else
                     {
-                        TempData["ErrorMessage"] = "❌ Famille introuvable.";
+                        ViewData["Error"] = "Famille introuvable.";
                     }
                 }
-                else
-                {
-                    TempData["ErrorMessage"] = "⚠️ Données invalides pour la mise à jour.";
-                }
+
+                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
-                TempData["ErrorMessage"] = $"❌ Erreur lors de la mise à jour: {ex.Message}";
+                ViewData["Error"] = "Erreur lors de l'enregistrement : " + ex.Message;
             }
 
-            return RedirectToPage();
+            await LoadDataAsync();
+            return Page();
         }
 
-        public async Task<IActionResult> OnPostDeleteAsync(int id)
+        public async Task<IActionResult> OnPostDeleteFamilyAsync(int familyId)
         {
             try
             {
-                var famille = await _context.PrsFamilles.FindAsync(id);
+                var famille = await _context.PrsFamilles.FindAsync(familyId);
                 if (famille != null)
                 {
-                    // Vérifier si la famille est utilisée dans des PRS
-                    var prsUtilisant = await _context.Prs
-                        .Where(p => p.FamilleId == id)
-                        .CountAsync();
-
-                    if (prsUtilisant > 0)
-                    {
-                        TempData["ErrorMessage"] = $"⚠️ Impossible de supprimer la famille '{famille.Libelle}'. Elle est utilisée dans {prsUtilisant} PRS.";
-                        return RedirectToPage();
-                    }
-
-                    var nomFamille = famille.Libelle;
                     _context.PrsFamilles.Remove(famille);
                     await _context.SaveChangesAsync();
-
-                    TempData["SuccessMessage"] = $"✅ Famille '{nomFamille}' supprimée avec succès!";
+                    ViewData["Message"] = "Famille supprimée avec succès.";
                 }
                 else
                 {
-                    TempData["ErrorMessage"] = "❌ Famille introuvable.";
+                    ViewData["Error"] = "Famille introuvable.";
                 }
             }
             catch (Exception ex)
             {
-                TempData["ErrorMessage"] = $"❌ Erreur lors de la suppression: {ex.Message}";
+                ViewData["Error"] = "Erreur lors de la suppression : " + ex.Message;
             }
 
-            return RedirectToPage();
+            await LoadDataAsync();
+            return Page();
+        }
+
+        // Gestion des équipes
+        public async Task<IActionResult> OnPostSaveTeamAsync(int teamId, string teamName, string teamDescription)
+        {
+            if (string.IsNullOrWhiteSpace(teamName))
+            {
+                ViewData["Error"] = "Le nom de l'équipe est obligatoire.";
+                await LoadDataAsync();
+                return Page();
+            }
+
+            try
+            {
+                var currentUser = User?.Identity?.Name ?? "System";
+
+                if (teamId == 0)
+                {
+                    // Nouvelle équipe
+                    var groupe = new GroupeUtilisateurs
+                    {
+                        NomGroupe = teamName.Trim(),
+                        Description = teamDescription?.Trim() ?? "",
+                        DateCreation = DateTime.Now,
+                        CreePar = currentUser,
+                        Actif = true
+                    };
+                    _context.GroupesUtilisateurs.Add(groupe);
+                    ViewData["Message"] = "Équipe créée avec succès.";
+                }
+                else
+                {
+                    // Modification équipe existante
+                    var groupe = await _context.GroupesUtilisateurs.FindAsync(teamId);
+                    if (groupe != null)
+                    {
+                        groupe.NomGroupe = teamName.Trim();
+                        groupe.Description = teamDescription?.Trim() ?? "";
+                        ViewData["Message"] = "Équipe modifiée avec succès.";
+                    }
+                    else
+                    {
+                        ViewData["Error"] = "Équipe introuvable.";
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                ViewData["Error"] = "Erreur lors de l'enregistrement : " + ex.Message;
+            }
+
+            await LoadDataAsync();
+            return Page();
+        }
+
+        public async Task<IActionResult> OnPostDeleteTeamAsync(int teamId)
+        {
+            try
+            {
+                var groupe = await _context.GroupesUtilisateurs.FindAsync(teamId);
+                if (groupe != null)
+                {
+                    // Supprimer d'abord tous les membres de l'équipe
+                    var membres = _context.GroupeUtilisateurs.Where(gu => gu.GroupeId == teamId);
+                    _context.GroupeUtilisateurs.RemoveRange(membres);
+
+                    // Puis supprimer l'équipe
+                    _context.GroupesUtilisateurs.Remove(groupe);
+                    await _context.SaveChangesAsync();
+                    ViewData["Message"] = "Équipe supprimée avec succès.";
+                }
+                else
+                {
+                    ViewData["Error"] = "Équipe introuvable.";
+                }
+            }
+            catch (Exception ex)
+            {
+                ViewData["Error"] = "Erreur lors de la suppression : " + ex.Message;
+            }
+
+            await LoadDataAsync();
+            return Page();
+        }
+
+        public async Task<IActionResult> OnPostUpdateTeamMembersAsync(int teamId, List<int> selectedUsers)
+        {
+            try
+            {
+                // Supprimer tous les membres actuels de l'équipe
+                var currentMembers = _context.GroupeUtilisateurs.Where(gu => gu.GroupeId == teamId);
+                _context.GroupeUtilisateurs.RemoveRange(currentMembers);
+
+                // Ajouter les nouveaux membres sélectionnés
+                if (selectedUsers?.Any() == true)
+                {
+                    foreach (var userId in selectedUsers)
+                    {
+                        var groupeUtilisateur = new GroupeUtilisateur
+                        {
+                            GroupeId = teamId,
+                            UtilisateurId = userId,
+                            DateAjout = DateTime.Now
+                        };
+                        _context.GroupeUtilisateurs.Add(groupeUtilisateur);
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                ViewData["Message"] = "Membres de l'équipe mis à jour avec succès.";
+            }
+            catch (Exception ex)
+            {
+                ViewData["Error"] = "Erreur lors de la mise à jour des membres : " + ex.Message;
+            }
+
+            await LoadDataAsync();
+            return Page();
+        }
+
+        // API pour récupérer les membres d'une équipe (utilisé par AJAX)
+        public async Task<IActionResult> OnGetGetTeamMembersAsync(int teamId)
+        {
+            try
+            {
+                var members = await (from gu in _context.GroupeUtilisateurs
+                                     join u in _context.Utilisateurs on gu.UtilisateurId equals u.Id
+                                     where gu.GroupeId == teamId && u.DateDeleted == null
+                                     select new
+                                     {
+                                         id = u.Id,
+                                         nom = u.Nom,
+                                         prenom = u.Prenom,
+                                         mail = u.Mail,
+                                         service = u.Service
+                                     }).ToListAsync();
+
+                return new JsonResult(members);
+            }
+            catch (Exception)
+            {
+                return new JsonResult(new List<object>());
+            }
         }
     }
 }
