@@ -434,37 +434,42 @@
                     </div>
                 </div>
 
-                <div class="mt-3">
-                    <h6><i class="fas fa-list me-1"></i>Personnes affectées</h6>
-                    <ul id="affectationsList" class="list-group">
-                        @if (Model.AffectationsExistantesDisplay != null && Model.AffectationsExistantesDisplay.Any())
-                        {
-                            @foreach (var a in Model.AffectationsExistantesDisplay)
+                    <div class="mt-3">
+                        <h6><i class="fas fa-list me-1"></i>Personnes affectées</h6>
+                        <ul class="list-group" id="affectationsList">
+                            @if (Model.AffectationsExistantesDisplay?.Any() == true)
                             {
-                                <li class="list-group-item d-flex align-items-center" data-existing="true" data-affectation-id="@a.Id" data-type="@a.Type">
-                                    <i class="fas @(a.Type == "Utilisateur" ? "fa-user" : "fa-users") me-2"></i>
-                                    <span class="me-auto">
-                                        @a.Name @if (!string.IsNullOrEmpty(a.Info))
-                                        {
-                                            <span class="text-muted">(@a.Info)</span>
-                                        }
-                                    </span>
-                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-aff" title="Retirer cette affectation" @(canEdit ? null : "disabled")>
-                                        <i class="fas fa-trash"></i>
-                                    </button>
+                                foreach (var a in Model.AffectationsExistantesDisplay)
+                                {
+                                    <li class="list-group-item d-flex align-items-center"
+                                        data-existing="true"
+                                        data-affectation-id="@a.Id"
+                                        data-type="@a.Type">
+                                        <i class="fas @(a.Type == "Utilisateur" ? "fa-user" : "fa-users") me-2"></i>
+                                        <span class="me-auto">
+                                            @a.Name
+                                            @if (!string.IsNullOrEmpty(a.Info))
+                                            {
+                                                <span class="text-muted">(@a.Info)</span>
+                                            }
+                                        </span>
+                                        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-aff" title="Retirer cette affectation" @(canEdit ? null : "disabled")>
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </li>
+                                }
+                            }
+                            else
+                            {
+                                <li class="list-group-item text-muted">
+                                    <i class="fas fa-info-circle me-2"></i> Aucune affectation pour le moment.
                                 </li>
                             }
-                        }
-                        else
-                        {
-                            <li class="list-group-item text-muted"><i class="fas fa-info-circle me-2"></i> Aucune affectation pour le moment.</li>
-                        }
-                    </ul>
+                        </ul>
                 </div>
-
-                <input type="hidden" name="AffectationsData" id="affectationsData" value="[]" />
-                <input type="hidden" name="AffectationsToDelete" id="affectationsToDelete" value="[]" />
-            </div>
+                        <input type="hidden" name="AffectationsData" id="affectationsData" value="[]" />
+                        <input type="hidden" name="AffectationsToDelete" id="affectationsToDelete" value="[]" />
+             </div>
 
             <!-- Checklist PRS -->
             <div class="col-12">
@@ -1219,5 +1224,41 @@
                 });
             });
         })();
+
+                document.addEventListener('DOMContentLoaded', () => {
+          const dataField = document.getElementById('affectationsData');
+          const delField  = document.getElementById('affectationsToDelete');
+
+          let pending = [];
+          try { pending = dataField?.value ? JSON.parse(dataField.value) : []; } catch { pending = []; }
+
+          function syncPending() {
+            if (dataField) dataField.value = JSON.stringify(pending);
+          }
+
+          document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-remove-aff');
+            if (!btn) return;
+            const li = btn.closest('li');
+            if (!li) return;
+
+            if (li.dataset.existing === 'true') {
+              const affId = parseInt(li.dataset.affectationId, 10);
+              if (!isNaN(affId) && delField) {
+                let arr = [];
+                try { arr = delField.value ? JSON.parse(delField.value) : []; } catch { arr = []; }
+                if (!arr.includes(affId)) arr.push(affId);
+                delField.value = JSON.stringify(arr);
+              }
+            } else {
+              const nameText = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
+              const type = li.dataset.type || 'Utilisateur';
+              pending = pending.filter(x => !(x && x.name === nameText && x.type === type));
+              syncPending();
+            }
+
+            li.remove();
+          });
+        });
     </script>
 }

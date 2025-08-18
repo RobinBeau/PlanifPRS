@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -411,28 +412,78 @@ namespace PlanifPRS.Pages
             }
         }
 
+        // Remplace la méthode existante par celle-ci
         private async Task TraiterSuppressionsAffectationsPrsAsync()
         {
             if (string.IsNullOrWhiteSpace(AffectationsToDelete)) return;
+            var raw = AffectationsToDelete.Trim();
+            if (raw.Equals("[]", StringComparison.Ordinal) || raw.Equals("\"[]\"", StringComparison.Ordinal) || raw.Equals("null", StringComparison.OrdinalIgnoreCase))
+                return;
 
             try
             {
-                var ids = JsonSerializer.Deserialize<List<int>>(AffectationsToDelete);
-                if (ids?.Any() == true)
+                _logger.LogInformation("[EDIT] AffectationsToDelete brut: {raw}", raw);
+
+                // Tolérer des nombres encodés en string
+                var options = new JsonSerializerOptions { NumberHandling = JsonNumberHandling.AllowReadingFromString };
+
+                List<int>? ids = null;
+
+                // Accepter aussi un wrapper { ids: [...] } ou { affectations: [...] }
+                if (raw.StartsWith("{"))
                 {
-                    var toRemove = await _context.PrsAffectations.Where(a => ids.Contains(a.Id)).ToListAsync();
-                    if (toRemove.Any())
+                    var wrapper = JsonSerializer.Deserialize<Dictionary<string, List<int>>>(raw, options);
+                    if (wrapper != null)
                     {
-                        _context.PrsAffectations.RemoveRange(toRemove);
-                        await _context.SaveChangesAsync();
-                        Flash += $" {toRemove.Count} affectation(s) supprimée(s).";
-                        _logger.LogInformation($"[EDIT] Affectations supprimées: {string.Join(",", ids)}");
+                        if (wrapper.TryGetValue("ids", out var list1)) ids = list1;
+                        else if (wrapper.TryGetValue("affectations", out var list2)) ids = list2;
                     }
                 }
+                else
+                {
+                    ids = JsonSerializer.Deserialize<List<int>>(raw, options);
+                }
+
+                if (ids == null || ids.Count == 0)
+                {
+                    _logger.LogInformation("[EDIT] Aucun ID d'affectation à supprimer après parsing.");
+                    return;
+                }
+
+                // 1) Charger les IDs existants pour cette PRS (requête simple)
+                var existingIds = await _context.PrsAffectations
+                    .Where(a => a.PrsId == Prs.Id)
+                    .Select(a => a.Id)
+                    .ToListAsync();
+
+                if (existingIds.Count == 0)
+                {
+                    _logger.LogInformation("[EDIT] Aucune affectation en base pour PRS {PrsId}", Prs.Id);
+                    return;
+                }
+
+                // 2) Intersecter en mémoire
+                var toDeleteIds = existingIds.Intersect(ids).ToList();
+                if (toDeleteIds.Count == 0)
+                {
+                    _logger.LogWarning("[EDIT] Aucun ID à supprimer ne correspond aux affectations de la PRS {PrsId}. Demandés={Asked}, Existants={Existing}",
+                        Prs.Id, string.Join(",", ids), string.Join(",", existingIds));
+                    return;
+                }
+
+                // 3) Supprimer par clé (stubs) — évite une requête SELECT avec IN côté SQL
+                foreach (var id in toDeleteIds)
+                {
+                    _context.PrsAffectations.Remove(new PrsAffectation { Id = id });
+                }
+
+                var count = await _context.SaveChangesAsync();
+                Flash += $" {toDeleteIds.Count} affectation(s) supprimée(s).";
+                _logger.LogInformation("[EDIT] Suppression OK. PRS={PrsId}, DeletedIds={Ids}, Rows={Rows}", Prs.Id, string.Join(",", toDeleteIds), count);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[EDIT] Erreur suppression affectations PRS");
+                _logger.LogError(ex, "[EDIT] Erreur suppression affectations PRS | Reçu={raw}", AffectationsToDelete);
                 ErrorMessage += " Erreur lors de la suppression des affectations PRS.";
             }
         }
