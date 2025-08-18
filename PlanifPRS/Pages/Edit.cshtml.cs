@@ -232,7 +232,7 @@ namespace PlanifPRS.Pages
                 prsFromDb.PresenceClient = Prs.PresenceClient;
                 prsFromDb.DateDebut = Prs.DateDebut;
                 prsFromDb.DateFin = Prs.DateFin;
-                prsFromDb.Statut = Prs.Statut;
+                prsFromDb.Statut = IsAdminOrValidateur ? "Validé" : "En attente";
                 prsFromDb.InfoDiverses = Prs.InfoDiverses;
                 prsFromDb.FamilleId = Prs.FamilleId;
                 prsFromDb.LigneId = Prs.LigneId;
