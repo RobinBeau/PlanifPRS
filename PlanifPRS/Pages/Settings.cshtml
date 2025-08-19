@@ -387,6 +387,11 @@
                                                             <i class="fas fa-edit"></i> Modifier
                                                         </button>
                                                     </li>
+                                                    <li>
+                                                        <button class="dropdown-item" onclick="duplicateChecklistModele(@modele.Id)">
+                                                            <i class="fas fa-copy"></i> Dupliquer
+                                                        </button>
+                                                    </li>
                                                     <li><hr class="dropdown-divider"></li>
                                                     <li>
                                                         <form method="post" asp-page-handler="DeleteChecklistModele" class="d-inline"
@@ -1241,6 +1246,108 @@
         } catch (error) {
             console.error('Erreur lors du chargement du modèle:', error);
             alert('Erreur lors du chargement du modèle de checklist');
+        }
+    }
+
+    // Dupliquer un modèle de checklist: préremplir le formulaire avec une copie (id=0, nom préfixé)
+    async function duplicateChecklistModele(modeleId) {
+        try {
+            // Fermer les dropdowns ouverts
+            closeAllDropdowns();
+
+            const response = await fetch(`/api/checklists/modeles/${modeleId}`);
+            if (!response.ok) throw new Error('Erreur HTTP ' + response.status);
+            const data = await response.json();
+
+            // Ouvrir le formulaire en mode création (id=0)
+            document.getElementById('checklistFormContainer').style.display = 'block';
+            document.getElementById('checklistFormTitle').textContent = 'Dupliquer le modèle de checklist';
+            document.getElementById('checklistModeleId').value = '0'; // nouvelle création
+
+            // Préfixe du nom pour la copie
+            const newName = `Copie de ${data.nom}`;
+            document.getElementById('checklistNom').value = newName;
+            document.getElementById('checklistFamille').value = data.familleEquipement || '';
+            document.getElementById('checklistDescription').value = data.description || '';
+
+            // Construire les éléments (sans Id pour créer des nouveaux en base)
+            const container = document.getElementById('checklistElementsContainer');
+            container.innerHTML = '';
+            checklistElementCounter = 0;
+
+            (data.elements || []).forEach(element => {
+                const elementDiv = document.createElement('div');
+                elementDiv.className = 'card mb-2';
+                elementDiv.innerHTML = `
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label class="form-label">Catégorie *</label>
+                                <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Categorie" required>
+                                    <option value="">Sélectionner</option>
+                                    <option value="Produit" ${element.categorie === 'Produit' ? 'selected' : ''}>Produit</option>
+                                    <option value="Documentation" ${element.categorie === 'Documentation' ? 'selected' : ''}>Documentation</option>
+                                    <option value="Process" ${element.categorie === 'Process' ? 'selected' : ''}>Process</option>
+                                    <option value="Matière" ${element.categorie === 'Matière' ? 'selected' : ''}>Matière</option>
+                                    <option value="Production" ${element.categorie === 'Production' ? 'selected' : ''}>Production</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Sous-catégorie</label>
+                                <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].SousCategorie" value="${element.sousCategorie || ''}" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Libellé *</label>
+                                <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].Libelle" value="${element.libelle}" required />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Actions</label>
+                                <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeChecklistElement(this)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-3">
+                                <label class="form-label">Priorité</label>
+                                <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Priorite">
+                                    <option value="1" ${element.priorite === 1 ? 'selected' : ''}>1 - Critique</option>
+                                    <option value="2" ${element.priorite === 2 ? 'selected' : ''}>2 - Important</option>
+                                    <option value="3" ${element.priorite === 3 ? 'selected' : ''}>3 - Moyen</option>
+                                    <option value="4" ${element.priorite === 4 ? 'selected' : ''}>4 - Faible</option>
+                                    <option value="5" ${element.priorite === 5 ? 'selected' : ''}>5 - Optionnel</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Délai (jours)</label>
+                                <input type="number" class="form-control form-control-sm" name="elements[${checklistElementCounter}].DelaiDefautJours" value="${element.delaiDefautJours}" min="1" />
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check mt-4">
+                                    <input type="checkbox" class="form-check-input" name="elements[${checklistElementCounter}].Obligatoire" value="true" ${element.obligatoire ? 'checked' : ''} />
+                                    <label class="form-check-label">Obligatoire</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(elementDiv);
+                checklistElementCounter++;
+            });
+
+            // Réindexer par sécurité
+            reindexChecklistElements();
+            // Focus sur le nom pour éventuel renommage
+            document.getElementById('checklistNom').focus();
+            // Activer l'onglet des checklists si besoin
+            const btn = document.querySelector(`#settingsTabs button[data-bs-target="#checklists"]`);
+            if (btn) {
+                const t = new bootstrap.Tab(btn);
+                t.show();
+            }
+        } catch (error) {
+            console.error('Erreur lors de la duplication du modèle:', error);
+            alert('Erreur lors de la duplication du modèle de checklist');
         }
     }
 
