@@ -231,7 +231,7 @@ namespace PlanifPRS.Pages
                 prsFromDb.PresenceClient = Prs.PresenceClient;
                 prsFromDb.DateDebut = Prs.DateDebut;
                 prsFromDb.DateFin = Prs.DateFin;
-                prsFromDb.Statut = Prs.Statut;
+                prsFromDb.Statut = IsAdminOrValidateur ? "Validé" : "En attente";
                 prsFromDb.InfoDiverses = Prs.InfoDiverses;
                 prsFromDb.FamilleId = Prs.FamilleId;
                 prsFromDb.LigneId = Prs.LigneId;
@@ -317,7 +317,7 @@ namespace PlanifPRS.Pages
                     PresenceClient = CleanEmojis(Prs.PresenceClient),
                     DateDebut = Prs.DateDebut,
                     DateFin = Prs.DateFin,
-                    Statut = IsAdminOrValidateur ? (string.IsNullOrWhiteSpace(Prs.Statut) ? "Validé" : Prs.Statut) : "En attente",
+                    Statut = IsAdminOrValidateur ? "Validé" : "En attente",
                     InfoDiverses = Prs.InfoDiverses,
                     FamilleId = Prs.FamilleId,
                     LigneId = Prs.LigneId,
