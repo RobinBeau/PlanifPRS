@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -336,27 +337,85 @@ namespace PlanifPRS.Pages
                 Prs.Id = newPrs.Id;
                 try
                 {
-                    // Fallback 1: affectations PRS — si aucune saisie IHM, pré-remplir depuis la PRS source
-                    if (string.IsNullOrWhiteSpace(AffectationsData) || AffectationsData.Trim() == "[]")
+                    // Nouvelle logique: construire la liste FINALE désirée = (Affectations source - suppressions) U (ajouts IHM)
+                    _logger.LogInformation("[CLONE][CreateNew] Préparation affectations | AffectationsData='{Data}' | AffectationsToDelete='{Del}'", AffectationsData ?? "null", AffectationsToDelete ?? "null");
+
+                    // 1) Charger les affectations de la PRS source
+                    var srcAffFull = await _context.PrsAffectations
+                        .Where(a => a.PrsId == originalId)
+                        .ToListAsync();
+                    _logger.LogInformation("[CLONE][CreateNew] Source affectations count={Count}", srcAffFull.Count);
+
+                    // 2) Parser les suppressions (IDs d'affectations source)
+                    var deletedIds = new List<int>();
+                    try
                     {
-                        var srcAff = await _context.PrsAffectations.Where(a => a.PrsId == originalId).ToListAsync();
-                        if (srcAff.Any())
+                        if (!string.IsNullOrWhiteSpace(AffectationsToDelete))
                         {
-                            var list = srcAff.Select(a => new AffectationDto
+                            var raw = AffectationsToDelete.Trim();
+                            if (!(raw.Equals("[]", StringComparison.Ordinal) || raw.Equals("\"[]\"", StringComparison.Ordinal) || raw.Equals("null", StringComparison.OrdinalIgnoreCase)))
                             {
-                                id = a.UtilisateurId ?? a.GroupeId ?? 0,
-                                type = a.UtilisateurId.HasValue ? "Utilisateur" : "Groupe",
-                                name = "",
-                                info = ""
-                            }).Where(x => x.id > 0).ToList();
-                            if (list.Any())
-                            {
-                                AffectationsData = JsonSerializer.Serialize(list);
+                                deletedIds = JsonSerializer.Deserialize<List<int>>(raw, new JsonSerializerOptions { NumberHandling = JsonNumberHandling.AllowReadingFromString }) ?? new List<int>();
                             }
                         }
                     }
+                    catch (Exception exParse)
+                    {
+                        _logger.LogWarning(exParse, "[CLONE][CreateNew] Parsing AffectationsToDelete échoué, on ignore les suppressions explicites.");
+                    }
+                    _logger.LogInformation("[CLONE][CreateNew] DeletedIds count={Count}", deletedIds.Count);
 
-                    await TraiterAffectationsPrsAsync();
+                    // 3) Base = source - suppressions
+                    var baseDtos = srcAffFull
+                        .Where(a => !deletedIds.Contains(a.Id))
+                        .Select(a => new AffectationDto
+                        {
+                            id = a.UtilisateurId ?? a.GroupeId ?? 0,
+                            type = a.UtilisateurId.HasValue ? "Utilisateur" : "Groupe",
+                            name = "",
+                            info = ""
+                        })
+                        .Where(x => x.id > 0)
+                        .ToList();
+
+                    _logger.LogInformation("[CLONE][CreateNew] Base (après suppressions) count={Count}", baseDtos.Count);
+
+                    // 4) Ajouts depuis l'IHM (si non vide et != "[]")
+                    var additions = new List<AffectationDto>();
+                    if (!string.IsNullOrWhiteSpace(AffectationsData) && AffectationsData.Trim() != "[]")
+                    {
+                        try
+                        {
+                            additions = JsonSerializer.Deserialize<List<AffectationDto>>(AffectationsData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AffectationDto>();
+                        }
+                        catch (Exception exAdd)
+                        {
+                            _logger.LogWarning(exAdd, "[CLONE][CreateNew] Parsing AffectationsData échoué, aucun ajout pris en compte.");
+                            additions = new List<AffectationDto>();
+                        }
+                    }
+                    _logger.LogInformation("[CLONE][CreateNew] Additions (IHM) count={Count}", additions.Count);
+
+                    // 5) Fusion: union par clé (type:id)
+                    var merged = new List<AffectationDto>();
+                    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    void addIfNew(AffectationDto dto)
+                    {
+                        if (dto == null || dto.id <= 0 || string.IsNullOrWhiteSpace(dto.type)) return;
+                        var key = $"{dto.type}:{dto.id}";
+                        if (seen.Add(key)) merged.Add(new AffectationDto { id = dto.id, type = dto.type, name = dto.name, info = dto.info });
+                    }
+
+                    foreach (var b in baseDtos) addIfNew(b);
+                    foreach (var a in additions) addIfNew(a);
+
+                    _logger.LogInformation("[CLONE][CreateNew] Fusion finale: SourceKept={BaseCount} + Additions={AddCount} => Merged={MergedCount}", baseDtos.Count, additions.Count, merged.Count);
+
+                    // 6) Remplacer AffectationsData par le merged final puis synchroniser
+                    AffectationsData = JsonSerializer.Serialize(merged);
+                    _logger.LogInformation("[CLONE][CreateNew] AffectationsData (merged)='{Data}'", AffectationsData);
+
+                    await SynchroniserAffectationsPrsAsync();
 
                     // Fallback 2: liens PRS — si le hidden est vide, recopier les liens
                     if (string.IsNullOrWhiteSpace(PrsFolderLinks))
@@ -612,28 +671,174 @@ namespace PlanifPRS.Pages
             }
         }
 
-        private async Task TraiterSuppressionsAffectationsPrsAsync()
+        private async Task SynchroniserAffectationsPrsAsync()
         {
-            if (string.IsNullOrWhiteSpace(AffectationsToDelete)) return;
+            _logger.LogInformation("[CLONE] === DÉBUT SynchroniserAffectationsPrsAsync ===");
+            _logger.LogInformation("[CLONE] AffectationsData: '{AffectationsData}'", AffectationsData);
 
             try
             {
-                var ids = JsonSerializer.Deserialize<List<int>>(AffectationsToDelete);
-                if (ids?.Any() == true)
+                // 1. Parser les affectations désirées depuis l'IHM
+                var affectationsDesired = new List<AffectationDto>();
+                if (!string.IsNullOrEmpty(AffectationsData) && AffectationsData != "[]")
                 {
-                    var toRemove = await _context.PrsAffectations.Where(a => ids.Contains(a.Id)).ToListAsync();
-                    if (toRemove.Any())
-                    {
-                        _context.PrsAffectations.RemoveRange(toRemove);
-                        await _context.SaveChangesAsync();
-                        Flash += $" {toRemove.Count} affectation(s) supprimée(s).";
-                        _logger.LogInformation($"[EDIT] Affectations supprimées: {string.Join(",", ids)}");
-                    }
+                    affectationsDesired = JsonSerializer.Deserialize<List<AffectationDto>>(AffectationsData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AffectationDto>();
                 }
+
+                _logger.LogInformation("[CLONE] Affectations désirées: {Count}", affectationsDesired.Count);
+                foreach (var aff in affectationsDesired)
+                {
+                    _logger.LogInformation("[CLONE] Désiré: {Type} ID={Id}", aff.type, aff.id);
+                }
+
+                // 2. Charger les affectations existantes en base
+                var affectationsExistantes = await _context.PrsAffectations
+                    .Where(a => a.PrsId == Prs.Id)
+                    .ToListAsync();
+
+                _logger.LogInformation("[CLONE] Affectations existantes en base: {Count}", affectationsExistantes.Count);
+                foreach (var aff in affectationsExistantes)
+                {
+                    _logger.LogInformation("[CLONE] Existant: Id={Id} User={User} Group={Group}", aff.Id, aff.UtilisateurId, aff.GroupeId);
+                }
+
+                // 3. Déterminer les suppressions
+                var toDelete = affectationsExistantes.Where(existing =>
+                    !affectationsDesired.Any(desired =>
+                        (desired.type == "Utilisateur" && existing.UtilisateurId == desired.id) ||
+                        (desired.type == "Groupe" && existing.GroupeId == desired.id)
+                    )).ToList();
+
+                _logger.LogInformation("[CLONE] Affectations à supprimer: {Count}", toDelete.Count);
+                foreach (var aff in toDelete)
+                {
+                    _logger.LogInformation("[CLONE] À supprimer: Id={Id} User={User} Group={Group}", aff.Id, aff.UtilisateurId, aff.GroupeId);
+                }
+
+                // 4. Déterminer les ajouts
+                var toAdd = affectationsDesired.Where(desired =>
+                    !affectationsExistantes.Any(existing =>
+                        (desired.type == "Utilisateur" && existing.UtilisateurId == desired.id) ||
+                        (desired.type == "Groupe" && existing.GroupeId == desired.id)
+                    )).ToList();
+
+                _logger.LogInformation("[CLONE] Affectations à ajouter: {Count}", toAdd.Count);
+                foreach (var aff in toAdd)
+                {
+                    _logger.LogInformation("[CLONE] À ajouter: {Type} ID={Id}", aff.type, aff.id);
+                }
+
+                // 5. Appliquer
+                if (toDelete.Any())
+                {
+                    _context.PrsAffectations.RemoveRange(toDelete);
+                    _logger.LogInformation("[CLONE] Suppression de {Count} affectations", toDelete.Count);
+                }
+
+                foreach (var affectation in toAdd)
+                {
+                    var prsAffectation = new PrsAffectation
+                    {
+                        PrsId = Prs.Id,
+                        TypeAffectation = affectation.type,
+                        AffectePar = CurrentUserLogin,
+                        DateAffectation = DateTime.Now,
+                        UtilisateurId = affectation.type == "Utilisateur" ? affectation.id : (int?)null,
+                        GroupeId = affectation.type == "Groupe" ? affectation.id : (int?)null
+                    };
+                    _context.PrsAffectations.Add(prsAffectation);
+                    _logger.LogInformation("[CLONE] Ajout affectation: {Type} ID={Id}", affectation.type, affectation.id);
+                }
+
+                var changesCount = await _context.SaveChangesAsync();
+                _logger.LogInformation("[CLONE] Modifications sauvegardées: {Changes} lignes affectées", changesCount);
+
+                var totalOperations = toDelete.Count + toAdd.Count;
+                if (totalOperations > 0)
+                {
+                    Flash += $" Affectations PRS mises à jour ({toDelete.Count} supprimées, {toAdd.Count} ajoutées).";
+                }
+
+                _logger.LogInformation("[CLONE] === FIN SynchroniserAffectationsPrsAsync ===");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[EDIT] Erreur suppression affectations PRS");
+                _logger.LogError(ex, "[CLONE] Erreur lors de la synchronisation des affectations PRS");
+                ErrorMessage += " Erreur lors de la mise à jour des affectations PRS.";
+            }
+        }
+
+        private async Task TraiterSuppressionsAffectationsPrsAsync()
+        {
+            if (string.IsNullOrWhiteSpace(AffectationsToDelete)) return;
+            var raw = AffectationsToDelete.Trim();
+            if (raw.Equals("[]", StringComparison.Ordinal) || raw.Equals("\"[]\"", StringComparison.Ordinal) || raw.Equals("null", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            try
+            {
+                _logger.LogInformation("[EDIT] AffectationsToDelete brut: {raw}", raw);
+
+                // Tolérer des nombres encodés en string
+                var options = new JsonSerializerOptions { NumberHandling = JsonNumberHandling.AllowReadingFromString };
+
+                List<int>? ids = null;
+
+                // Accepter aussi un wrapper { ids: [...] } ou { affectations: [...] }
+                if (raw.StartsWith("{"))
+                {
+                    var wrapper = JsonSerializer.Deserialize<Dictionary<string, List<int>>>(raw, options);
+                    if (wrapper != null)
+                    {
+                        if (wrapper.TryGetValue("ids", out var list1)) ids = list1;
+                        else if (wrapper.TryGetValue("affectations", out var list2)) ids = list2;
+                    }
+                }
+                else
+                {
+                    ids = JsonSerializer.Deserialize<List<int>>(raw, options);
+                }
+
+                if (ids == null || ids.Count == 0)
+                {
+                    _logger.LogInformation("[EDIT] Aucun ID d'affectation à supprimer après parsing.");
+                    return;
+                }
+
+                // 1) Charger les IDs existants pour cette PRS (requête simple)
+                var existingIds = await _context.PrsAffectations
+                    .Where(a => a.PrsId == Prs.Id)
+                    .Select(a => a.Id)
+                    .ToListAsync();
+
+                if (existingIds.Count == 0)
+                {
+                    _logger.LogInformation("[EDIT] Aucune affectation en base pour PRS {PrsId}", Prs.Id);
+                    return;
+                }
+
+                // 2) Intersecter en mémoire
+                var toDeleteIds = existingIds.Intersect(ids).ToList();
+                if (toDeleteIds.Count == 0)
+                {
+                    _logger.LogWarning("[EDIT] Aucun ID à supprimer ne correspond aux affectations de la PRS {PrsId}. Demandés={Asked}, Existants={Existing}",
+                        Prs.Id, string.Join(",", ids), string.Join(",", existingIds));
+                    return;
+                }
+
+                // 3) Supprimer par clé (stubs) — évite une requête SELECT avec IN côté SQL
+                foreach (var id in toDeleteIds)
+                {
+                    _context.PrsAffectations.Remove(new PrsAffectation { Id = id });
+                }
+
+                var count = await _context.SaveChangesAsync();
+                Flash += $" {toDeleteIds.Count} affectation(s) supprimée(s).";
+                _logger.LogInformation("[EDIT] Suppression OK. PRS={PrsId}, DeletedIds={Ids}, Rows={Rows}", Prs.Id, string.Join(",", toDeleteIds), count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[EDIT] Erreur suppression affectations PRS | Reçu={raw}", AffectationsToDelete);
                 ErrorMessage += " Erreur lors de la suppression des affectations PRS.";
             }
         }
