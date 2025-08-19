@@ -410,6 +410,67 @@
                 <textarea asp-for="Prs.InfoDiverses" class="form-control @(!canEdit ? "readonly-field" : "")" readonly="@(!canEdit)" rows="3"></textarea>
             </div>
 
+             <!-- Pièces jointes -->
+            <div class="col-md-12">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-file-upload me-2"></i>Pièces jointes</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="file-upload-container @(canEdit ? "" : "disabled-field")" id="dropZone">
+                            <i class="fas fa-cloud-upload-alt file-upload-icon"></i>
+                            <p class="file-upload-text">
+                                Glissez-déposez vos fichiers ici ou <strong>cliquez pour sélectionner</strong>
+                            </p>
+                            <input type="file" multiple name="UploadedFiles" class="file-upload-input" id="fileUpload" @(canEdit ? null : "disabled") />
+                            <div class="progress-container" id="uploadProgress">
+                                <div class="progress-bar" id="progressBar"></div>
+                            </div>
+                            <p class="upload-limits">
+                                <i class="fas fa-info-circle"></i> Taille max: 100 Mo par fichier | Tous formats acceptés
+                            </p>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="mt-2">Fichiers existants</h6>
+                                <ul class="file-list" id="existingFileList">
+                                    @foreach (var f in Model.PrsFichiers)
+                                    {
+                                        <li class="file-item" data-file-id="@f.Id" data-file-path="@f.CheminFichier">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-file file-icon"></i>
+                                                <span class="file-name">@f.NomOriginal</span>
+                                                <span class="file-size">(@(Math.Round((decimal)f.Taille / 1024m / 1024m, 2)) Mo)</span>
+                                            </div>
+                                            <div class="d-flex align-items-center">
+                                                <a class="btn btn-sm btn-outline-primary me-2"
+                                                   href="@Url.Page("Edit", "DownloadFile", new { id = Model.Prs.Id, fileId = f.Id })"
+                                                   title="Télécharger">
+                                                    <i class="fas fa-download"></i>
+                                                </a>
+                                                <button type="button"
+                                                        class="btn btn-sm btn-outline-danger remove-file"
+                                                        data-file-id="@f.Id"
+                                                        title="Supprimer"
+                                                @(canEdit ? null : "disabled")>
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </div>
+                                        </li>
+                                    }
+                                </ul>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h6 class="mt-2">Nouveaux fichiers (à uploader)</h6>
+                                <ul class="file-list" id="newFileList"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Affectations PRS -->
             <div class="form-section">
                 <div class="section-header">
