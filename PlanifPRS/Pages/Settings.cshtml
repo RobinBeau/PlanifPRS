@@ -19,6 +19,11 @@
                 <i class="fas fa-users"></i> Équipes
             </button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="checklists-tab" data-bs-toggle="tab" data-bs-target="#checklists" type="button" role="tab">
+                <i class="fas fa-list-check"></i> Checklists Prédéfinies
+            </button>
+        </li>
     </ul>
 
     <div class="tab-content" id="settingsTabContent">
@@ -283,6 +288,154 @@
                 </div>
             </div>
         </div>
+
+        <!-- Onglet Checklists Prédéfinies -->
+        <div class="tab-pane fade" id="checklists" role="tabpanel">
+            <div class="card mt-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list-check"></i> Gestion des Checklists Prédéfinies
+                    </h5>
+                    <button type="button" class="btn btn-primary" onclick="showChecklistForm()">
+                        <i class="fas fa-plus"></i> Créer un modèle de checklist
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Formulaire checklist (caché par défaut) -->
+                    <div id="checklistFormContainer" class="mb-4" style="display: none;">
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0" id="checklistFormTitle">Créer un modèle de checklist</h6>
+                                <button type="button" class="btn-close btn-close-white" onclick="hideChecklistForm()"></button>
+                            </div>
+                            <div class="card-body">
+                                <!-- Ajout d'un id pour capter le submit et réindexer -->
+                                <form id="checklistForm" method="post" asp-page-handler="SaveChecklistModele">
+                                    <input type="hidden" id="checklistModeleId" name="checklistModeleId" value="0" />
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="checklistNom" class="form-label">Nom du modèle *</label>
+                                                <input type="text" class="form-control" id="checklistNom" name="checklistNom" required />
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="checklistFamille" class="form-label">Famille d'équipement *</label>
+                                                <select class="form-select" id="checklistFamille" name="checklistFamille" required>
+                                                    <option value="">Sélectionner une famille</option>
+                                                    <option value="CMS">CMS</option>
+                                                    <option value="Finition">Finition</option>
+                                                    <option value="Test">Test</option>
+                                                    <option value="Général">Général</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label for="checklistDescription" class="form-label">Description</label>
+                                        <textarea class="form-control" id="checklistDescription" name="checklistDescription" rows="3"></textarea>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <h6>Éléments de la checklist</h6>
+                                        <div id="checklistElementsContainer">
+                                            <!-- Les éléments seront ajoutés dynamiquement ici -->
+                                        </div>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addChecklistElement()">
+                                            <i class="fas fa-plus"></i> Ajouter un élément
+                                        </button>
+                                    </div>
+
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="fas fa-save"></i> Enregistrer le modèle
+                                        </button>
+                                        <button type="button" class="btn btn-secondary" onclick="hideChecklistForm()">
+                                            <i class="fas fa-times"></i> Annuler
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Liste des modèles de checklist existants -->
+                    @if (Model.ChecklistModeles?.Any() == true)
+                    {
+                        <div class="row">
+                            @foreach (var modele in Model.ChecklistModeles)
+                            {
+                                <div class="col-md-6 col-lg-4 mb-4">
+                                    <div class="card h-100 checklist-card">
+                                        <div class="card-header d-flex justify-content-between align-items-center">
+                                            <h6 class="mb-0">@modele.Nom</h6>
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    <li>
+                                                        <button class="dropdown-item" onclick="viewChecklistDetails(@modele.Id)">
+                                                            <i class="fas fa-eye"></i> Voir les détails
+                                                        </button>
+                                                    </li>
+                                                    <li>
+                                                        <button class="dropdown-item" onclick="editChecklistModele(@modele.Id)">
+                                                            <i class="fas fa-edit"></i> Modifier
+                                                        </button>
+                                                    </li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li>
+                                                        <form method="post" asp-page-handler="DeleteChecklistModele" class="d-inline"
+                                                              onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce modèle de checklist ?')">
+                                                            <input type="hidden" name="checklistModeleId" value="@modele.Id" />
+                                                            <button type="submit" class="dropdown-item text-danger">
+                                                                <i class="fas fa-trash"></i> Supprimer
+                                                            </button>
+                                                        </form>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="text-muted small mb-2">@modele.Description</p>
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <span class="badge bg-primary">@modele.FamilleEquipement</span>
+                                                <small class="text-muted">
+                                                    <i class="fas fa-list"></i> @modele.NombreElements élément(s)
+                                                </small>
+                                            </div>
+                                            <div class="mb-2">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-exclamation-circle"></i> @modele.NombreElementsObligatoires obligatoire(s)
+                                                </small>
+                                            </div>
+                                            <div class="mt-2">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-user"></i> Créé par @modele.CreatedByLogin
+                                                    <br>
+                                                    <i class="fas fa-calendar"></i> Le @modele.DateCreation.ToString("dd/MM/yyyy")
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-list-check fa-3x mb-3"></i>
+                            <p>Aucun modèle de checklist configuré</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -392,18 +545,36 @@
     </div>
 </div>
 
-@if (!string.IsNullOrEmpty(ViewData["Message"] as string))
+<!-- Modal pour voir les détails d'une checklist (backdrop désactivé) -->
+<div class="modal fade" id="checklistDetailsModal" tabindex="-1" data-bs-backdrop="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Détails de la checklist</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="checklistDetailsContent">
+                <!-- Le contenu sera chargé dynamiquement -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(TempData["Message"] as string))
 {
     <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
-        @ViewData["Message"]
+        @TempData["Message"]
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
 
-@if (!string.IsNullOrEmpty(ViewData["Error"] as string))
+@if (!string.IsNullOrEmpty(TempData["Error"] as string))
 {
     <div class="alert alert-danger alert-dismissible fade show mt-3" role="alert">
-        @ViewData["Error"]
+        @TempData["Error"]
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 }
@@ -486,6 +657,21 @@
         z-index: 10;
     }
 
+    /* Assure que les dropdowns des cartes checklist passent au-dessus des autres éléments */
+    .checklist-card {
+        position: relative;
+        z-index: 1;
+    }
+
+        .checklist-card:hover {
+            z-index: 10;
+        }
+
+        .checklist-card .dropdown-menu {
+            z-index: 1065 !important; /* au-dessus du reste */
+            position: absolute !important;
+        }
+
     @@keyframes pulse {
         0% {
             opacity: 1;
@@ -510,6 +696,15 @@
     let currentTeamId = 0;
     let isServiceFilterMode = false;
     let isCheckedFilterMode = false;
+    let checklistElementCounter = 0;
+    let checklistDetailsModal = null;
+
+    // Ferme tous les dropdowns ouverts (sécurité avant ouverture d'une modale)
+    function closeAllDropdowns() {
+        document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+            menu.classList.remove('show');
+        });
+    }
 
     // Gestion des familles
     function showFamilyForm() {
@@ -791,7 +986,277 @@
         }
     }
 
-    // Event listeners
+    // Réindexation des éléments avant submit et après suppression
+    function reindexChecklistElements() {
+        const cards = document.querySelectorAll('#checklistElementsContainer .card');
+        cards.forEach((card, idx) => {
+            card.querySelectorAll('input[name^="elements["], select[name^="elements["], textarea[name^="elements["]').forEach(el => {
+                el.name = el.name.replace(/elements\[\d+\]\./, `elements[${idx}].`);
+            });
+        });
+        checklistElementCounter = cards.length;
+    }
+
+    // Fonctions pour les checklists
+    function showChecklistForm() {
+        document.getElementById('checklistFormContainer').style.display = 'block';
+        document.getElementById('checklistFormTitle').textContent = 'Créer un modèle de checklist';
+        document.getElementById('checklistModeleId').value = '0';
+        document.getElementById('checklistNom').value = '';
+        document.getElementById('checklistFamille').value = '';
+        document.getElementById('checklistDescription').value = '';
+        document.getElementById('checklistElementsContainer').innerHTML = '';
+        checklistElementCounter = 0;
+        addChecklistElement(); // Ajouter un premier élément
+        document.getElementById('checklistNom').focus();
+    }
+
+    function hideChecklistForm() {
+        document.getElementById('checklistFormContainer').style.display = 'none';
+    }
+
+    function addChecklistElement() {
+        const container = document.getElementById('checklistElementsContainer');
+        const elementDiv = document.createElement('div');
+        elementDiv.className = 'card mb-2';
+        elementDiv.innerHTML = `
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label class="form-label">Catégorie *</label>
+                        <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Categorie" required>
+                            <option value="">Sélectionner</option>
+                            <option value="Produit">Produit</option>
+                            <option value="Documentation">Documentation</option>
+                            <option value="Process">Process</option>
+                            <option value="Matière">Matière</option>
+                            <option value="Production">Production</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Sous-catégorie</label>
+                        <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].SousCategorie" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Libellé *</label>
+                        <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].Libelle" required />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Actions</label>
+                        <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeChecklistElement(this)">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Priorité</label>
+                        <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Priorite">
+                            <option value="1">1 - Critique</option>
+                            <option value="2">2 - Important</option>
+                            <option value="3" selected>3 - Moyen</option>
+                            <option value="4">4 - Faible</option>
+                            <option value="5">5 - Optionnel</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Délai (jours)</label>
+                        <input type="number" class="form-control form-control-sm" name="elements[${checklistElementCounter}].DelaiDefautJours" value="1" min="1" />
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check mt-4">
+                            <input type="checkbox" class="form-check-input" name="elements[${checklistElementCounter}].Obligatoire" value="true" />
+                            <label class="form-check-label">Obligatoire</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.appendChild(elementDiv);
+        checklistElementCounter++;
+        // Réindexer par sécurité après ajout (facultatif mais robuste)
+        reindexChecklistElements();
+    }
+
+    function removeChecklistElement(button) {
+        button.closest('.card').remove();
+        // Réindexer immédiatement après suppression pour garder des index contigus
+        reindexChecklistElements();
+    }
+
+    async function viewChecklistDetails(modeleId) {
+        try {
+            // Fermer les dropdowns ouverts pour éviter conflits de z-index
+            closeAllDropdowns();
+
+            const response = await fetch(`/api/checklists/modeles/${modeleId}`);
+            const data = await response.json();
+
+            let content = `
+                <h6>${data.nom}</h6>
+                <p><strong>Description:</strong> ${data.description || 'Aucune description'}</p>
+                <p><strong>Famille:</strong> <span class="badge bg-primary">${data.familleEquipement}</span></p>
+                <p><strong>Créé par:</strong> ${data.createdByLogin} le ${new Date(data.dateCreation).toLocaleDateString('fr-FR')}</p>
+
+                <h6 class="mt-3">Éléments de la checklist (${data.elements.length})</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Catégorie</th>
+                                <th>Sous-catégorie</th>
+                                <th>Libellé</th>
+                                <th>Priorité</th>
+                                <th>Délai</th>
+                                <th>Obligatoire</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            data.elements.forEach(element => {
+                content += `
+                    <tr>
+                        <td>${element.categorie}</td>
+                        <td>${element.sousCategorie || '-'}</td>
+                        <td>${element.libelle}</td>
+                        <td><span class="badge" style="background-color: ${element.couleurPriorite}">${element.prioriteLibelle}</span></td>
+                        <td>${element.delaiDefautJours} jour(s)</td>
+                        <td>${element.obligatoire ? '<i class="fas fa-check text-success"></i>' : '<i class="fas fa-times text-muted"></i>'}</td>
+                    </tr>
+                `;
+            });
+
+            content += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            document.getElementById('checklistDetailsContent').innerHTML = content;
+
+            if (!checklistDetailsModal) {
+                const modalEl = document.getElementById('checklistDetailsModal');
+                // Backdrop explicitement désactivé
+                checklistDetailsModal = new bootstrap.Modal(modalEl, { backdrop: false, keyboard: true });
+
+                // Nettoyage de sécurité en cas de backdrop persistant (au cas où)
+                modalEl.addEventListener('hidden.bs.modal', () => {
+                    document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.paddingRight = '';
+                });
+            }
+
+            checklistDetailsModal.show();
+        } catch (error) {
+            console.error('Erreur lors du chargement des détails:', error);
+            alert('Erreur lors du chargement des détails de la checklist');
+        }
+    }
+
+    async function editChecklistModele(modeleId) {
+        try {
+            // Fermer les dropdowns ouverts pour éviter conflits visuels
+            closeAllDropdowns();
+
+            const response = await fetch(`/api/checklists/modeles/${modeleId}`);
+            const data = await response.json();
+
+            // Remplir le formulaire avec les données existantes
+            document.getElementById('checklistFormContainer').style.display = 'block';
+            document.getElementById('checklistFormTitle').textContent = 'Modifier le modèle de checklist';
+            document.getElementById('checklistModeleId').value = data.id;
+            document.getElementById('checklistNom').value = data.nom;
+            document.getElementById('checklistFamille').value = data.familleEquipement;
+            document.getElementById('checklistDescription').value = data.description || '';
+
+            // Vider et remplir les éléments
+            const container = document.getElementById('checklistElementsContainer');
+            container.innerHTML = '';
+            checklistElementCounter = 0;
+
+            data.elements.forEach(element => {
+                const elementDiv = document.createElement('div');
+                elementDiv.className = 'card mb-2';
+                elementDiv.innerHTML = `
+                    <div class="card-body">
+                        <input type="hidden" name="elements[${checklistElementCounter}].Id" value="${element.id}" />
+                        <div class="row">
+                            <div class="col-md-3">
+                                <label class="form-label">Catégorie *</label>
+                                <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Categorie" required>
+                                    <option value="">Sélectionner</option>
+                                    <option value="Produit" ${element.categorie === 'Produit' ? 'selected' : ''}>Produit</option>
+                                    <option value="Documentation" ${element.categorie === 'Documentation' ? 'selected' : ''}>Documentation</option>
+                                    <option value="Process" ${element.categorie === 'Process' ? 'selected' : ''}>Process</option>
+                                    <option value="Matière" ${element.categorie === 'Matière' ? 'selected' : ''}>Matière</option>
+                                    <option value="Production" ${element.categorie === 'Production' ? 'selected' : ''}>Production</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Sous-catégorie</label>
+                                <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].SousCategorie" value="${element.sousCategorie || ''}" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Libellé *</label>
+                                <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].Libelle" value="${element.libelle}" required />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Actions</label>
+                                <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeChecklistElement(this)">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-md-3">
+                                <label class="form-label">Priorité</label>
+                                <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Priorite">
+                                    <option value="1" ${element.priorite === 1 ? 'selected' : ''}>1 - Critique</option>
+                                    <option value="2" ${element.priorite === 2 ? 'selected' : ''}>2 - Important</option>
+                                    <option value="3" ${element.priorite === 3 ? 'selected' : ''}>3 - Moyen</option>
+                                    <option value="4" ${element.priorite === 4 ? 'selected' : ''}>4 - Faible</option>
+                                    <option value="5" ${element.priorite === 5 ? 'selected' : ''}>5 - Optionnel</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Délai (jours)</label>
+                                <input type="number" class="form-control form-control-sm" name="elements[${checklistElementCounter}].DelaiDefautJours" value="${element.delaiDefautJours}" min="1" />
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-check mt-4">
+                                    <input type="checkbox" class="form-check-input" name="elements[${checklistElementCounter}].Obligatoire" value="true" ${element.obligatoire ? 'checked' : ''} />
+                                    <label class="form-check-label">Obligatoire</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(elementDiv);
+                checklistElementCounter++;
+            });
+            // Réindexer par sécurité
+            reindexChecklistElements();
+        } catch (error) {
+            console.error('Erreur lors du chargement du modèle:', error);
+            alert('Erreur lors du chargement du modèle de checklist');
+        }
+    }
+
+    // Active l'onglet selon le paramètre ?tab=families|teams|checklists
+    function activateTabFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        if (!tab) return;
+        const btn = document.querySelector(`#settingsTabs button[data-bs-target="#${tab}"]`);
+        if (btn) {
+            const t = new bootstrap.Tab(btn);
+            t.show();
+        }
+    }
+
+    // Événements DOM prêts
     document.addEventListener('DOMContentLoaded', function() {
         // Synchronisation des champs couleur
         const colorPicker = document.getElementById('familyColor');
@@ -822,13 +1287,31 @@
             userSearch.addEventListener('input', filterUsers);
         }
 
-        // Écouter les changements d'onglets pour fermer le panel de gestion des membres
+        // À chaque changement d'onglet: fermer panels et modale
         const tabButtons = document.querySelectorAll('#settingsTabs button[data-bs-toggle="tab"]');
         tabButtons.forEach(button => {
             button.addEventListener('shown.bs.tab', function() {
-                // Fermer le panel de gestion des membres quand on change d'onglet
                 hideTeamMembersPanel();
+                hideChecklistForm();
+                if (checklistDetailsModal) {
+                    checklistDetailsModal.hide();
+                }
+                // Nettoyage de sécurité (au cas où)
+                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.paddingRight = '';
             });
         });
+
+        // Réindexer automatiques avant soumission du formulaire de checklist
+        const checklistForm = document.getElementById('checklistForm');
+        if (checklistForm) {
+            checklistForm.addEventListener('submit', function() {
+                reindexChecklistElements();
+            });
+        }
+
+        // Active l'onglet selon ?tab=
+        activateTabFromUrl();
     });
 </script>
