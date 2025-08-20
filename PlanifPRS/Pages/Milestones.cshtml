@@ -20,9 +20,9 @@
             </div>
             <div class="stats-summary">
                 @{
-                    var totalItems = Model.Groups?.Sum(g => g.TotalItems) ?? 0;
-                    var itemsValides = Model.Groups?.Sum(g => g.ValidatedItems) ?? 0;
-                    var itemsEnRetard = Model.Groups?.Sum(g => g.LateCount) ?? 0;
+                    var totalItems = Model.ChecklistItems?.Count ?? 0;
+                    var itemsValides = Model.ChecklistItems?.Count(j => j.IsValidated) ?? 0;
+                    var itemsEnRetard = Model.ChecklistItems?.Count(j => j.DueDate.Date < today && !j.IsValidated) ?? 0;
                     var itemsEnCours = totalItems - itemsValides - itemsEnRetard;
                 }
                 <div class="stat-badge stat-total">
@@ -76,12 +76,12 @@
         <div class="search-section">
             <div class="search-box">
                 <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" placeholder="Rechercher (PRS, libellé, catégorie)...">
+                <input type="text" id="searchInput" placeholder="Rechercher une checklist, PRS...">
             </div>
         </div>
 
         <!-- Filtres PRS (client, sans bouton) -->
-        <div class="d-flex flex-wrap gap-3 align-items-end">
+        <div class="d-flex flex-wrap gap-2 align-items-end">
             <div>
                 <label class="filter-label">
                     <i class="fas fa-diagram-project me-1"></i>PRS
@@ -107,227 +107,175 @@
                     <option value="valide">Validé</option>
                 </select>
             </div>
-
-            <!-- Quick filters -->
-            <div class="d-flex flex-wrap gap-2">
-                <button class="btn btn-outline-primary btn-sm quick-filter" data-qf="me">
-                    <i class="fas fa-user-check me-1"></i>Mes éléments
-                </button>
-                <button class="btn btn-outline-primary btn-sm quick-filter" data-qf="groups">
-                    <i class="fas fa-users me-1"></i>Mes groupes
-                </button>
-                <button class="btn btn-outline-danger btn-sm quick-filter" data-qf="late">
-                    <i class="fas fa-exclamation-triangle me-1"></i>En retard uniquement
-                </button>
-                <button class="btn btn-outline-warning btn-sm quick-filter" data-qf="today">
-                    <i class="fas fa-calendar-day me-1"></i>À valider aujourd'hui
-                </button>
-            </div>
-
-            <!-- Seuil échéance proche -->
-            <div class="d-flex align-items-center gap-2">
-                <label class="filter-label m-0">
-                    <i class="fas fa-bell me-1"></i>Échéance proche (j)
-                </label>
-                <input type="range" id="dueSoonSlider" min="1" max="14" value="3" />
-                <span id="dueSoonValue" class="badge bg-secondary">3</span>
-            </div>
         </div>
     </div>
 
-    <!-- GROUPES PRS (pliables) -->
-    <div id="prsContainer" class="accordion" data-sort-groups="asc">
-        @if (Model.Groups != null && Model.Groups.Any())
-        {
-            var groupIndex = 0;
-            foreach (var grp in Model.Groups)
+    <!-- SECTION: Suivi des checklists PRS -->
+    <div class="jalons-table-container">
+        <div class="p-3 border-bottom" style="background: rgba(248, 249, 250, 0.8);">
+            <h3 class="m-0" style="font-weight:700;color:#495057;">
+                <i class="fas fa-tasks me-2"></i>Checklists PRS
+            </h3>
+            @if (Model.ChecklistItems != null)
             {
-                var accId = $"prs-{grp.PrsId}";
-                var headingId = $"h-{grp.PrsId}";
-                var progress = grp.TotalItems > 0 ? (int)Math.Round(100.0 * grp.ValidatedItems / grp.TotalItems) : 0;
-                var statutBadgeClass = grp.PrsStatut == "Validé" ? "bg-success" : "bg-secondary";
-
-                <div class="accordion-item mb-2 prs-group" id="@accId" data-prs-title="@grp.PrsTitre" data-prsstate="@grp.PrsState">
-                    <h2 class="accordion-header" id="@headingId">
-                        <button class="accordion-button collapsed d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@grp.PrsId" aria-expanded="false" aria-controls="collapse-@grp.PrsId">
-                            <div class="w-100 d-flex align-items-center justify-content-between">
-                                <div class="d-flex flex-column">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <strong class="me-2">@grp.PrsTitre</strong>
-                                        <span class="badge @statutBadgeClass">Statut PRS: @grp.PrsStatut</span>
-                                        <span class="badge bg-info">@grp.TotalItems élément(s)</span>
-                                        <span class="badge bg-success">@grp.ValidatedItems validé(s)</span>
-                                        @if (grp.LateCount > 0)
-                                        {
-                                            <span class="badge bg-danger">@grp.LateCount en retard</span>
-                                        }
-                                        @if (grp.DueSoonCount > 0)
-                                        {
-                                            <span class="badge bg-warning text-dark">@grp.DueSoonCount proche</span>
-                                        }
-                                    </div>
-                                    <div class="progress mt-2" style="height: 8px; width: 320px;">
-                                        <div class="progress-bar" role="progressbar" style="width:@progress%" aria-valuenow="@progress" aria-valuemin="0" aria-valuemax="100"></div>
-                                    </div>
-                                </div>
-                                <div class="text-end small text-muted ms-3">
-                                    PRS #@grp.PrsId
-                                </div>
-                            </div>
-                        </button>
-                    </h2>
-                    <div id="collapse-@grp.PrsId" class="accordion-collapse collapse" aria-labelledby="@headingId" data-bs-parent="#prsContainer">
-                        <div class="accordion-body">
-                            <div class="table-responsive">
-                                <table class="table table-sm align-middle checklist-table" data-group-prs="@grp.PrsTitre">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th data-sort-key="categorie" class="sortable">
-                                                <i class="fas fa-tags me-1"></i>Catégorie
-                                            </th>
-                                            <th data-sort-key="libelle" class="sortable">
-                                                <i class="fas fa-clipboard-check me-1"></i>Libellé
-                                            </th>
-                                            <th data-sort-key="priorite" class="sortable">
-                                                <i class="fas fa-sort-numeric-up me-1"></i>Priorité
-                                            </th>
-                                            <th data-sort-key="due" class="sortable">
-                                                <i class="fas fa-calendar-alt me-1"></i>Date prévue
-                                            </th>
-                                            <th data-sort-key="statut" class="sortable">
-                                                <i class="fas fa-check-square me-1"></i>Statut
-                                            </th>
-                                            <th>
-                                                <i class="fas fa-bolt me-1"></i>Action
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var it in grp.Items)
-                                        {
-                                            var statusClass = it.IsValidated ? "valide" : (it.IsLate ? "retard" : "encours");
-                                            var dueTicks = it.DueDate.Ticks; // pour tri date
-                                            <tr class="checklist-row"
-                                                data-status="@statusClass"
-                                                data-searchable="@($"{grp.PrsTitre} {it.Categorie} {it.SousCategorie} {it.Libelle}")"
-                                                data-prs="@grp.PrsTitre"
-                                                data-prsstate="@grp.PrsState"
-                                                data-daysleft="@it.DaysLeft"
-                                                data-priority="@it.Priorite"
-                                                data-dueticks="@dueTicks"
-                                                data-assignee-me="@(it.IsAssignedToMe ? "1" : "0")"
-                                                data-assignee-group="@(it.IsAssignedToMyGroups ? "1" : "0")">
-                                                <td>
-                                                    <div class="date-value fw-semibold">@it.Categorie</div>
-                                                    @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
-                                                    {
-                                                        <div class="text-muted small">@it.SousCategorie</div>
-                                                    }
-                                                </td>
-                                                <td>@it.Libelle</td>
-                                                <td>
-                                                    <span class="badge" style="background:#6c757d;color:#fff;">@($"P{it.Priorite}")</span>
-                                                </td>
-                                                <td>
-                                                    <div>@it.DueDate.ToString("dd/MM/yyyy")</div>
-                                                    @if (it.Source == "Calculée")
-                                                    {
-                                                        <div class="small text-muted">(calculée +@it.DelaiJours j)</div>
-                                                    }
-                                                    <div class="mt-1">
-                                                        @if (!it.IsValidated)
-                                                        {
-                                                            if (it.DaysLeft > 0)
-                                                            {
-                                                                <span class="badge badge-info" style="background:#0dcaf0;color:#212529;"><i class="fas fa-arrow-right me-1"></i>Dans @it.DaysLeft j</span>
-                                                            }
-                                                            else if (it.DaysLeft == 0)
-                                                            {
-                                                                <span class="badge badge-warning" style="background:#ffc107;color:#212529;"><i class="fas fa-exclamation me-1"></i>Aujourd'hui</span>
-                                                            }
-                                                            else
-                                                            {
-                                                                <span class="badge badge-danger" style="background:#dc3545;color:#fff;"><i class="fas fa-clock me-1"></i>@Math.Abs(it.DaysLeft) j de retard</span>
-                                                            }
-                                                        }
-                                                        else
-                                                        {
-                                                            <span class="badge" style="background:#20c997;color:#fff;"><i class="fas fa-check me-1"></i>Validé</span>
-                                                        }
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    @if (it.IsValidated)
-                                                    {
-                                                        <div>
-                                                            <span class="status-badge status-success">
-                                                                <i class="fas fa-check-circle me-1"></i>
-                                                                Validé
-                                                            </span>
-                                                            <div class="small text-muted mt-1">
-                                                                le @(it.DateValidation?.ToString("dd/MM/yyyy")) par @(it.ValidePar ?? "-")
-                                                            </div>
-                                                        </div>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="status-badge status-warning">
-                                                            <i class="fas fa-clock me-1"></i>
-                                                            En cours
-                                                        </span>
-                                                    }
-                                                </td>
-                                                <td>
-                                                    @if (!it.IsValidated)
-                                                    {
-                                                        <form method="post" asp-page-handler="ValidateChecklist" class="d-inline">
-                                                            <input type="hidden" name="checklistId" value="@it.Id" />
-                                                            <button type="submit" class="btn btn-sm btn-success">
-                                                                <i class="fas fa-check me-1"></i>Valider
-                                                            </button>
-                                                            @Html.AntiForgeryToken()
-                                                        </form>
-                                                    }
-                                                    else
-                                                    {
-                                                        <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
-                                                            <input type="hidden" name="checklistId" value="@it.Id" />
-                                                            <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                                                <i class="fas fa-undo me-1"></i>Annuler
-                                                            </button>
-                                                            @Html.AntiForgeryToken()
-                                                        </form>
-                                                    }
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
+                var total = Model.ChecklistItems.Count;
+                var validated = Model.ChecklistItems.Count(i => i.IsValidated);
+                var late = Model.ChecklistItems.Count(i => i.IsLate);
+                var dueSoon = Model.ChecklistItems.Count(i => i.IsDueSoon);
+                <div class="mt-2 d-flex flex-wrap gap-2">
+                    <span class="badge" style="background:#e9ecef;color:#495057;">@total élément(s)</span>
+                    <span class="badge" style="background:#198754;color:#fff;">@validated validé(s)</span>
+                    <span class="badge" style="background:#ffc107;color:#212529;">@dueSoon à échéance proche</span>
+                    <span class="badge" style="background:#dc3545;color:#fff;">@late en retard</span>
                 </div>
-
-                groupIndex++;
             }
+        </div>
 
-            <!-- Pagination serveur -->
-            <nav class="mt-3">
-                <ul class="pagination pagination-sm">
-                    <li class="page-item @(Model.PageNumber <= 1 ? "disabled" : "")">
-                        <a class="page-link" href="?page=@(Model.PageNumber-1)&pageSize=@Model.PageSize" tabindex="-1">Précédent</a>
-                    </li>
-                    @for (int i = 1; i <= Model.TotalPages; i++)
-                    {
-                        <li class="page-item @(i == Model.PageNumber ? "active" : "")">
-                            <a class="page-link" href="?page=@i&pageSize=@Model.PageSize">@i</a>
-                        </li>
-                    }
-                    <li class="page-item @(Model.PageNumber >= Model.TotalPages ? "disabled" : "")">
-                        <a class="page-link" href="?page=@(Model.PageNumber+1)&pageSize=@Model.PageSize">Suivant</a>
-                    </li>
-                </ul>
-            </nav>
+        @if (Model.ChecklistItems != null && Model.ChecklistItems.Any())
+        {
+            <div class="table-responsive">
+                <table class="table jalons-table">
+                    <thead>
+                        <tr>
+                            <th style="width:32%">
+                                <i class="fas fa-project-diagram me-1"></i>
+                                PRS - Élément
+                            </th>
+                            <th style="width:15%">
+                                <i class="fas fa-tags me-1"></i>
+                                Catégorie
+                            </th>
+                            <th style="width:16%">
+                                <i class="fas fa-calendar-alt me-1"></i>
+                                Date prévue
+                            </th>
+                            <th style="width:16%">
+                                <i class="fas fa-hourglass-half me-1"></i>
+                                Délai
+                            </th>
+                            <th style="width:12%">
+                                <i class="fas fa-check-square me-1"></i>
+                                Statut
+                            </th>
+                            <th style="width:9%">
+                                <i class="fas fa-bolt me-1"></i>
+                                Action
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="checklistTableBody">
+                        @foreach (var it in Model.ChecklistItems)
+                        {
+                            var statusClass = it.IsValidated ? "valide" : (it.IsLate ? "retard" : "encours");
+                            <tr class="checklist-row"
+                                data-status="@statusClass"
+                                data-searchable="@($"{it.PrsTitre} {it.Categorie} {it.Libelle}")"
+                                data-prs="@it.PrsTitre"
+                                data-prsstate="@it.PrsState">
+                                <td>
+                                    <div class="jalon-info">
+                                        <div class="prs-title">
+                                            <i class="fas fa-bookmark me-2"></i>@it.PrsTitre
+                                        </div>
+                                        <div class="jalon-name">
+                                            <i class="fas fa-clipboard-check me-2"></i>@it.Libelle
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="date-info">
+                                        <div class="date-value">
+                                            <i class="fas fa-layer-group me-1"></i>@it.Categorie
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                        {
+                                            <div class="text-muted">@it.SousCategorie</div>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="date-info">
+                                        <div class="date-value">
+                                            <i class="fas fa-calendar me-1"></i>@it.DueDate.ToString("dd/MM/yyyy")
+                                        </div>
+                                        <div class="date-relative">
+                                            @if (!it.IsValidated)
+                                            {
+                                                if (it.DaysLeft > 0)
+                                                {
+                                                    <span class="badge badge-info"><i class="fas fa-arrow-right me-1"></i>Dans @it.DaysLeft j</span>
+                                                }
+                                                else if (it.DaysLeft == 0)
+                                                {
+                                                    <span class="badge badge-warning"><i class="fas fa-exclamation me-1"></i>Aujourd'hui</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge badge-danger"><i class="fas fa-clock me-1"></i>@Math.Abs(it.DaysLeft) j de retard</span>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <span class="badge" style="background:#20c997;color:#fff;"><i class="fas fa-check me-1"></i>Validé</span>
+                                            }
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div>
+                                        <span class="badge" style="background:#6c757d;color:#fff;">@($"P{it.Priorite}")</span>
+                                        <span class="badge" style="background:#0dcaf0;color:#212529;">@it.DelaiJours j</span>
+                                        <span class="badge" style="background:#adb5bd;color:#212529;">@(it.Source)</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    @if (it.IsValidated)
+                                    {
+                                        <div>
+                                            <span class="status-badge status-success">
+                                                <i class="fas fa-check-circle me-1"></i>
+                                                Validé
+                                            </span>
+                                            <div class="small text-muted mt-1">
+                                                le @(it.DateValidation?.ToString("dd/MM/yyyy")) par @(it.ValidePar ?? "-")
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-badge status-warning">
+                                            <i class="fas fa-clock me-1"></i>
+                                            En cours
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!it.IsValidated)
+                                    {
+                                        <form method="post" asp-page-handler="ValidateChecklist" class="d-inline">
+                                            <input type="hidden" name="checklistId" value="@it.Id" />
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                <i class="fas fa-check me-1"></i>Valider
+                                            </button>
+                                            @Html.AntiForgeryToken()
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
+                                            <input type="hidden" name="checklistId" value="@it.Id" />
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-undo me-1"></i>Annuler
+                                            </button>
+                                            @Html.AntiForgeryToken()
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
         }
         else
         {
@@ -335,7 +283,7 @@
                 <div class="empty-icon">
                     <i class="fas fa-tasks"></i>
                 </div>
-                <h4>Aucune checklist</h4>
+                <h4>Aucun élément de checklist</h4>
                 <p>Aucun élément de checklist n'a été trouvé.</p>
             </div>
         }
@@ -345,37 +293,15 @@
 @section Scripts {
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Elements
+            // Gestion des filtres (client) sur statut d'élément
             const filterButtons = document.querySelectorAll('.filter-btn');
+            const rows = document.querySelectorAll('.checklist-row');
             const searchInput = document.getElementById('searchInput');
+
+            // Filtres PRS (client)
             const filterPrsName = document.getElementById('filterPrsName');
             const filterPrsState = document.getElementById('filterPrsState');
-            const dueSoonSlider = document.getElementById('dueSoonSlider');
-            const dueSoonValue = document.getElementById('dueSoonValue');
-            const quickFilters = document.querySelectorAll('.quick-filter');
 
-            // Persisted UI state
-            const LS_SORT_COL = 'milestones.sort.col';
-            const LS_SORT_DIR = 'milestones.sort.dir';
-            const LS_SORT_GROUPS = 'milestones.sort.groups';
-            const LS_PRS = 'milestones.filter.prs';
-            const LS_PRS_STATE = 'milestones.filter.prsstate';
-            const LS_SEARCH = 'milestones.filter.search';
-            const LS_DUE_SOON = 'milestones.dueSoonDays';
-            const LS_QF = 'milestones.quickfilter';
-
-            // Apply persisted filters
-            if (localStorage.getItem(LS_PRS)) filterPrsName.value = localStorage.getItem(LS_PRS);
-            if (localStorage.getItem(LS_PRS_STATE)) filterPrsState.value = localStorage.getItem(LS_PRS_STATE);
-            if (localStorage.getItem(LS_SEARCH)) searchInput.value = localStorage.getItem(LS_SEARCH);
-            if (localStorage.getItem(LS_DUE_SOON)) {
-                dueSoonSlider.value = localStorage.getItem(LS_DUE_SOON);
-                dueSoonValue.innerText = localStorage.getItem(LS_DUE_SOON);
-            } else {
-                dueSoonValue.innerText = dueSoonSlider.value;
-            }
-
-            // Handlers
             filterButtons.forEach(btn => {
                 btn.addEventListener('click', function() {
                     filterButtons.forEach(b => b.classList.remove('active'));
@@ -385,97 +311,14 @@
             });
 
             searchInput.addEventListener('input', function() {
-                localStorage.setItem(LS_SEARCH, this.value || '');
                 applyFilters();
             });
 
             if (filterPrsName) {
-                filterPrsName.addEventListener('change', function() {
-                    localStorage.setItem(LS_PRS, this.value || '');
-                    applyFilters();
-                });
+                filterPrsName.addEventListener('change', applyFilters);
             }
             if (filterPrsState) {
-                filterPrsState.addEventListener('change', function() {
-                    localStorage.setItem(LS_PRS_STATE, this.value || 'all');
-                    applyFilters();
-                });
-            }
-
-            dueSoonSlider.addEventListener('input', function() {
-                dueSoonValue.innerText = this.value;
-                localStorage.setItem(LS_DUE_SOON, this.value);
-                applyFilters();
-            });
-
-            quickFilters.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    // toggle-like behavior (one at a time)
-                    if (this.classList.contains('active')) {
-                        this.classList.remove('active');
-                        localStorage.removeItem(LS_QF);
-                    } else {
-                        quickFilters.forEach(b => b.classList.remove('active'));
-                        this.classList.add('active');
-                        localStorage.setItem(LS_QF, this.dataset.qf);
-                    }
-                    applyFilters();
-                });
-            });
-
-            // Sorting (persisted)
-            document.querySelectorAll('.checklist-table thead th.sortable').forEach(th => {
-                th.addEventListener('click', function() {
-                    const key = this.getAttribute('data-sort-key');
-                    let dir = localStorage.getItem(LS_SORT_DIR) || 'asc';
-                    const current = localStorage.getItem(LS_SORT_COL);
-                    if (current === key) {
-                        dir = (dir === 'asc') ? 'desc' : 'asc';
-                    } else {
-                        dir = 'asc';
-                    }
-                    localStorage.setItem(LS_SORT_COL, key);
-                    localStorage.setItem(LS_SORT_DIR, dir);
-                    sortAllGroups(key, dir);
-                });
-            });
-
-            // Sort groups by PRS title (button on header title itself not provided, but keep API by localStorage flag)
-            const prsContainer = document.getElementById('prsContainer');
-            if (localStorage.getItem(LS_SORT_GROUPS)) {
-                prsContainer.setAttribute('data-sort-groups', localStorage.getItem(LS_SORT_GROUPS));
-            }
-            // (Optional) You can add a button to toggle group sorting if needed
-
-            function sortAllGroups(key, dir) {
-                document.querySelectorAll('.checklist-table').forEach(tbl => sortTableBody(tbl, key, dir));
-            }
-
-            function sortTableBody(table, key, dir) {
-                const tbody = table.querySelector('tbody');
-                const rows = Array.from(tbody.querySelectorAll('.checklist-row'));
-
-                const factor = dir === 'asc' ? 1 : -1;
-                const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
-
-                rows.sort((a, b) => {
-                    switch (key) {
-                        case 'categorie':
-                            return factor * collator.compare(a.querySelector('td').innerText.trim(), b.querySelector('td').innerText.trim());
-                        case 'libelle':
-                            return factor * collator.compare(a.children[1].innerText.trim(), b.children[1].innerText.trim());
-                        case 'priorite':
-                            return factor * ((parseInt(a.dataset.priority || '0') - parseInt(b.dataset.priority || '0')));
-                        case 'due':
-                            return factor * ((parseInt(a.dataset.dueticks || '0') - parseInt(b.dataset.dueticks || '0')));
-                        case 'statut':
-                            return factor * collator.compare(a.dataset.status, b.dataset.status);
-                        default:
-                            return 0;
-                    }
-                });
-
-                rows.forEach(r => tbody.appendChild(r));
+                filterPrsState.addEventListener('change', applyFilters);
             }
 
             function applyFilters() {
@@ -483,72 +326,44 @@
                 const searchText = (searchInput.value || '').toLowerCase();
                 const prsValue = (filterPrsName && filterPrsName.value) ? filterPrsName.value : '';
                 const prsStateValue = (filterPrsState && filterPrsState.value) ? filterPrsState.value : 'all';
-                const dueSoonDays = parseInt(dueSoonSlider.value || '3', 10);
-                const quick = localStorage.getItem(LS_QF) || '';
 
-                // Filter groups (PRS) by PRS name/state; then filter rows inside
-                const groups = document.querySelectorAll('.prs-group');
-                groups.forEach(group => {
-                    const grpTitle = group.getAttribute('data-prs-title') || '';
-                    const grpState = group.getAttribute('data-prsstate') || 'autre';
+                let visibleCount = 0;
 
-                    const groupMatchesPrsName = prsValue === '' || grpTitle === prsValue;
-                    const groupMatchesPrsState = prsStateValue === 'all' || grpState === prsStateValue;
+                rows.forEach(row => {
+                    const status = row.getAttribute('data-status');
+                    const searchable = (row.getAttribute('data-searchable') || '').toLowerCase();
+                    const rowPrs = row.getAttribute('data-prs') || '';
+                    const rowPrsState = row.getAttribute('data-prsstate') || 'autre';
 
-                    // For each row apply filters
-                    const rows = group.querySelectorAll('.checklist-row');
-                    let anyVisible = false;
-                    rows.forEach(row => {
-                        const status = row.getAttribute('data-status');
-                        const searchable = (row.getAttribute('data-searchable') || '').toLowerCase();
-                        const daysLeft = parseInt(row.getAttribute('data-daysleft') || '0', 10);
-                        const me = row.getAttribute('data-assignee-me') === '1';
-                        const grp = row.getAttribute('data-assignee-group') === '1';
+                    const matchesStatus = statusFilter === 'all' || status === statusFilter;
+                    const matchesSearch = searchText === '' || searchable.includes(searchText);
+                    const matchesPrs = prsValue === '' || rowPrs === prsValue;
+                    const matchesPrsState = prsStateValue === 'all' || rowPrsState === prsStateValue;
 
-                        // Item-level filters
-                        const matchesStatus = statusFilter === 'all' || status === statusFilter;
-                        const matchesSearch = searchText === '' || searchable.includes(searchText);
-
-                        // Quick filters
-                        let matchesQuick = true;
-                        if (quick === 'me') matchesQuick = me;
-                        else if (quick === 'groups') matchesQuick = grp;
-                        else if (quick === 'late') matchesQuick = (status === 'retard');
-                        else if (quick === 'today') matchesQuick = (!row.dataset.status || row.dataset.status !== 'valide') && daysLeft === 0;
-
-                        // DueSoon: if status "encours" and daysLeft within threshold, keep; otherwise, if other status selected, ignore this slider
-                        // Here we apply dueSoon as an additional filter only if user selected "encours" - but request is "appliqué au filtre proche"
-                        // So we do: when statusFilter == 'encours', only keep rows with 0 <= daysLeft <= dueSoonDays
-                        let matchesDueSoon = true;
-                        if (statusFilter === 'encours') {
-                            matchesDueSoon = !isNaN(daysLeft) && daysLeft >= 0 && daysLeft <= dueSoonDays;
-                        }
-
-                        const visible = groupMatchesPrsName && groupMatchesPrsState && matchesStatus && matchesSearch && matchesQuick && matchesDueSoon;
-
-                        row.style.display = visible ? '' : 'none';
-                        if (visible) anyVisible = true;
-                    });
-
-                    // Show or hide entire group if no visible rows or PRS-level filters fail
-                    group.style.display = (anyVisible && groupMatchesPrsName && groupMatchesPrsState) ? '' : 'none';
+                    if (matchesStatus && matchesSearch && matchesPrs && matchesPrsState) {
+                        row.style.display = '';
+                        visibleCount++;
+                        row.style.opacity = '0';
+                        row.style.transform = 'translateY(10px)';
+                        setTimeout(() => {
+                            row.style.transition = 'all 0.3s ease';
+                            row.style.opacity = '1';
+                            row.style.transform = 'translateY(0)';
+                        }, Math.random() * 100);
+                    } else {
+                        row.style.display = 'none';
+                    }
                 });
 
-                // Sorting persistence after filtering (keep current sort)
-                const key = localStorage.getItem(LS_SORT_COL);
-                const dir = localStorage.getItem(LS_SORT_DIR) || 'asc';
-                if (key) sortAllGroups(key, dir);
+                console.log(`${visibleCount} élément(s) visible(s)`);
             }
 
-            // Initial apply
-            applyFilters();
-
-            // Restore sort from localStorage
-            const initSortCol = localStorage.getItem(LS_SORT_COL);
-            const initSortDir = localStorage.getItem(LS_SORT_DIR) || 'asc';
-            if (initSortCol) {
-                sortAllGroups(initSortCol, initSortDir);
-            }
+            // Animation des barres de progression
+            setTimeout(() => {
+                document.querySelectorAll('.progress-fill').forEach(bar => {
+                    bar.style.transition = 'width 1s ease-in-out';
+                });
+            }, 500);
         });
     </script>
 
@@ -574,8 +389,15 @@
         }
 
         @@keyframes slideInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* En-tête */
@@ -622,15 +444,45 @@
             transition: var(--transition);
             min-width: 80px;
         }
-        .stat-badge:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); }
-        .stat-badge i { font-size: 1.5rem; margin-bottom: 0.5rem; display: block; }
-        .stat-badge span { font-size: 1.8rem; font-weight: 800; display: block; margin-bottom: 0.25rem; }
-        .stat-badge small { font-weight: 600; opacity: 0.8; }
 
-        .stat-total { color: #495057; }
-        .stat-success { color: #28a745; }
-        .stat-warning { color: #ffc107; }
-        .stat-danger { color: #dc3545; }
+            .stat-badge:hover {
+                transform: translateY(-5px);
+                box-shadow: var(--shadow-hover);
+            }
+
+            .stat-badge i {
+                font-size: 1.5rem;
+                margin-bottom: 0.5rem;
+                display: block;
+            }
+
+            .stat-badge span {
+                font-size: 1.8rem;
+                font-weight: 800;
+                display: block;
+                margin-bottom: 0.25rem;
+            }
+
+            .stat-badge small {
+                font-weight: 600;
+                opacity: 0.8;
+            }
+
+        .stat-total {
+            color: #495057;
+        }
+
+        .stat-success {
+            color: #28a745;
+        }
+
+        .stat-warning {
+            color: #ffc107;
+        }
+
+        .stat-danger {
+            color: #dc3545;
+        }
 
         /* Panneau d'actions */
         .actions-panel {
@@ -648,69 +500,282 @@
             box-shadow: var(--shadow-soft);
         }
 
-        .filter-label { font-weight: 700; color: #495057; margin-bottom: 0.5rem; }
-        .filter-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .filter-label {
+            font-weight: 700;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
         .filter-btn {
-            background: white; border: 2px solid #e9ecef; border-radius: 8px; padding: 0.5rem 1rem;
-            cursor: pointer; font-weight: 600; transition: var(--transition); display: flex; align-items: center; gap: 0.5rem;
-        }
-        .filter-btn:hover { border-color: #667eea; transform: translateY(-2px); }
-        .filter-btn.active { background: var(--primary-gradient); border-color: #667eea; color: white; }
-
-        .search-box { position: relative; display: flex; align-items: center; }
-        .search-box i { position: absolute; left: 1rem; color: #6c757d; z-index: 2; }
-        .search-box input {
-            background: white; border: 2px solid #e9ecef; border-radius: 25px; padding: 0.75rem 1rem 0.75rem 3rem;
-            font-weight: 500; transition: var(--transition); width: 300px;
-        }
-        .search-box input:focus { border-color: #667eea; box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25); outline: none; }
-
-        /* Accordions */
-        .accordion-item.prs-group { border: 1px solid #e9ecef; border-radius: 12px; overflow: hidden; }
-        .accordion-button { padding: 1rem; }
-        .accordion-button:not(.collapsed) { background-color: #f8f9fa; }
-
-        /* Tables */
-        .table { margin: 0; background: transparent; }
-        .table thead th { cursor: default; }
-        .table thead th.sortable { cursor: pointer; user-select: none; }
-        .table thead th.sortable:hover { text-decoration: underline; }
-
-        .checklist-row { transition: var(--transition); border: none; }
-        .checklist-row:hover { background: rgba(102, 126, 234, 0.05); transform: translateX(5px); }
-        .checklist-row td {
-            padding: 0.9rem 0.75rem; border: none; border-bottom: 1px solid rgba(0,0,0,0.05);
-            vertical-align: middle;
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
+            .filter-btn:hover {
+                border-color: #667eea;
+                transform: translateY(-2px);
+            }
+
+            .filter-btn.active {
+                background: var(--primary-gradient);
+                border-color: #667eea;
+                color: white;
+            }
+
+        .search-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+            .search-box i {
+                position: absolute;
+                left: 1rem;
+                color: #6c757d;
+                z-index: 2;
+            }
+
+            .search-box input {
+                background: white;
+                border: 2px solid #e9ecef;
+                border-radius: 25px;
+                padding: 0.75rem 1rem 0.75rem 3rem;
+                font-weight: 500;
+                transition: var(--transition);
+                width: 300px;
+            }
+
+                .search-box input:focus {
+                    border-color: #667eea;
+                    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+                    outline: none;
+                }
+
+        /* Tableau */
+        .jalons-table-container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow-soft);
+            overflow: hidden;
+        }
+
+        .jalons-table {
+            margin: 0;
+            background: transparent;
+        }
+
+            .jalons-table thead th {
+                background: rgba(248, 249, 250, 0.8);
+                border: none;
+                padding: 1.5rem 1rem;
+                font-weight: 700;
+                color: #495057;
+                border-bottom: 2px solid #e9ecef;
+            }
+
+        .checklist-row {
+            transition: var(--transition);
+            border: none;
+        }
+
+            .checklist-row:hover {
+                background: rgba(102, 126, 234, 0.05);
+                transform: translateX(5px);
+            }
+
+            .checklist-row td {
+                padding: 1.5rem 1rem;
+                border: none;
+                border-bottom: 1px solid rgba(0,0,0,0.05);
+                vertical-align: middle;
+            }
+
+        /* Info bloc */
+        .jalon-info .prs-title {
+            font-weight: 700;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+
+        .jalon-info .jalon-name {
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        /* Info date */
+        .date-info .date-value {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+
+        .date-missing {
+            color: #6c757d;
+            font-style: italic.
+        }
+
+        /* Badges */
+        .badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+
+        .badge-info {
+            background: var(--info-gradient);
+            color: white;
+        }
+
+        .badge-warning {
+            background: var(--warning-gradient);
+            color: white;
+        }
+
+        .badge-danger {
+            background: var(--danger-gradient);
+            color: white;
+        }
+
+        /* Status badges */
         .status-badge {
-            padding: 0.35rem 0.7rem; border-radius: 16px; font-weight: 600; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 0.4rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
-        .status-success { background: var(--success-gradient); color: white; }
-        .status-warning { background: var(--warning-gradient); color: white; }
-        .status-danger { background: var(--danger-gradient); color: white; }
 
-        /* Pagination */
-        .pagination .page-link { color: #495057; }
-        .pagination .page-item.active .page-link { background-color: #667eea; border-color: #667eea; }
+        .status-success {
+            background: var(--success-gradient);
+            color: white.
+        }
 
-        /* Empty state */
-        .empty-state { text-align: center; padding: 4rem 2rem; color: #6c757d; }
-        .empty-icon { font-size: 4rem; margin-bottom: 1rem; opacity: 0.5; }
-        .empty-state h4 { margin-bottom: 1rem; color: #495057; }
+        .status-warning {
+            background: var(--warning-gradient);
+            color: white;
+        }
+
+        .status-danger {
+            background: var(--danger-gradient);
+            color: white;
+        }
+
+        /* Progression */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.85rem;
+        }
+
+            .progress-text.danger {
+                color: #dc3545;
+            }
+
+        /* État vide */
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #6c757d;
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .empty-state h4 {
+            margin-bottom: 1rem;
+            color: #495057;
+        }
+
+        .btn-primary {
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 25px;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+            .btn-primary:hover {
+                transform: translateY(-2px);
+                box-shadow: var(--shadow-hover);
+            }
 
         /* Responsive */
         @@media (max-width: 768px) {
-            .milestones-header, .actions-panel { padding: 1rem; }
-            .stats-summary { justify-content: center; }
-            .actions-panel { flex-direction: column; align-items: stretch; }
-            .search-box input { width: 100%; }
-            .checklist-row:hover { transform: none; }
+            .milestones-header, .actions-panel {
+                padding: 1rem;
+            }
+
+            .stats-summary {
+                justify-content: center;
+            }
+
+            .actions-panel {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-box input {
+                width: 100%;
+            }
+
+            .jalons-table-container {
+                overflow-x: auto;
+            }
+
+            .checklist-row:hover {
+                transform: none;
+            }
         }
 
-        @@keyframes slideInUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 }
