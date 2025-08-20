@@ -35,25 +35,8 @@
 <!-- CSS SÉPARÉ pour éviter les erreurs C# -->
 <link rel="stylesheet" href="~/css/calendarblock.css" asp-append-version="true" />
 
-<!-- Style directement intégré pour la barre de couleur PRS -->
+<!-- Style directement intégré pour la couleur PRS en arrière-plan du texte -->
 <style>
-    /* Style pour la barre de couleur PRS en bas de l'événement */
-    .prs-color-bar {
-        position: absolute;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        width: 100%;
-        border-bottom-left-radius: 3px;
-        border-bottom-right-radius: 3px;
-    }
-
-    /* Assurer que l'événement a un padding pour éviter que le contenu ne touche la barre de couleur */
-    .fc-event-main {
-        padding-bottom: 5px !important;
-    }
-
     /* Style pour l'infobulle de la couleur PRS */
     .prs-color-tooltip {
         display: inline-block;
@@ -85,6 +68,15 @@
         border-radius: 0.25rem;
         margin-right: 0.5em;
         font-weight: bold;
+    }
+
+    /* Style pour l'arrière-plan coloré du texte PRS - bloc uniforme */
+    .prs-text-background {
+        padding: 3px 5px;
+        border-radius: 4px;
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
     }
 </style>
 
@@ -189,6 +181,41 @@
 <script>
     // Variable indiquant si l'utilisateur a les droits pour voir les couleurs PRS
     const hasColorViewRights = @Json.Serialize(hasColorViewRights);
+
+    // Fonction pour calculer une couleur de texte contrastée à partir d'une couleur de fond
+    function getContrastColor(backgroundColor) {
+        // Convertir la couleur hex ou rgb/rgba en valeurs RGB
+        let r, g, b;
+
+        if (backgroundColor.startsWith('#')) {
+            // Couleur hexadécimale
+            const hex = backgroundColor.slice(1);
+            if (hex.length === 3) {
+                r = parseInt(hex[0] + hex[0], 16);
+                g = parseInt(hex[1] + hex[1], 16);
+                b = parseInt(hex[2] + hex[2], 16);
+            } else {
+                r = parseInt(hex.slice(0, 2), 16);
+                g = parseInt(hex.slice(2, 4), 16);
+                b = parseInt(hex.slice(4, 6), 16);
+            }
+        } else if (backgroundColor.startsWith('rgb')) {
+            // Couleur rgb ou rgba
+            const values = backgroundColor.match(/\d+/g);
+            r = parseInt(values[0]);
+            g = parseInt(values[1]);
+            b = parseInt(values[2]);
+        } else {
+            // Couleur nommée - retourner noir par défaut
+            return '#000000';
+        }
+
+        // Calculer la luminosité selon la formule W3C
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+
+        // Retourner blanc pour fond sombre, noir pour fond clair
+        return luminance > 0.5 ? '#000000' : '#ffffff';
+    }
 
     // Fonction améliorée pour trouver le lundi
     function getMonday(date) {
@@ -382,14 +409,14 @@
             },
             eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
 
-            // FORCER L'APPLICATION DES COULEURS ET AJOUTER LA BARRE DE COULEUR PRS
+            // FORCER L'APPLICATION DES COULEURS ET NE PAS MODIFIER L'ARRIÈRE-PLAN DE L'ÉVÉNEMENT
             eventDidMount: function (info) {
                 // Gérer les événements en attente
                 if (info.event.extendedProps.statut === "En attente" && isFullWeek(info.event)) {
                     info.el.classList.add('event-pending');
                 }
 
-                // FORCER LA COULEUR DE FOND
+                // FORCER LA COULEUR DE FOND STANDARD
                 if (info.event.backgroundColor) {
                     info.el.style.backgroundColor = info.event.backgroundColor;
                     info.el.style.borderColor = info.event.borderColor || info.event.backgroundColor;
@@ -400,8 +427,6 @@
                     if (eventContent) {
                         eventContent.style.backgroundColor = info.event.backgroundColor;
                         eventContent.style.color = info.event.textColor || '#ffffff';
-
-                        // S'assurer que l'événement a une position relative pour le positionnement absolu de la barre
                         eventContent.style.position = 'relative';
                     }
 
@@ -413,25 +438,6 @@
                     const eventTime = info.el.querySelector('.fc-event-time');
                     if (eventTime) {
                         eventTime.style.color = info.event.textColor || '#ffffff';
-                    }
-                }
-
-                // AJOUTER LA BARRE DE COULEUR PRS SI DÉFINIE ET SI L'UTILISATEUR A LES DROITS
-                const couleurPRS = info.event.extendedProps.couleurPRS;
-                if (hasColorViewRights && couleurPRS && couleurPRS.trim() !== '') {
-                    // Trouver l'élément conteneur de l'événement
-                    const eventMain = info.el.querySelector('.fc-event-main');
-                    if (eventMain) {
-                        // Créer la barre de couleur
-                        const colorBar = document.createElement('div');
-                        colorBar.className = 'prs-color-bar';
-                        colorBar.style.backgroundColor = couleurPRS;
-
-                        // L'ajouter au bas de l'événement
-                        eventMain.appendChild(colorBar);
-
-                        // Assurer que l'élément parent a une position relative
-                        eventMain.style.position = 'relative';
                     }
                 }
 
@@ -450,6 +456,7 @@
 
                 // GESTION DE LA COULEUR PRS DANS L'INFO-BULLE (SEULEMENT SI L'UTILISATEUR A LES DROITS)
                 let couleurPrsDisplay = '';
+                const couleurPRS = info.event.extendedProps.couleurPRS;
                 if (hasColorViewRights && couleurPRS && couleurPRS.trim() !== '') {
                     couleurPrsDisplay = `
                         <div style="margin-top: 8px; text-align: center;">
@@ -644,53 +651,75 @@
                 }
             },
 
-            // CONTENU DES ÉVÉNEMENTS
+            // CONTENU DES ÉVÉNEMENTS AVEC BLOC DE COULEUR UNIFORME
             eventContent: function (arg) {
                 const baseTitle = arg.event.title.split(' - ')[0];
                 const ligne = arg.event.extendedProps?.ligne || "—";
                 const isPending = arg.event.extendedProps?.statut === "En attente";
                 const isFullWeekEvent = isFullWeek(arg.event);
+                const couleurPRS = arg.event.extendedProps?.couleurPRS;
+
+                // Fonction pour créer le bloc de couleur uniforme
+                function createColorBackground(content) {
+                    if (hasColorViewRights && couleurPRS && couleurPRS.trim() !== '') {
+                        const textColor = getContrastColor(couleurPRS);
+                        return `<div class="prs-text-background" style="background-color: ${couleurPRS}; color: ${textColor};">${content}</div>`;
+                    }
+                    return `<div>${content}</div>`;
+                }
 
                 // Si c'est une PRS en attente pour une semaine complète, afficher un style spécial
                 if (isPending && isFullWeekEvent) {
+                    const content = `
+                        <div style="font-weight: 600; font-size: 0.85em;">
+                            <span class="badge-pending">En attente</span>
+                            ${baseTitle}
+                        </div>
+                        <div style="font-size: 0.75em; margin-top: 2px; display: flex; align-items: center;">
+                            <i class="fas fa-industry" style="margin-right: 3px;"></i>${ligne}
+                        </div>
+                    `;
+
                     return {
                         html: `
                             <div style="position: relative; padding: 2px; text-align: left;">
-                                <div style="font-weight: 600; font-size: 0.85em;">
-                                    <span class="badge-pending">En attente</span>
-                                    ${baseTitle}
-                                </div>
-                                <div style="font-size: 0.75em; margin-top: 2px; display: flex; align-items: center;">
-                                    <i class="fas fa-industry" style="margin-right: 3px;"></i>${ligne}
-                                </div>
+                                ${createColorBackground(content)}
                             </div>`
                     };
                 } else if (arg.view.type.startsWith("timeGrid")) {
                     // Vue semaine ou jour (avec heures)
+                    const content = `
+                        <div style="font-weight: 700; font-size: 0.75em; opacity: 0.9; display: flex; align-items: center;">
+                            <i class="fas fa-industry" style="margin-right: 3px;"></i>${ligne}
+                        </div>
+                        <div style="font-weight: 600; font-size: 0.85em; margin-top: 2px;">
+                            ${isPending ? '<span class="badge-pending">En attente</span>' : ''}
+                            ${baseTitle}
+                        </div>
+                    `;
+
                     return {
                         html: `
                             <div style="position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; padding-bottom: 6px;">
-                                <div style="font-weight: 700; font-size: 0.75em; opacity: 0.9; display: flex; align-items: center;">
-                                    <i class="fas fa-industry" style="margin-right: 3px;"></i>${ligne}
-                                </div>
-                                <div style="font-weight: 600; font-size: 0.85em; margin-top: 2px;">
-                                    ${isPending ? '<span class="badge-pending">En attente</span>' : ''}
-                                    ${baseTitle}
-                                </div>
+                                ${createColorBackground(content)}
                             </div>`
                     };
                 } else {
                     // Vue mois ou plusieurs semaines
+                    const content = `
+                        <div style="font-weight: 600; font-size: 0.8em;">
+                            ${isPending ? '<span class="badge-pending">En attente</span>' : ''}
+                            ${baseTitle}
+                        </div>
+                        <div style="font-size: 0.7em; opacity: 0.9; margin-top: 1px; display: flex; align-items: center;">
+                            <i class="fas fa-industry" style="margin-right: 2px;"></i>${ligne}
+                        </div>
+                    `;
+
                     return {
                         html: `
                             <div style="position: relative; padding: 2px; padding-bottom: 6px; border-radius: 6px; text-align: left;">
-                                <div style="font-weight: 600; font-size: 0.8em;">
-                                    ${isPending ? '<span class="badge-pending">En attente</span>' : ''}
-                                    ${baseTitle}
-                                </div>
-                                <div style="font-size: 0.7em; opacity: 0.9; margin-top: 1px; display: flex; align-items: center;">
-                                    <i class="fas fa-industry" style="margin-right: 2px;"></i>${ligne}
-                                </div>
+                                ${createColorBackground(content)}
                             </div>`
                     };
                 }
