@@ -288,8 +288,16 @@ namespace PlanifPRS.Pages.Prs
                 Prs.FamilleId = await GetFamilleIdAsync(eventType);
             }
 
-            Prs.Statut = "Validé"; // Toujours validé pour les audits
+            // ✅ STATUT SELON LE RÔLE DE L'UTILISATEUR
+            var login = User.Identity?.Name?.Split('\\').LastOrDefault();
+            var user = _context.Utilisateurs.FirstOrDefault(u => u.LoginWindows == login);
+            var droitUser = user?.Droits?.ToLower() ?? "";
+            var isAdminOrValidateur = new[] { "admin", "validateur" }.Contains(droitUser);
+
+            Prs.Statut = isAdminOrValidateur ? "Validé" : "En attente";
             Prs.DerniereModification = DateTime.Now;
+
+
 
             // ✅ CONSERVER LA DATE DE CRÉATION ORIGINALE
             // Prs.DateCreation = DateTime.Now; // NE PAS MODIFIER

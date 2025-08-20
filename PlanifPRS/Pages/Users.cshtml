@@ -8,12 +8,9 @@
 
 @if (Model.IsAdmin)
 {
-    <form method="get" class="mb-3 d-flex" role="search">
-        <input type="text" name="searchTerm" class="form-control me-2" placeholder="Rechercher..." value="@Model.SearchTerm" />
-        <button type="submit" class="btn btn-outline-primary" aria-label="Rechercher">
-            🔍
-        </button>
-    </form>
+    <div class="mb-3">
+        <input type="text" id="searchInput" class="form-control" placeholder="Rechercher par nom, prénom, login, mail, service ou droits..." />
+    </div>
 
     <div class="mb-3">
         <small class="text-muted">
@@ -22,28 +19,30 @@
             <span class="badge bg-primary ms-2">CDP/Pilote</span> Gestion projets
             <span class="badge bg-warning ms-2">Validateur</span> Validation PRS
             <span class="badge bg-success ms-2">Process</span> Process / Equipements Indus
-            <span class="badge bg-info ms-2">Maintenance</span> Maintenance
+            <span class="badge bg-orange ms-2" style="background-color: #fd7e14;">Maintenance</span> Maintenance
+            <span class="badge bg-purple ms-2" style="background-color: #6f42c1;">Qualité</span> Qualité
             <span class="badge bg-secondary ms-2">Visualiseur</span> Lecture seule
         </small>
     </div>
 
-    <table class="table table-bordered table-striped mt-2">
+    <table class="table table-bordered table-striped mt-2" id="usersTable">
         <thead class="thead-dark">
             <tr>
-                <th>ID</th>
-                <th>Matricule</th>
-                <th>Nom</th>
-                <th>Prénom</th>
-                <th>Login Windows</th>
-                <th>Mail</th>
-                <th>Service</th>
+                <th class="sortable" data-column="0">ID <span class="sort-icon">↕️</span></th>
+                <th class="sortable" data-column="1">Matricule <span class="sort-icon">↕️</span></th>
+                <th class="sortable sorted-asc" data-column="2">Nom <span class="sort-icon">↑</span></th>
+                <th class="sortable" data-column="3">Prénom <span class="sort-icon">↕️</span></th>
+                <th class="sortable" data-column="4">Login Windows <span class="sort-icon">↕️</span></th>
+                <th class="sortable" data-column="5">Mail <span class="sort-icon">↕️</span></th>
+                <th class="sortable" data-column="6">Service <span class="sort-icon">↕️</span></th>
                 <th style="min-width: 180px;">Droits</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="userTableBody">
             @foreach (var user in Model.ListeUtilisateurs)
             {
-                <tr>
+                <tr class="user-row"
+                    data-search="@($"{user.Id} {user.Matricule} {user.Nom} {user.Prenom} {user.LoginWindows} {user.Mail} {user.Service} {user.Droits}".ToLower())">
                     <td>@user.Id</td>
                     <td>@user.Matricule</td>
                     <td>@user.Nom</td>
@@ -62,7 +61,8 @@
                                 <option value="cdp" selected="@(droits.ToLower() == "cdp")">🔵 CDP / Pilote</option>
                                 <option value="validateur" selected="@(droits.ToLower() == "validateur")">🟡 Validateur</option>
                                 <option value="process" selected="@(droits.ToLower() == "process")">🟢 Process</option>
-                                <option value="maintenance" selected="@(droits.ToLower() == "maintenance")">🔵 Maintenance</option>
+                                <option value="maintenance" selected="@(droits.ToLower() == "maintenance")">🟠 Maintenance</option>
+                                <option value="qualite" selected="@(droits.ToLower() == "qualite")">🟣 Qualité</option>
                                 <option value="visualiseur" selected="@(droits.ToLower() == "visualiseur")">⚫ Visualiseur</option>
                             </select>
                         </form>
@@ -101,8 +101,12 @@
                         <br><small>Process</small>
                     </div>
                     <div class="col-md-2">
-                        <span class="badge bg-info fs-6">@(stats.GetValueOrDefault("maintenance", 0))</span>
+                        <span class="badge fs-6" style="background-color: #fd7e14;">@(stats.GetValueOrDefault("maintenance", 0))</span>
                         <br><small>Maintenance</small>
+                    </div>
+                    <div class="col-md-2">
+                        <span class="badge fs-6" style="background-color: #6f42c1;">@(stats.GetValueOrDefault("qualite", 0))</span>
+                        <br><small>Qualité</small>
                     </div>
                     <div class="col-md-2">
                         <span class="badge bg-secondary fs-6">@(stats.GetValueOrDefault("visualiseur", 0))</span>
@@ -113,3 +117,107 @@
         </div>
     </div>
 }
+
+<style>
+    .sortable {
+        cursor: pointer;
+        user-select: none;
+    }
+
+        .sortable:hover {
+            background-color: #f8f9fa;
+        }
+
+    .sort-icon {
+        font-size: 0.8em;
+        margin-left: 5px;
+    }
+
+    .sorted-asc .sort-icon {
+        color: #28a745;
+    }
+
+    .sorted-desc .sort-icon {
+        color: #dc3545;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('searchInput');
+        const userRows = document.querySelectorAll('.user-row');
+        const table = document.getElementById('usersTable');
+        const tbody = document.getElementById('userTableBody');
+
+        // Fonction de recherche
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase().trim();
+
+            userRows.forEach(function(row) {
+                const searchData = row.getAttribute('data-search');
+
+                if (searchData.includes(searchTerm)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        });
+
+        // Fonction de tri
+        let currentSort = { column: 2, direction: 'asc' }; // Par défaut sur la colonne Nom (index 2)
+
+        table.addEventListener('click', function(e) {
+            if (e.target.closest('.sortable')) {
+                const th = e.target.closest('.sortable');
+                const columnIndex = parseInt(th.getAttribute('data-column'));
+
+                // Déterminer la direction du tri
+                let direction = 'asc';
+                if (currentSort.column === columnIndex && currentSort.direction === 'asc') {
+                    direction = 'desc';
+                }
+
+                // Mettre à jour les classes CSS
+                document.querySelectorAll('.sortable').forEach(header => {
+                    header.classList.remove('sorted-asc', 'sorted-desc');
+                    header.querySelector('.sort-icon').textContent = '↕️';
+                });
+
+                th.classList.add(direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
+                th.querySelector('.sort-icon').textContent = direction === 'asc' ? '↑' : '↓';
+
+                // Effectuer le tri
+                sortTable(columnIndex, direction);
+                currentSort = { column: columnIndex, direction: direction };
+            }
+        });
+
+        function sortTable(columnIndex, direction) {
+            const rows = Array.from(tbody.querySelectorAll('tr.user-row'));
+
+            rows.sort((a, b) => {
+                let aVal = a.cells[columnIndex].textContent.trim();
+                let bVal = b.cells[columnIndex].textContent.trim();
+
+                // Si c'est la colonne ID, traiter comme des nombres
+                if (columnIndex === 0) {
+                    aVal = parseInt(aVal);
+                    bVal = parseInt(bVal);
+                }
+
+                let comparison = 0;
+                if (typeof aVal === 'number' && typeof bVal === 'number') {
+                    comparison = aVal - bVal;
+                } else {
+                    comparison = aVal.localeCompare(bVal, 'fr', { numeric: true, sensitivity: 'base' });
+                }
+
+                return direction === 'asc' ? comparison : -comparison;
+            });
+
+            // Réorganiser les lignes dans le DOM
+            rows.forEach(row => tbody.appendChild(row));
+        }
+    });
+</script>

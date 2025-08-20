@@ -194,6 +194,18 @@
                 </div>
             </div>
 
+            <!-- Informations complémentaires -->
+            <div class="col-md-12">
+                <label asp-for="Prs.InfoDiverses" class="form-label fw-bold">
+                    <i class="fas fa-comment-alt"></i>
+                    Informations complémentaires
+                </label>
+                <textarea asp-for="Prs.InfoDiverses" class="form-control" rows="3"
+                          placeholder="Informations additionnelles, remarques, consignes particulières..."></textarea>
+                <div class="form-text">Ajoutez toute information utile pour cet événement (optionnel)</div>
+                <span asp-validation-for="Prs.InfoDiverses" class="text-danger"></span>
+            </div>
+
             <div class="col-12 text-center">
                 <button type="submit" class="btn btn-primary btn-lg px-5" id="submit-btn" disabled>
                     <i class="fas fa-plus-circle me-2"></i>

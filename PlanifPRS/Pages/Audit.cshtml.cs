@@ -257,11 +257,21 @@ namespace PlanifPRS.Pages.Prs
 
         private async Task ConstruirePrsAsync(string eventType, string eventDetails)
         {
+            // ✅ RÉCUPÉRER LE LOGIN UTILISATEUR
+            var login = User.Identity?.Name?.Split('\\').LastOrDefault();
+
             // ✅ DÉTAILS MAINTENANT OBLIGATOIRES
             Prs.Titre = $"{eventType} - {eventDetails}";
             Prs.Equipement = eventType;
             Prs.FamilleId = await GetFamilleIdAsync(eventType);
-            Prs.Statut = "Validé";
+            Prs.CreatedByLogin = login; // ✅ AJOUT DU LOGIN CRÉATEUR
+
+            // ✅ STATUT SELON LE RÔLE DE L'UTILISATEUR
+            var user = _context.Utilisateurs.FirstOrDefault(u => u.LoginWindows == login);
+            var droitUser = user?.Droits?.ToLower() ?? "";
+            var isAdminOrValidateur = new[] { "admin", "validateur" }.Contains(droitUser);
+
+            Prs.Statut = isAdminOrValidateur ? "Validé" : "En attente";
             Prs.DateCreation = DateTime.Now;
             Prs.DerniereModification = DateTime.Now;
             Prs.ReferenceProduit = null;
