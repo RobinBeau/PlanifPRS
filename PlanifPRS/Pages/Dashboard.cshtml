@@ -1,541 +1,417 @@
 ﻿@page
 @model PlanifPRS.Pages.DashboardModel
 @{
-    ViewData["Title"] = "Tableau de bord - PRS";
-    ViewData["ShowBreadcrumb"] = false;
-}
-
-@section Styles {
-    <link rel="stylesheet" href="~/css/dashboard.css" asp-append-version="true" />
+    ViewData["Title"] = "Mon tableau de bord";
+    var today = DateTime.Today;
 }
 
 <div class="dashboard-container">
-    <!-- En-tête du dashboard -->
-    <div class="dashboard-header">
-        <div class="welcome-section">
-            <div class="welcome-content">
-                <h1 class="dashboard-title">
-                    <i class="fas fa-tachometer-alt me-3"></i>
-                    Tableau de bord PRS
-                </h1>
-                <p class="dashboard-subtitle">
-                    <i class="fas fa-calendar me-1"></i>
-                    @DateTime.Now.ToString("dddd dd MMMM yyyy", new System.Globalization.CultureInfo("fr-FR"))
-                    <span class="ms-3">
-                        <i class="fas fa-user-circle me-1"></i>
-                        Bonjour @User.Identity.Name?.Split('\\').LastOrDefault()
-                    </span>
-                </p>
+    <div class="header d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="page-title">
+                <i class="fas fa-chart-line me-2"></i>Tableau de bord
+            </h1>
+            <div class="text-muted">
+                Bonjour @Model.CurrentUserLogin • Rôle: @Model.CurrentUserRole
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <div class="d-flex align-items-center gap-2">
+                <i class="fas fa-bell text-muted"></i>
+                <span>Échéance proche (jours)</span>
+                <input type="range" id="dueSoonSlider" min="1" max="14" value="@Model.DefaultDueSoonDays" />
+                <span id="dueSoonValue" class="badge bg-secondary">@Model.DefaultDueSoonDays</span>
+            </div>
+            <a class="btn btn-outline-primary btn-sm" href="/Milestones">
+                <i class="fas fa-list-check me-1"></i>Voir toutes les checklists
+            </a>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">@Model.ErrorMessage</div>
+    }
+    @if (!string.IsNullOrWhiteSpace(Model.Flash))
+    {
+        <div class="alert alert-success">@Model.Flash</div>
+    }
+
+    <!-- Cartes de synthèse -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card kpi-card shadow-sm">
+                <div class="card-body">
+                    <div class="kpi-title text-muted">Mes éléments ouverts</div>
+                    <div class="kpi-value">@Model.Summary.TotalOpenItems</div>
+                    <div class="kpi-sub text-muted">Checklist non validées</div>
+                </div>
+                <div class="kpi-icon"><i class="fas fa-tasks"></i></div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card kpi-card shadow-sm">
+                <div class="card-body">
+                    <div class="kpi-title text-muted">En retard</div>
+                    <div class="kpi-value text-danger">@Model.Summary.LateCount</div>
+                    <div class="kpi-sub text-muted">Échéance dépassée</div>
+                </div>
+                <div class="kpi-icon text-danger"><i class="fas fa-exclamation-triangle"></i></div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card kpi-card shadow-sm">
+                <div class="card-body">
+                    <div class="kpi-title text-muted">Aujourd'hui</div>
+                    <div class="kpi-value text-warning">@Model.Summary.TodayCount</div>
+                    <div class="kpi-sub text-muted">À valider aujourd'hui</div>
+                </div>
+                <div class="kpi-icon text-warning"><i class="fas fa-calendar-day"></i></div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card kpi-card shadow-sm">
+                <div class="card-body">
+                    <div class="kpi-title text-muted">Prochaines @Model.DefaultDueSoonDays j</div>
+                    <div class="kpi-value text-info" id="kpiSoonValue">@Model.Summary.DueSoonCount</div>
+                    <div class="kpi-sub text-muted">Échéance proche</div>
+                </div>
+                <div class="kpi-icon text-info"><i class="fas fa-hourglass-half"></i></div>
             </div>
         </div>
     </div>
 
-    <!-- Métriques principales -->
-    <div class="metrics-grid">
-        <div class="metric-card metric-primary">
-            <div class="metric-content">
-                <div class="metric-icon">
-                    <i class="fas fa-clipboard-list"></i>
-                </div>
-                <div class="metric-data">
-                    <span class="metric-value" data-target="@Model.TotalPrs">0</span>
-                    <span class="metric-label">Total PRS</span>
-                    <div class="metric-trend">
-                        <i class="fas fa-arrow-up"></i>
-                        <span>+@((Model.TotalPrs * 0.12).ToString("F0"))% ce mois</span>
+    @if (Model.IsManagerView)
+    {
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-lg-3">
+                <div class="card admin-card shadow-sm">
+                    <div class="card-body">
+                        <div class="text-muted fw-semibold mb-2"><i class="fas fa-gauge-high me-1"></i>Vue globale</div>
+                        <div class="d-flex justify-content-between small">
+                            <span>PRS totales</span><span class="fw-bold">@Model.AdminSummary.TotalPrs</span>
+                        </div>
+                        <div class="d-flex justify-content-between small">
+                            <span>PRS "En attente"</span><span class="fw-bold">@Model.AdminSummary.PrsEnAttente</span>
+                        </div>
+                        <div class="d-flex justify-content-between small">
+                            <span>PRS validées</span><span class="fw-bold">@Model.AdminSummary.PrsValidees</span>
+                        </div>
+                        <div class="d-flex justify-content-between small">
+                            <span>Utilisateurs actifs</span><span class="fw-bold">@Model.AdminSummary.UsersActifs</span>
+                        </div>
+                        <div class="d-flex justify-content-between small">
+                            <span>Groupes actifs</span><span class="fw-bold">@Model.AdminSummary.GroupesActifs</span>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="metric-progress">
-                <div class="progress-bar" style="width: 85%;"></div>
-            </div>
-        </div>
-
-        <div class="metric-card metric-warning">
-            <div class="metric-content">
-                <div class="metric-icon">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div class="metric-data">
-                    <span class="metric-value" data-target="@Model.PrsEnAttente">0</span>
-                    <span class="metric-label">En attente</span>
-                    <div class="metric-trend">
-                        <i class="fas fa-arrow-down"></i>
-                        <span>-@((Model.PrsEnAttente * 0.08).ToString("F0"))% cette semaine</span>
-                    </div>
-                </div>
-            </div>
-            <div class="metric-progress warning">
-                <div class="progress-bar" style="width: 60%;"></div>
-            </div>
-        </div>
-
-        <div class="metric-card metric-success">
-            <div class="metric-content">
-                <div class="metric-icon">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div class="metric-data">
-                    <span class="metric-value" data-target="@Model.PrsValidees">0</span>
-                    <span class="metric-label">Validées</span>
-                    <div class="metric-trend">
-                        <i class="fas fa-arrow-up"></i>
-                        <span>+@((Model.PrsValidees * 0.15).ToString("F0"))% ce mois</span>
-                    </div>
-                </div>
-            </div>
-            <div class="metric-progress success">
-                <div class="progress-bar" style="width: 90%;"></div>
-            </div>
-        </div>
-
-        <div class="metric-card metric-danger">
-            <div class="metric-content">
-                <div class="metric-icon">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <div class="metric-data">
-                    <span class="metric-value" data-target="@Model.PrsEnRetard.Count">0</span>
-                    <span class="metric-label">En retard</span>
-                    <div class="metric-trend">
-                        @if (Model.PrsEnRetard.Count > 0)
+            <div class="col-12 col-lg-9">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="fw-semibold text-muted"><i class="fas fa-clipboard-list me-1"></i>PRS en attente de validation</div>
+                            <a href="/Index" class="btn btn-sm btn-outline-primary"><i class="fas fa-arrow-right"></i></a>
+                        </div>
+                        @if (Model.AdminSummary.PrsEnAttenteList.Any())
                         {
-                            <i class="fas fa-arrow-up text-danger"></i>
-                            <span class="text-danger">Action requise</span>
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>PRS</th>
+                                            <th>Début</th>
+                                            <th>Fin</th>
+                                            <th>Créée par</th>
+                                            <th>Dernière modif</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var p in Model.AdminSummary.PrsEnAttenteList)
+                                        {
+                                            <tr>
+                                                <td>@p.Titre</td>
+                                                <td>@p.DateDebut.ToString("dd/MM/yyyy")</td>
+                                                <td>@p.DateFin.ToString("dd/MM/yyyy")</td>
+                                                <td>@p.CreatedBy</td>
+                                                <td>@p.DerniereModification.ToString("dd/MM/yyyy HH:mm")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
                         }
                         else
                         {
-                            <i class="fas fa-check text-success"></i>
-                            <span class="text-success">Tout va bien</span>
+                            <div class="text-muted small">Aucune PRS en attente.</div>
                         }
                     </div>
-                </div>
-            </div>
-            <div class="metric-progress danger">
-                <div class="progress-bar" style="width: @(Model.PrsEnRetard.Count > 0 ? 100 : 0)%;"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Graphiques et alertes -->
-    <div class="dashboard-content">
-        <div class="left-column">
-            <!-- Graphique de répartition -->
-            <div class="chart-card">
-                <div class="card-header">
-                    <h3>
-                        <i class="fas fa-chart-pie me-2"></i>
-                        Répartition des PRS
-                    </h3>
-                    <div class="chart-controls">
-                        <button class="chart-btn active" data-chart="pie">
-                            <i class="fas fa-chart-pie"></i>
-                        </button>
-                        <button class="chart-btn" data-chart="bar">
-                            <i class="fas fa-chart-bar"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="chart-container">
-                    <canvas id="statusChart"></canvas>
-                </div>
-                <div class="chart-legend">
-                    <div class="legend-item">
-                        <span class="legend-color" style="background: var(--success-gradient);"></span>
-                        <span>Validées (@Model.PrsValidees)</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-color" style="background: var(--warning-gradient);"></span>
-                        <span>En attente (@Model.PrsEnAttente)</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-color" style="background: var(--danger-gradient);"></span>
-                        <span>En retard (@Model.PrsEnRetard.Count)</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Graphique d'évolution -->
-            <div class="chart-card">
-                <div class="card-header">
-                    <h3>
-                        <i class="fas fa-chart-line me-2"></i>
-                        Évolution sur 7 jours
-                    </h3>
-                    <select class="chart-period">
-                        <option value="7">7 derniers jours</option>
-                        <option value="30">30 derniers jours</option>
-                        <option value="90">3 derniers mois</option>
-                    </select>
-                </div>
-                <div class="chart-container">
-                    <canvas id="evolutionChart"></canvas>
                 </div>
             </div>
         </div>
+    }
 
-        <div class="right-column">
-            <!-- Alertes et notifications -->
-            @if (Model.PrsEnRetard.Any())
-            {
-                <div class="alert-card alert-danger">
-                    <div class="alert-header">
-                        <h4>
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            PRS en retard
-                        </h4>
-                        <span class="alert-count">@Model.PrsEnRetard.Count</span>
+    <div class="row g-3">
+        <div class="col-12 col-xl-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="fw-semibold text-muted"><i class="fas fa-triangle-exclamation me-1"></i>En retard (qui me concernent)</div>
+                        <a href="/Milestones" class="btn btn-sm btn-outline-secondary"><i class="fas fa-list me-1"></i>Tout voir</a>
                     </div>
-                    <div class="alert-content">
-                        @foreach (var prs in Model.PrsEnRetard.Take(3))
-                        {
-                            var joursDeRetard = (DateTime.Now - prs.DateFin).Days;
-                            <div class="alert-item">
-                                <div class="alert-item-content">
-                                    <strong>@prs.Titre</strong>
-                                    <small>@prs.Equipement</small>
-                                    <span class="retard-info">
-                                        <i class="fas fa-clock me-1"></i>
-                                        @joursDeRetard jour(s) de retard
-                                    </span>
-                                </div>
-                                <div class="alert-actions">
-                                    <a href="/Edit/@prs.Id" class="btn-action btn-edit">
-                                        <i class="fas fa-edit"></i>
-                                    </a>
-                                </div>
-                            </div>
-                        }
-                        @if (Model.PrsEnRetard.Count > 3)
-                        {
-                            <div class="alert-more">
-                                <a href="/Index?filter=retard">
-                                    Voir les @(Model.PrsEnRetard.Count - 3) autres PRS en retard
-                                    <i class="fas fa-arrow-right ms-1"></i>
-                                </a>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-
-            @if (Model.PrsProches.Any())
-            {
-                <div class="alert-card alert-warning">
-                    <div class="alert-header">
-                        <h4>
-                            <i class="fas fa-bell me-2"></i>
-                            PRS à venir
-                        </h4>
-                        <span class="alert-count">@Model.PrsProches.Count</span>
-                    </div>
-                    <div class="alert-content">
-                        @foreach (var prs in Model.PrsProches.Take(3))
-                        {
-                            var joursRestants = (prs.DateDebut - DateTime.Now).Days;
-                            <div class="alert-item">
-                                <div class="alert-item-content">
-                                    <strong>@prs.Titre</strong>
-                                    <small>@prs.Equipement</small>
-                                    <span class="planning-info">
-                                        <i class="fas fa-calendar me-1"></i>
-                                        Dans @joursRestants jour(s)
-                                    </span>
-                                </div>
-                                <div class="alert-actions">
-                                    <a href="/Edit/@prs.Id" class="btn-action btn-view">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </div>
-                            </div>
-                        }
-                        @if (Model.PrsProches.Count > 3)
-                        {
-                            <div class="alert-more">
-                                <a href="/Index?filter=proche">
-                                    Voir les @(Model.PrsProches.Count - 3) autres PRS à venir
-                                    <i class="fas fa-arrow-right ms-1"></i>
-                                </a>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-
-            <!-- Activité récente -->
-            <div class="activity-card">
-                <div class="card-header">
-                    <h3>
-                        <i class="fas fa-history me-2"></i>
-                        Activité récente
-                    </h3>
-                    <button class="refresh-btn" onclick="refreshActivity()">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-                <div class="activity-timeline">
-                    @foreach (var prs in Model.DerniersPrs.Take(5))
+                    @if (Model.OverdueItems.Any())
                     {
-                        var tempsEcoule = DateTime.Now - prs.DateCreation;
-                        var tempsText = tempsEcoule.TotalHours < 24
-                        ? $"Il y a {(int)tempsEcoule.TotalHours}h"
-                        : $"Il y a {(int)tempsEcoule.TotalDays} jour(s)";
-
-                        <div class="timeline-item">
-                            <div class="timeline-marker">
-                                <i class="fas fa-plus"></i>
-                            </div>
-                            <div class="timeline-content">
-                                <div class="timeline-header">
-                                    <strong>@prs.Titre</strong>
-                                    <span class="timeline-time">@tempsText</span>
-                                </div>
-                                <div class="timeline-details">
-                                    <span class="equipment">@prs.Equipement</span>
-                                    <span class="status status-@prs.Statut.ToLower().Replace(" ", "-")">
-                                        @prs.Statut
-                                    </span>
-                                </div>
-                            </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>PRS</th>
+                                        <th>Élément</th>
+                                        <th>Échéance</th>
+                                        <th>Retard</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var it in Model.OverdueItems)
+                                    {
+                                        <tr>
+                                            <td>@it.PrsTitre</td>
+                                            <td>
+                                                <div>@it.Libelle</div>
+                                                <div class="small text-muted">@it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                                    {
+                                                        <text>• @it.SousCategorie</text>
+                                                    }</div>
+                                            </td>
+                                            <td>@it.DueDate.ToString("dd/MM/yyyy")</td>
+                                            <td><span class="badge bg-danger">@Math.Abs(it.DaysLeft) j</span></td>
+                                            <td>
+                                                <form method="post" asp-page-handler="ValidateChecklist" class="d-inline">
+                                                    <input type="hidden" name="checklistId" value="@it.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check me-1"></i>Valider</button>
+                                                    @Html.AntiForgeryToken()
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
                         </div>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">Aucun élément en retard.</div>
                     }
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Actions rapides -->
-    <div class="quick-actions">
-        <div class="actions-header">
-            <h3>
-                <i class="fas fa-bolt me-2"></i>
-                Actions rapides
-            </h3>
+        <div class="col-12 col-xl-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="fw-semibold text-muted"><i class="fas fa-bullseye me-1"></i>Prochaines échéances (qui me concernent)</div>
+                        <div>
+                            <span class="badge bg-info"><i class="fas fa-bell me-1"></i><span id="soonCount">@Model.DueSoonItems.Count</span> à venir</span>
+                        </div>
+                    </div>
+
+                    @if (Model.DueSoonItems.Any())
+                    {
+                        <ul class="list-group list-group-flush" id="soonList">
+                            @foreach (var it in Model.DueSoonItems)
+                            {
+                                <li class="list-group-item d-flex justify-content-between align-items-center soon-item"
+                                    data-daysleft="@it.DaysLeft">
+                                    <div class="me-3">
+                                        <div class="fw-semibold">@it.Libelle</div>
+                                        <div class="small text-muted">@it.PrsTitre • @it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                            {
+                                                <text>• @it.SousCategorie</text>
+                                            }</div>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="small">Échéance: <strong>@it.DueDate.ToString("dd/MM/yyyy")</strong></div>
+                                        <div>
+                                            <span class="badge bg-@(it.DaysLeft == 0 ? "warning text-dark" : "info")">
+                                                @(it.DaysLeft == 0 ? "Aujourd'hui" : $"Dans {it.DaysLeft} j")
+                                            </span>
+                                        </div>
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">Aucun élément à échéance proche.</div>
+                    }
+                </div>
+            </div>
         </div>
-        <div class="actions-grid">
-            <a href="/Create" class="action-card action-primary">
-                <div class="action-icon">
-                    <i class="fas fa-plus"></i>
-                </div>
-                <div class="action-content">
-                    <span class="action-title">Créer PRS</span>
-                    <span class="action-desc">Nouvelle planification</span>
-                </div>
-            </a>
 
-            <a href="/Index" class="action-card action-info">
-                <div class="action-icon">
-                    <i class="fas fa-calendar"></i>
+        <div class="col-12 col-xxl-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="fw-semibold text-muted"><i class="fas fa-calendar-alt me-1"></i>PRS à venir (qui me concernent)</div>
+                        <a href="/Index" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
+                    </div>
+                    @if (Model.UpcomingPrs.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>PRS</th>
+                                        <th>Statut</th>
+                                        <th>Début</th>
+                                        <th>Fin</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in Model.UpcomingPrs)
+                                    {
+                                        <tr>
+                                            <td>@p.Titre</td>
+                                            <td>
+                                                <span class="badge bg-@(p.Statut == "Validé" ? "success" : "secondary")">@p.Statut</span>
+                                            </td>
+                                            <td>@p.DateDebut.ToString("dd/MM/yyyy")</td>
+                                            <td>@p.DateFin.ToString("dd/MM/yyyy")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">Aucune PRS à venir.</div>
+                    }
                 </div>
-                <div class="action-content">
-                    <span class="action-title">Calendrier</span>
-                    <span class="action-desc">Vue d'ensemble</span>
-                </div>
-            </a>
+            </div>
+        </div>
 
-            <a href="/Validation" class="action-card action-warning">
-                <div class="action-icon">
-                    <i class="fas fa-check-double"></i>
+        <div class="col-12 col-xxl-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div class="fw-semibold text-muted"><i class="fas fa-clock-rotate-left me-1"></i>Activité récente PRS</div>
+                        <a href="/Index" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
+                    </div>
+                    @if (Model.RecentPrs.Any())
+                    {
+                        <ul class="list-group list-group-flush">
+                            @foreach (var a in Model.RecentPrs)
+                            {
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <div>
+                                        <div class="fw-semibold">@a.Titre</div>
+                                        <div class="small text-muted">Statut: @a.Statut • Créée par @a.CreatedBy</div>
+                                    </div>
+                                    <div class="text-end small text-muted">
+                                        Modifiée le @a.DerniereModification.ToString("dd/MM/yyyy HH:mm")
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">Aucune activité récente.</div>
+                    }
                 </div>
-                <div class="action-content">
-                    <span class="action-title">Validation</span>
-                    <span class="action-desc">Approuver les PRS</span>
-                </div>
-            </a>
-
-            <a href="/Milestones" class="action-card action-success">
-                <div class="action-icon">
-                    <i class="fas fa-flag-checkered"></i>
-                </div>
-                <div class="action-content">
-                    <span class="action-title">Jalons</span>
-                    <span class="action-desc">Suivre l'avancement</span>
-                </div>
-            </a>
-
-            <a href="/Export" class="action-card action-secondary">
-                <div class="action-icon">
-                    <i class="fas fa-file-excel"></i>
-                </div>
-                <div class="action-content">
-                    <span class="action-title">Export</span>
-                    <span class="action-desc">Données Excel</span>
-                </div>
-            </a>
-
-            <a href="/Settings" class="action-card action-dark">
-                <div class="action-icon">
-                    <i class="fas fa-cog"></i>
-                </div>
-                <div class="action-content">
-                    <span class="action-title">Paramètres</span>
-                    <span class="action-desc">Configuration</span>
-                </div>
-            </a>
+            </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
-    <!-- Chart.js pour les graphiques -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Animation des compteurs
-            animateCounters();
+            const slider = document.getElementById('dueSoonSlider');
+            const value = document.getElementById('dueSoonValue');
+            const soonList = document.getElementById('soonList');
+            const soonCount = document.getElementById('soonCount');
+            const kpiSoonValue = document.getElementById('kpiSoonValue');
 
-            // Initialisation des graphiques
-            initCharts();
-
-            // Mise à jour automatique toutes les 5 minutes
-            setInterval(updateDashboard, 300000);
-        });
-
-        function animateCounters() {
-            document.querySelectorAll('.metric-value').forEach(counter => {
-                const target = parseInt(counter.getAttribute('data-target'));
-                const increment = target / 100;
-                let current = 0;
-
-                const timer = setInterval(() => {
-                    current += increment;
-                    if (current >= target) {
-                        current = target;
-                        clearInterval(timer);
-                    }
-                    counter.textContent = Math.floor(current);
-                }, 20);
-            });
-        }
-
-        function initCharts() {
-            // Graphique en secteurs (donut)
-            const ctx1 = document.getElementById('statusChart').getContext('2d');
-            new Chart(ctx1, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Validées', 'En attente', 'En retard'],
-                    datasets: [{
-                        data: [@Model.PrsValidees, @Model.PrsEnAttente, @Model.PrsEnRetard.Count],
-                        backgroundColor: [
-                            'rgba(17, 153, 142, 0.8)',
-                            'rgba(255, 193, 7, 0.8)',
-                            'rgba(220, 53, 69, 0.8)'
-                        ],
-                        borderWidth: 0,
-                        hoverOffset: 10
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    cutout: '60%'
-                }
-            });
-
-            // Graphique d'évolution temporelle
-            const ctx2 = document.getElementById('evolutionChart').getContext('2d');
-            const labels = [];
-            const data = [];
-
-            // Génération de données simulées pour les 7 derniers jours
-            for (let i = 6; i >= 0; i--) {
-                const date = new Date();
-                date.setDate(date.getDate() - i);
-                labels.push(date.toLocaleDateString('fr-FR', { weekday: 'short' }));
-                data.push(Math.floor(Math.random() * 20) + @Model.TotalPrs * 0.1);
+            function applySoonFilter() {
+                const maxDays = parseInt(slider.value || '7', 10);
+                value.innerText = maxDays;
+                let count = 0;
+                if (!soonList) return;
+                soonList.querySelectorAll('.soon-item').forEach(li => {
+                    const dl = parseInt(li.getAttribute('data-daysleft') || '0', 10);
+                    const show = !isNaN(dl) && dl >= 0 && dl <= maxDays;
+                    li.style.display = show ? '' : 'none';
+                    if (show) count++;
+                });
+                if (soonCount) soonCount.innerText = count;
+                if (kpiSoonValue) kpiSoonValue.innerText = count;
+                // Persist locally
+                try { localStorage.setItem('dashboard.dueSoonDays', maxDays.toString()); } catch {}
             }
 
-            new Chart(ctx2, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Nouvelles PRS',
-                        data: data,
-                        borderColor: 'rgba(102, 126, 234, 1)',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0,0,0,0.05)'
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        }
-                    }
+            slider.addEventListener('input', applySoonFilter);
+
+            // Restore persisted slider value if present
+            try {
+                const saved = localStorage.getItem('dashboard.dueSoonDays');
+                if (saved) {
+                    slider.value = saved;
+                    value.innerText = saved;
                 }
-            });
-        }
+            } catch {}
 
-        function refreshActivity() {
-            const btn = document.querySelector('.refresh-btn i');
-            btn.style.animation = 'spin 1s linear';
-
-            setTimeout(() => {
-                btn.style.animation = '';
-                // Ici on pourrait faire un appel AJAX pour rafraîchir les données
-                console.log('Activité rafraîchie');
-            }, 1000);
-        }
-
-        function updateDashboard() {
-            console.log('Mise à jour automatique du dashboard - ' + new Date().toLocaleTimeString());
-            // Ici on pourrait faire des appels AJAX pour mettre à jour les métriques en temps réel
-        }
-
-        // Gestion des contrôles de graphiques
-        document.querySelectorAll('.chart-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-
-                const chartType = this.getAttribute('data-chart');
-                console.log('Changement vers graphique:', chartType);
-                // Ici on pourrait changer le type de graphique dynamiquement
-            });
+            applySoonFilter();
         });
+    </script>
 
-        // Animation des éléments au scroll
-        function animateOnScroll() {
-            const elements = document.querySelectorAll('.metric-card, .chart-card, .alert-card, .activity-card, .action-card');
-
-            elements.forEach(element => {
-                const elementTop = element.getBoundingClientRect().top;
-                const elementVisible = 150;
-
-                if (elementTop < window.innerHeight - elementVisible) {
-                    element.style.opacity = '1';
-                    element.style.transform = 'translateY(0)';
-                }
-            });
+    <style>
+        .page-title {
+            font-weight: 800;
+            margin: 0;
         }
 
-        // Animation au chargement initial
-        setTimeout(animateOnScroll, 100);
-        window.addEventListener('scroll', animateOnScroll);
-    </script>
+        .kpi-card {
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #f0f0f0;
+        }
+
+        .kpi-title {
+            font-size: .9rem;
+        }
+
+        .kpi-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+        }
+
+        .kpi-sub {
+            font-size: .8rem;
+        }
+
+        .kpi-icon {
+            position: absolute;
+            bottom: .75rem;
+            right: .75rem;
+            font-size: 1.5rem;
+            opacity: .25;
+        }
+
+        .admin-card {
+            border: 1px solid #f0f0f0;
+        }
+
+        .dashboard-container .card {
+            border-radius: .75rem;
+        }
+
+        .list-group-item {
+            border-color: #f0f0f0;
+        }
+    </style>
 }

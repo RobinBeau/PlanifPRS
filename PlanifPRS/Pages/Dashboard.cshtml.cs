@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using PlanifPRS.Data;
-using PlanifPRS.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,168 +13,420 @@ namespace PlanifPRS.Pages
     public class DashboardModel : PageModel
     {
         private readonly PlanifPrsDbContext _context;
+        private readonly ILogger<DashboardModel> _logger;
 
-        public DashboardModel(PlanifPrsDbContext context)
+        public DashboardModel(PlanifPrsDbContext context, ILogger<DashboardModel> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
-        // Métriques principales
-        public int TotalPrs { get; set; }
-        public int PrsEnAttente { get; set; }
-        public int PrsValidees { get; set; }
-        public int PrsAnnulees { get; set; }
+        [TempData] public string Flash { get; set; }
+        [TempData] public string ErrorMessage { get; set; }
 
-        // Collections pour alertes et activité
-        public List<Models.Prs> DerniersPrs { get; set; } = new List<Models.Prs>();
-        public List<Models.Prs> PrsEnRetard { get; set; } = new List<Models.Prs>();
-        public List<Models.Prs> PrsProches { get; set; } = new List<Models.Prs>();
+        public string CurrentUserLogin { get; private set; } = "-";
+        public string CurrentUserRole { get; private set; } = "-";
+        public bool IsManagerView { get; private set; } = false;
 
-        // Nouvelles métriques (simplifiées)
-        public Dictionary<string, int> PrsParFamille { get; set; } = new Dictionary<string, int>();
-        public double TauxReussite { get; set; }
-        public TimeSpan DureeMoyenne { get; set; }
+        public int DefaultDueSoonDays { get; private set; } = 7;
+
+        public SummaryVM Summary { get; private set; } = new();
+        public AdminSummaryVM AdminSummary { get; private set; } = new();
+        public List<ChecklistItemVM> OverdueItems { get; private set; } = new();
+        public List<ChecklistItemVM> DueSoonItems { get; private set; } = new();
+        public List<PrsCardVM> UpcomingPrs { get; private set; } = new();
+        public List<ActivityVM> RecentPrs { get; private set; } = new();
+
+        private int _userId;
+        private List<int> _myGroupIds = new();
 
         public async Task<IActionResult> OnGetAsync()
         {
-            // Vérification de l'authentification
-            var login = User.Identity?.Name?.Split('\\').LastOrDefault();
-            if (string.IsNullOrEmpty(login))
-            {
-                TempData["ErrorMessage"] = "⚠️ Session expirée. Veuillez vous reconnecter.";
-                return RedirectToPage("/Index");
-            }
-
-            var user = await _context.Utilisateurs
-                .FirstOrDefaultAsync(u => u.LoginWindows == login);
-
-            if (user == null)
-            {
-                TempData["ErrorMessage"] = "⚠️ Utilisateur non trouvé dans le système.";
-                return RedirectToPage("/Index");
-            }
-
             try
             {
-                var now = DateTime.Now;
-                var prochainSeuil = now.AddDays(7);
-                var debutMois = new DateTime(now.Year, now.Month, 1);
+                // Contexte utilisateur
+                CurrentUserLogin = GetCurrentUserLogin();
+                var user = await _context.Utilisateurs
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.LoginWindows == CurrentUserLogin);
 
-                // Métriques de base
-                TotalPrs = await _context.Prs.CountAsync();
-                PrsEnAttente = await _context.Prs.CountAsync(p => p.Statut == "En attente");
-                PrsValidees = await _context.Prs.CountAsync(p => p.Statut == "Validé");
-                PrsAnnulees = await _context.Prs.CountAsync(p => p.Statut == "Annulé");
-
-                // PRS récentes (dernières 10)
-                DerniersPrs = await _context.Prs
-                    .OrderByDescending(p => p.DateCreation)
-                    .Take(10)
-                    .ToListAsync();
-
-                // PRS en retard
-                PrsEnRetard = await _context.Prs
-                    .Where(p => p.DateFin < now && p.Statut != "Validé" && p.Statut != "Annulé")
-                    .OrderBy(p => p.DateFin)
-                    .ToListAsync();
-
-                // PRS à venir dans les 7 jours
-                PrsProches = await _context.Prs
-                    .Where(p => p.DateDebut >= now && p.DateDebut <= prochainSeuil)
-                    .OrderBy(p => p.DateDebut)
-                    .ToListAsync();
-
-                // ✅ CORRECTION : Statistiques par famille simplifiées
-                var famillesQuery = await _context.Prs
-                    .Include(p => p.Famille)
-                    .Where(p => p.DateCreation >= debutMois)
-                    .Select(p => p.Famille != null ? p.Famille.Libelle : "Non définie")
-                    .ToListAsync();
-
-                PrsParFamille = famillesQuery
-                    .GroupBy(f => f ?? "Non définie")
-                    .ToDictionary(g => g.Key, g => g.Count());
-
-                // Taux de réussite (PRS validées / PRS terminées)
-                var prsTerminees = await _context.Prs
-                    .CountAsync(p => p.Statut == "Validé" || p.Statut == "Annulé");
-
-                TauxReussite = prsTerminees > 0
-                    ? Math.Round((double)PrsValidees / prsTerminees * 100, 1)
-                    : 0;
-
-                // ✅ CORRECTION : Durée moyenne simplifiée
-                var prsValidees = await _context.Prs
-                    .Where(p => p.Statut == "Validé")
-                    .Select(p => new { p.DateDebut, p.DateFin })
-                    .ToListAsync();
-
-                if (prsValidees.Any())
+                if (user == null)
                 {
-                    var durees = prsValidees
-                        .Select(p => (p.DateFin - p.DateDebut).TotalMinutes)
-                        .Where(d => d > 0);
-
-                    if (durees.Any())
-                    {
-                        var dureeMoyenneMinutes = durees.Average();
-                        DureeMoyenne = TimeSpan.FromMinutes(dureeMoyenneMinutes);
-                    }
+                    ErrorMessage = "⚠️ Utilisateur non trouvé dans le système.";
+                    return RedirectToPage("/Index");
                 }
 
-                // Messages de succès avec statistiques
-                var messageStats = $"✅ Dashboard chargé - {TotalPrs} PRS total - {PrsEnRetard.Count} en retard - {PrsProches.Count} à venir - Taux réussite: {TauxReussite}%";
-                TempData["InfoMessage"] = messageStats;
+                _userId = user.Id;
+                CurrentUserRole = string.IsNullOrWhiteSpace(user.Droits) ? "-" : user.Droits;
+                IsManagerView = IsManager(user.Droits);
 
-                // Log détaillé pour monitoring
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Dashboard accédé par {login}:");
-                Console.WriteLine($"  - Total PRS: {TotalPrs}");
-                Console.WriteLine($"  - En attente: {PrsEnAttente}");
-                Console.WriteLine($"  - Validées: {PrsValidees}");
-                Console.WriteLine($"  - En retard: {PrsEnRetard.Count}");
-                Console.WriteLine($"  - À venir (7j): {PrsProches.Count}");
-                Console.WriteLine($"  - Taux réussite: {TauxReussite}%");
-                Console.WriteLine($"  - Durée moyenne: {DureeMoyenne:hh\\:mm}");
+                // Groupes dont je suis membre (via Membres)
+                _myGroupIds = await _context.GroupesUtilisateurs
+                    .AsNoTracking()
+                    .Where(g => g.Actif && g.Membres.Any(m => m.UtilisateurId == _userId))
+                    .Select(g => g.Id)
+                    .Distinct()
+                    .ToListAsync();
+
+                var today = DateTime.Today;
+
+                // Pré-calcul des IDs des éléments et PRS affectés (pour éviter sous-requêtes Any => CTE)
+                List<int> myChecklistIds = new();
+                List<int> prsIdsAssigned = new();
+
+                if (!IsManagerView)
+                {
+                    myChecklistIds = await _context.ChecklistAffectations
+                        .AsNoTracking()
+                        .Where(a =>
+                            (a.UtilisateurId.HasValue && a.UtilisateurId.Value == _userId) ||
+                            (a.GroupeId.HasValue && _myGroupIds.Contains(a.GroupeId.Value)))
+                        .Select(a => a.ChecklistId)
+                        .Distinct()
+                        .ToListAsync();
+
+                    prsIdsAssigned = await _context.PrsAffectations
+                        .AsNoTracking()
+                        .Where(a =>
+                            (a.UtilisateurId.HasValue && a.UtilisateurId.Value == _userId) ||
+                            (a.GroupeId.HasValue && _myGroupIds.Contains(a.GroupeId.Value)))
+                        .Select(a => a.PrsId)
+                        .Distinct()
+                        .ToListAsync();
+                }
+
+                // Base checklist (permissions) - filtrage par liste d'IDs pour éviter CTE
+                var baseChecklist = IsManagerView
+                    ? (from c in _context.PrsChecklists.AsNoTracking()
+                       join p in _context.Prs.AsNoTracking() on c.PRSId equals p.Id
+                       select new { c, p })
+                    : (from c in _context.PrsChecklists.AsNoTracking()
+                       join p in _context.Prs.AsNoTracking() on c.PRSId equals p.Id
+                       where myChecklistIds.Contains(c.Id)
+                       select new { c, p });
+
+                // Charger en mémoire (projection nécessaire pour calcul date)
+                var rows = await baseChecklist
+                    .OrderBy(x => x.p.DateDebut)
+                    .ThenBy(x => x.c.Priorite)
+                    .ThenBy(x => x.c.DelaiDefautJours)
+                    .ThenBy(x => x.c.Categorie)
+                    .ThenBy(x => x.c.SousCategorie)
+                    .ToListAsync();
+
+                // Construire items avec calcul d'échéance
+                var items = rows.Select(r =>
+                {
+                    var delai = r.c.DelaiDefautJours > 0 ? r.c.DelaiDefautJours : 1;
+                    var due = r.c.DateEcheance.HasValue ? r.c.DateEcheance.Value.Date : r.p.DateDebut.Date.AddDays(delai);
+                    var daysLeft = (int)Math.Floor((due - today).TotalDays);
+                    return new ChecklistItemVM
+                    {
+                        Id = r.c.Id,
+                        PrsId = r.p.Id,
+                        PrsTitre = r.p.Titre,
+                        Categorie = r.c.Categorie,
+                        SousCategorie = r.c.SousCategorie,
+                        Libelle = string.IsNullOrWhiteSpace(r.c.Libelle) ? r.c.Tache : r.c.Libelle,
+                        Priorite = r.c.Priorite > 0 ? r.c.Priorite : 3,
+                        DelaiJours = delai,
+                        DueDate = due,
+                        DaysLeft = daysLeft,
+                        Source = r.c.DateEcheance.HasValue ? "Fixée" : "Calculée",
+                        IsValidated = r.c.EstCoche,
+                        DateValidation = r.c.DateValidation,
+                        ValidePar = r.c.ValidePar
+                    };
+                }).ToList();
+
+                // Synthèse perso
+                var open = items.Where(i => !i.IsValidated).ToList();
+                var late = open.Where(i => i.DueDate < today).ToList();
+                var todayList = open.Where(i => i.DaysLeft == 0).ToList();
+                var soon = open.Where(i => i.DaysLeft > 0 && i.DaysLeft <= DefaultDueSoonDays).ToList();
+
+                Summary = new SummaryVM
+                {
+                    TotalOpenItems = open.Count,
+                    LateCount = late.Count,
+                    TodayCount = todayList.Count,
+                    DueSoonCount = soon.Count
+                };
+
+                OverdueItems = late
+                    .OrderBy(i => i.DueDate)
+                    .Take(8)
+                    .ToList();
+
+                DueSoonItems = open
+                    .Where(i => i.DaysLeft >= 0)
+                    .OrderBy(i => i.DaysLeft)
+                    .ThenBy(i => i.Priorite)
+                    .Take(10)
+                    .ToList();
+
+                // PRS à venir (permissions via liste d'IDs)
+                var prsQuery = _context.Prs.AsNoTracking()
+                    .Where(p => p.DateDebut >= today);
+
+                if (!IsManagerView)
+                {
+                    prsQuery = prsQuery.Where(p => prsIdsAssigned.Contains(p.Id));
+                }
+
+                UpcomingPrs = await prsQuery
+                    .OrderBy(p => p.DateDebut)
+                    .ThenBy(p => p.Titre)
+                    .Take(8)
+                    .Select(p => new PrsCardVM
+                    {
+                        Id = p.Id,
+                        Titre = p.Titre,
+                        Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
+                        DateDebut = p.DateDebut,
+                        DateFin = p.DateFin
+                    })
+                    .ToListAsync();
+
+                // Activité récente PRS (permissions via liste d'IDs)
+                var recentQuery = _context.Prs.AsNoTracking();
+
+                if (!IsManagerView)
+                {
+                    recentQuery = recentQuery.Where(p => prsIdsAssigned.Contains(p.Id));
+                }
+
+                RecentPrs = await recentQuery
+                    .OrderByDescending(p => p.DerniereModification)
+                    .Take(10)
+                    .Select(p => new ActivityVM
+                    {
+                        Id = p.Id,
+                        Titre = p.Titre,
+                        Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
+                        CreatedBy = p.CreatedByLogin,
+                        DerniereModification = p.DerniereModification
+                    })
+                    .ToListAsync();
+
+                // Vue manager (globale)
+                if (IsManagerView)
+                {
+                    AdminSummary = new AdminSummaryVM
+                    {
+                        TotalPrs = await _context.Prs.AsNoTracking().CountAsync(),
+                        PrsEnAttente = await _context.Prs.AsNoTracking().CountAsync(p => (p.Statut ?? "") == "En attente"),
+                        PrsValidees = await _context.Prs.AsNoTracking().CountAsync(p => (p.Statut ?? "") == "Validé"),
+                        UsersActifs = await _context.Utilisateurs.AsNoTracking().CountAsync(u => u.DateDeleted == null),
+                        GroupesActifs = await _context.GroupesUtilisateurs.AsNoTracking().CountAsync(g => g.Actif),
+                        PrsEnAttenteList = await _context.Prs.AsNoTracking()
+                            .Where(p => (p.Statut ?? "") == "En attente")
+                            .OrderBy(p => p.DateDebut)
+                            .Take(6)
+                            .Select(p => new AdminPrsVM
+                            {
+                                Id = p.Id,
+                                Titre = p.Titre,
+                                DateDebut = p.DateDebut,
+                                DateFin = p.DateFin,
+                                CreatedBy = p.CreatedByLogin,
+                                DerniereModification = p.DerniereModification
+                            })
+                            .ToListAsync()
+                    };
+                }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ERREUR Dashboard pour {login}: {ex}");
-                TempData["ErrorMessage"] = $"❌ Erreur lors du chargement du dashboard: {ex.Message}";
-
-                // Valeurs par défaut en cas d'erreur
-                TotalPrs = 0;
-                PrsEnAttente = 0;
-                PrsValidees = 0;
-                DerniersPrs = new List<Models.Prs>();
-                PrsEnRetard = new List<Models.Prs>();
-                PrsProches = new List<Models.Prs>();
+                _logger.LogError(ex, "[DASHBOARD][GET] Erreur chargement");
+                ErrorMessage = $"Erreur lors du chargement du tableau de bord: {ex.Message}";
             }
 
             return Page();
         }
 
-        // Action AJAX pour rafraîchir les métriques
-        public async Task<IActionResult> OnGetRefreshMetricsAsync()
+        // Validation depuis le dashboard (mêmes permissions que Milestones)
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> OnPostValidateChecklistAsync(int checklistId)
         {
             try
             {
-                var now = DateTime.Now;
+                var login = GetCurrentUserLogin();
+                var user = await _context.Utilisateurs.FirstOrDefaultAsync(u => u.LoginWindows == login);
+                if (user == null) { ErrorMessage = "Utilisateur inconnu."; return RedirectToPage(); }
 
-                var metrics = new
+                var isManager = IsManager(user.Droits);
+
+                var item = await _context.PrsChecklists.FirstOrDefaultAsync(c => c.Id == checklistId);
+                if (item == null) { ErrorMessage = "Élément introuvable."; return RedirectToPage(); }
+
+                if (!isManager)
                 {
-                    totalPrs = await _context.Prs.CountAsync(),
-                    prsEnAttente = await _context.Prs.CountAsync(p => p.Statut == "En attente"),
-                    prsValidees = await _context.Prs.CountAsync(p => p.Statut == "Validé"),
-                    prsEnRetard = await _context.Prs.CountAsync(p => p.DateFin < now && p.Statut != "Validé" && p.Statut != "Annulé"),
-                    lastUpdate = now.ToString("HH:mm:ss")
-                };
+                    var myGroupIds = await _context.GroupesUtilisateurs
+                        .Where(g => g.Actif && g.Membres.Any(m => m.UtilisateurId == user.Id))
+                        .Select(g => g.Id)
+                        .Distinct()
+                        .ToListAsync();
 
-                return new JsonResult(metrics);
+                    bool authorized = await _context.ChecklistAffectations.AnyAsync(a =>
+                        a.ChecklistId == item.Id &&
+                        (
+                            (a.UtilisateurId.HasValue && a.UtilisateurId.Value == user.Id) ||
+                            (a.GroupeId.HasValue && myGroupIds.Contains(a.GroupeId.Value))
+                        ));
+
+                    if (!authorized)
+                    {
+                        ErrorMessage = "Vous n'êtes pas autorisé à valider cet élément.";
+                        return RedirectToPage();
+                    }
+                }
+
+                item.EstCoche = true;
+                item.DateValidation = DateTime.Now;
+                item.ValidePar = login;
+                item.Statut = true; // booléen
+
+                await _context.SaveChangesAsync();
+                Flash = "Élément validé.";
             }
             catch (Exception ex)
             {
-                return new JsonResult(new { error = ex.Message });
+                _logger.LogError(ex, "[DASHBOARD][POST] Erreur validation {Id}", checklistId);
+                ErrorMessage = "Erreur lors de la validation.";
             }
+            return RedirectToPage();
+        }
+
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> OnPostUnvalidateChecklistAsync(int checklistId)
+        {
+            try
+            {
+                var login = GetCurrentUserLogin();
+                var user = await _context.Utilisateurs.FirstOrDefaultAsync(u => u.LoginWindows == login);
+                if (user == null) { ErrorMessage = "Utilisateur inconnu."; return RedirectToPage(); }
+
+                var isManager = IsManager(user.Droits);
+
+                var item = await _context.PrsChecklists.FirstOrDefaultAsync(c => c.Id == checklistId);
+                if (item == null) { ErrorMessage = "Élément introuvable."; return RedirectToPage(); }
+
+                if (!isManager)
+                {
+                    var myGroupIds = await _context.GroupesUtilisateurs
+                        .Where(g => g.Actif && g.Membres.Any(m => m.UtilisateurId == user.Id))
+                        .Select(g => g.Id)
+                        .Distinct()
+                        .ToListAsync();
+
+                    bool authorized = await _context.ChecklistAffectations.AnyAsync(a =>
+                        a.ChecklistId == item.Id &&
+                        (
+                            (a.UtilisateurId.HasValue && a.UtilisateurId.Value == user.Id) ||
+                            (a.GroupeId.HasValue && myGroupIds.Contains(a.GroupeId.Value))
+                        ));
+
+                    if (!authorized)
+                    {
+                        ErrorMessage = "Vous n'êtes pas autorisé à annuler cette validation.";
+                        return RedirectToPage();
+                    }
+                }
+
+                item.EstCoche = false;
+                item.DateValidation = null;
+                item.ValidePar = null;
+                item.Statut = false;
+
+                await _context.SaveChangesAsync();
+                Flash = "Validation annulée.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[DASHBOARD][POST] Erreur annulation {Id}", checklistId);
+                ErrorMessage = "Erreur lors de l'annulation de la validation.";
+            }
+            return RedirectToPage();
+        }
+
+        private string GetCurrentUserLogin()
+        {
+            var fullLogin = User?.Identity?.Name;
+            if (string.IsNullOrWhiteSpace(fullLogin)) return "Utilisateur inconnu";
+            var parts = fullLogin.Split('\\');
+            return parts.Length > 1 ? parts[1] : fullLogin;
+        }
+
+        private bool IsManager(string droits)
+        {
+            var d = (droits ?? "").ToLower();
+            return d == "admin" || d == "cdp" || d == "validateur";
+        }
+
+        // VMs
+        public class SummaryVM
+        {
+            public int TotalOpenItems { get; set; }
+            public int LateCount { get; set; }
+            public int TodayCount { get; set; }
+            public int DueSoonCount { get; set; }
+        }
+
+        public class AdminSummaryVM
+        {
+            public int TotalPrs { get; set; }
+            public int PrsEnAttente { get; set; }
+            public int PrsValidees { get; set; }
+            public int UsersActifs { get; set; }
+            public int GroupesActifs { get; set; }
+            public List<AdminPrsVM> PrsEnAttenteList { get; set; } = new();
+        }
+
+        public class AdminPrsVM
+        {
+            public int Id { get; set; }
+            public string Titre { get; set; }
+            public DateTime DateDebut { get; set; }
+            public DateTime DateFin { get; set; }
+            public string CreatedBy { get; set; }
+            public DateTime DerniereModification { get; set; }
+        }
+
+        public class ChecklistItemVM
+        {
+            public int Id { get; set; }
+            public int PrsId { get; set; }
+            public string PrsTitre { get; set; }
+            public string Categorie { get; set; }
+            public string SousCategorie { get; set; }
+            public string Libelle { get; set; }
+            public int Priorite { get; set; }
+            public int DelaiJours { get; set; }
+            public DateTime DueDate { get; set; }
+            public int DaysLeft { get; set; }
+            public string Source { get; set; }
+            public bool IsValidated { get; set; }
+            public DateTime? DateValidation { get; set; }
+            public string ValidePar { get; set; }
+        }
+
+        public class PrsCardVM
+        {
+            public int Id { get; set; }
+            public string Titre { get; set; }
+            public string Statut { get; set; }
+            public DateTime DateDebut { get; set; }
+            public DateTime DateFin { get; set; }
+        }
+
+        public class ActivityVM
+        {
+            public int Id { get; set; }
+            public string Titre { get; set; }
+            public string Statut { get; set; }
+            public string CreatedBy { get; set; }
+            public DateTime DerniereModification { get; set; }
         }
     }
 }
