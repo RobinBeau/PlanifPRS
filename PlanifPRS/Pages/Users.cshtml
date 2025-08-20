@@ -15,13 +15,13 @@
     <div class="mb-3">
         <small class="text-muted">
             <strong>Légende des droits :</strong>
-            <span class="badge bg-danger ms-2">Admin</span> Accès complet
-            <span class="badge bg-primary ms-2">CDP/Pilote</span> Gestion projets
-            <span class="badge bg-warning ms-2">Validateur</span> Validation PRS
-            <span class="badge bg-success ms-2">Process</span> Process / Equipements Indus
-            <span class="badge bg-orange ms-2" style="background-color: #fd7e14;">Maintenance</span> Maintenance
-            <span class="badge bg-purple ms-2" style="background-color: #6f42c1;">Qualité</span> Qualité
-            <span class="badge bg-secondary ms-2">Visualiseur</span> Lecture seule
+            <span class="badge bg-danger ms-2 role-filter" data-role="admin" style="cursor: pointer;">Admin</span> Accès complet
+            <span class="badge bg-primary ms-2 role-filter" data-role="cdp" style="cursor: pointer;">CDP/Pilote</span> Gestion projets
+            <span class="badge bg-warning ms-2 role-filter" data-role="validateur" style="cursor: pointer;">Validateur</span> Validation PRS
+            <span class="badge bg-success ms-2 role-filter" data-role="process" style="cursor: pointer;">Process</span> Process / Equipements Indus
+            <span class="badge bg-orange ms-2 role-filter" data-role="maintenance" style="background-color: #fd7e14; cursor: pointer;">Maintenance</span> Maintenance
+            <span class="badge bg-purple ms-2 role-filter" data-role="qualite" style="background-color: #6f42c1; cursor: pointer;">Qualité</span> Qualité
+            <span class="badge bg-secondary ms-2 role-filter" data-role="visualiseur" style="cursor: pointer;">Visualiseur</span> Lecture seule
         </small>
     </div>
 
@@ -42,7 +42,8 @@
             @foreach (var user in Model.ListeUtilisateurs)
             {
                 <tr class="user-row"
-                    data-search="@($"{user.Id} {user.Matricule} {user.Nom} {user.Prenom} {user.LoginWindows} {user.Mail} {user.Service} {user.Droits}".ToLower())">
+                    data-search="@($"{user.Id} {user.Matricule} {user.Nom} {user.Prenom} {user.LoginWindows} {user.Mail} {user.Service} {user.Droits}".ToLower())"
+                    data-role="@((user.Droits ?? "visualiseur").ToLower())">
                     <td>@user.Id</td>
                     <td>@user.Matricule</td>
                     <td>@user.Nom</td>
@@ -140,6 +141,15 @@
     .sorted-desc .sort-icon {
         color: #dc3545;
     }
+
+    .role-filter.active {
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+        transform: scale(1.1);
+    }
+
+    .role-filter:hover {
+        transform: scale(1.05);
+    }
 </style>
 
 <script>
@@ -148,21 +158,59 @@
         const userRows = document.querySelectorAll('.user-row');
         const table = document.getElementById('usersTable');
         const tbody = document.getElementById('userTableBody');
+        const roleFilters = document.querySelectorAll('.role-filter');
+
+        let activeRoleFilter = null;
 
         // Fonction de recherche
         searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase().trim();
+            filterUsers();
+        });
+
+        // Fonction de filtrage par rôle
+        roleFilters.forEach(function(badge) {
+            badge.addEventListener('click', function() {
+                const role = this.getAttribute('data-role');
+
+                // Si on clique sur le même rôle, on désactive le filtre
+                if (activeRoleFilter === role) {
+                    activeRoleFilter = null;
+                    this.classList.remove('active');
+                } else {
+                    // Désactiver l'ancien filtre
+                    roleFilters.forEach(b => b.classList.remove('active'));
+
+                    // Activer le nouveau filtre
+                    activeRoleFilter = role;
+                    this.classList.add('active');
+                }
+
+                filterUsers();
+            });
+        });
+
+        function filterUsers() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
 
             userRows.forEach(function(row) {
                 const searchData = row.getAttribute('data-search');
+                const userRole = row.getAttribute('data-role');
 
-                if (searchData.includes(searchTerm)) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
+                let showRow = true;
+
+                // Filtre par texte de recherche
+                if (searchTerm && !searchData.includes(searchTerm)) {
+                    showRow = false;
                 }
+
+                // Filtre par rôle
+                if (activeRoleFilter && userRole !== activeRoleFilter) {
+                    showRow = false;
+                }
+
+                row.style.display = showRow ? '' : 'none';
             });
-        });
+        }
 
         // Fonction de tri
         let currentSort = { column: 2, direction: 'asc' }; // Par défaut sur la colonne Nom (index 2)
