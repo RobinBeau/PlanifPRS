@@ -169,6 +169,198 @@ namespace PlanifPRS.Pages
             }
         }
 
+        // === NOUVEAU : Vérification disponibilité tenant compte des affectations ORIGINALES + ajouts - suppressions ===
+        // On ajoute le paramètre affectationsToDelete pour pouvoir exclure celles que l'utilisateur retire visuellement.
+        public async Task<IActionResult> OnGetCheckAvailabilityAsync(string dateDebut, string dateFin, string affectationsData, string affectationsToDelete)
+        {
+            try
+            {
+                if (!DateTime.TryParse(dateDebut, out var debut) || !DateTime.TryParse(dateFin, out var fin))
+                {
+                    return new JsonResult(new { success = false, message = "Dates invalides" });
+                }
+
+                // 1. Récupérer affectations existantes (PRS source) et les transformer en AffectationDto
+                var existingAffectations = await _context.PrsAffectations
+                    .Where(a => a.PrsId == Prs.Id)
+                    .Select(a => new
+                    {
+                        AffectationId = a.Id,
+                        UserId = a.UtilisateurId,
+                        GroupId = a.GroupeId
+                    })
+                    .ToListAsync();
+
+                // 2. Parser la liste des suppressions (IDs d'affectations existantes)
+                var deletedIds = new HashSet<int>();
+                if (!string.IsNullOrWhiteSpace(affectationsToDelete))
+                {
+                    try
+                    {
+                        var rawDel = affectationsToDelete.Trim();
+                        if (!(rawDel.Equals("[]", StringComparison.Ordinal) || rawDel.Equals("\"[]\"", StringComparison.Ordinal) || rawDel.Equals("null", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            var parsed = JsonSerializer.Deserialize<List<int>>(rawDel, new JsonSerializerOptions
+                            {
+                                NumberHandling = JsonNumberHandling.AllowReadingFromString
+                            }) ?? new List<int>();
+                            deletedIds = new HashSet<int>(parsed);
+                        }
+                    }
+                    catch (Exception exDel)
+                    {
+                        _logger.LogWarning(exDel, "[CLONE][AVAIL] Échec parsing affectationsToDelete, on ignore les suppressions.");
+                    }
+                }
+
+                // 3. Construire la base = existants - suppressions
+                var baseDtos = existingAffectations
+                    .Where(a => !deletedIds.Contains(a.AffectationId))
+                    .Select(a => new AffectationDto
+                    {
+                        id = a.UserId ?? a.GroupId ?? 0,
+                        type = a.UserId.HasValue ? "Utilisateur" : "Groupe",
+                        name = "",
+                        info = ""
+                    })
+                    .Where(d => d.id > 0)
+                    .ToList();
+
+                // 4. Parser les ajouts (affectationsData)
+                var additions = new List<AffectationDto>();
+                if (!string.IsNullOrWhiteSpace(affectationsData) && affectationsData.Trim() != "[]")
+                {
+                    try
+                    {
+                        additions = JsonSerializer.Deserialize<List<AffectationDto>>(affectationsData, new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        }) ?? new List<AffectationDto>();
+                    }
+                    catch (Exception exAdd)
+                    {
+                        _logger.LogWarning(exAdd, "[CLONE][AVAIL] Parsing affectationsData échoué, aucun ajout pris en compte.");
+                    }
+                }
+
+                // 5. Fusion (union) base + additions sur clé type:id
+                var merged = new List<AffectationDto>();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                void AddIfNew(AffectationDto dto)
+                {
+                    if (dto == null || dto.id <= 0 || string.IsNullOrWhiteSpace(dto.type)) return;
+                    var key = $"{dto.type}:{dto.id}";
+                    if (seen.Add(key)) merged.Add(dto);
+                }
+                foreach (var b in baseDtos) AddIfNew(b);
+                foreach (var a in additions) AddIfNew(a);
+
+                // 6. Détection des conflits sur la liste fusionnée
+                var conflits = new List<object>();
+                foreach (var aff in merged)
+                {
+                    if (aff.type == "Utilisateur")
+                    {
+                        var utilisateurConflits = await VerifierConflitsUtilisateur(aff.id, debut, fin);
+                        conflits.AddRange(utilisateurConflits);
+                    }
+                    else if (aff.type == "Groupe")
+                    {
+                        var groupeConflits = await VerifierConflitsGroupe(aff.id, debut, fin);
+                        conflits.AddRange(groupeConflits);
+                    }
+                }
+
+                return new JsonResult(new
+                {
+                    success = true,
+                    hasConflicts = conflits.Any(),
+                    conflicts = conflits
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[CLONE] Erreur vérification disponibilité");
+                return new JsonResult(new { success = false, message = "Erreur lors de la vérification" });
+            }
+        }
+
+        private async Task<List<object>> VerifierConflitsUtilisateur(int utilisateurId, DateTime debut, DateTime fin)
+        {
+            var conflits = new List<object>();
+
+            var utilisateur = await _context.Utilisateurs.FindAsync(utilisateurId);
+            if (utilisateur == null) return conflits;
+
+            // Conflits directs (exclure la PRS courante pour l'édition)
+            var conflitsDirects = await _context.PrsAffectations
+                .Where(a => a.UtilisateurId == utilisateurId)
+                .Include(a => a.Prs)
+                .Where(a => a.Prs.Id != Prs.Id && a.Prs.DateDebut < fin && a.Prs.DateFin > debut)
+                .Select(a => new
+                {
+                    type = "direct",
+                    utilisateur = $"{utilisateur.Prenom} {utilisateur.Nom}",
+                    prsId = a.Prs.Id,
+                    prsTitre = a.Prs.Titre,
+                    dateDebut = a.Prs.DateDebut,
+                    dateFin = a.Prs.DateFin
+                })
+                .ToListAsync();
+
+            conflits.AddRange(conflitsDirects);
+
+            // Conflits via groupes
+            var groupesUtilisateur = await _context.GroupesUtilisateurs
+                .Where(g => g.Actif && g.Membres.Any(m => m.UtilisateurId == utilisateurId))
+                .Select(g => g.Id)
+                .ToListAsync();
+
+            if (groupesUtilisateur.Any())
+            {
+                var conflitsGroupes = await _context.PrsAffectations
+                    .Where(a => a.GroupeId.HasValue && groupesUtilisateur.Contains(a.GroupeId.Value))
+                    .Include(a => a.Prs)
+                    .Include(a => a.Groupe)
+                    .Where(a => a.Prs.Id != Prs.Id && a.Prs.DateDebut < fin && a.Prs.DateFin > debut)
+                    .Select(a => new
+                    {
+                        type = "groupe",
+                        utilisateur = $"{utilisateur.Prenom} {utilisateur.Nom}",
+                        groupe = a.Groupe.NomGroupe,
+                        prsId = a.Prs.Id,
+                        prsTitre = a.Prs.Titre,
+                        dateDebut = a.Prs.DateDebut,
+                        dateFin = a.Prs.DateFin
+                    })
+                    .ToListAsync();
+
+                conflits.AddRange(conflitsGroupes);
+            }
+
+            return conflits;
+        }
+
+        private async Task<List<object>> VerifierConflitsGroupe(int groupeId, DateTime debut, DateTime fin)
+        {
+            var conflits = new List<object>();
+
+            var groupe = await _context.GroupesUtilisateurs
+                .Include(g => g.Membres)
+                .ThenInclude(m => m.Utilisateur)
+                .FirstOrDefaultAsync(g => g.Id == groupeId);
+
+            if (groupe == null) return conflits;
+
+            foreach (var membre in groupe.Membres)
+            {
+                var utilisateurConflits = await VerifierConflitsUtilisateur(membre.UtilisateurId, debut, fin);
+                conflits.AddRange(utilisateurConflits);
+            }
+
+            return conflits;
+        }
+
         public async Task<IActionResult> OnPostAsync()
         {
             // Normalisation des champs + suppression de validations parasites
@@ -206,6 +398,105 @@ namespace PlanifPRS.Pages
                 ModelState.AddModelError(string.Empty, "La date de début doit être antérieure à la date de fin.");
             if (Prs.LigneId == 0)
                 ModelState.AddModelError("Prs.LigneId", "La sélection d'une ligne est obligatoire.");
+
+            // Vérification disponibilité (affectations saisies + existantes)
+            if (!string.IsNullOrEmpty(AffectationsData) || !string.IsNullOrEmpty(AffectationsToDelete))
+            {
+                try
+                {
+                    // Reproduire la logique de fusion utilisée dans l'endpoint availability
+                    var existingAffectations = await _context.PrsAffectations
+                        .Where(a => a.PrsId == Prs.Id)
+                        .Select(a => new { a.Id, a.UtilisateurId, a.GroupeId })
+                        .ToListAsync();
+
+                    var deletedIds = new HashSet<int>();
+                    if (!string.IsNullOrWhiteSpace(AffectationsToDelete))
+                    {
+                        var rawDel = AffectationsToDelete.Trim();
+                        if (!(rawDel.Equals("[]", StringComparison.Ordinal) || rawDel.Equals("\"[]\"", StringComparison.Ordinal) || rawDel.Equals("null", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            try
+                            {
+                                deletedIds = new HashSet<int>(JsonSerializer.Deserialize<List<int>>(rawDel,
+                                    new JsonSerializerOptions { NumberHandling = JsonNumberHandling.AllowReadingFromString }) ?? new List<int>());
+                            }
+                            catch (Exception exDel) { _logger.LogWarning(exDel, "[CLONE][POST] Parsing deletions ignoré"); }
+                        }
+                    }
+
+                    var baseDtos = existingAffectations
+                        .Where(a => !deletedIds.Contains(a.Id))
+                        .Select(a => new AffectationDto
+                        {
+                            id = a.UtilisateurId ?? a.GroupeId ?? 0,
+                            type = a.UtilisateurId.HasValue ? "Utilisateur" : "Groupe"
+                        })
+                        .Where(x => x.id > 0)
+                        .ToList();
+
+                    var additions = new List<AffectationDto>();
+                    if (!string.IsNullOrWhiteSpace(AffectationsData) && AffectationsData.Trim() != "[]")
+                    {
+                        try
+                        {
+                            additions = JsonSerializer.Deserialize<List<AffectationDto>>(AffectationsData,
+                                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AffectationDto>();
+                        }
+                        catch (Exception exAdd) { _logger.LogWarning(exAdd, "[CLONE][POST] Parsing additions ignoré"); }
+                    }
+
+                    var merged = new List<AffectationDto>();
+                    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    void AddIfNew(AffectationDto dto)
+                    {
+                        if (dto == null || dto.id <= 0 || string.IsNullOrWhiteSpace(dto.type)) return;
+                        var key = $"{dto.type}:{dto.id}";
+                        if (seen.Add(key)) merged.Add(dto);
+                    }
+                    foreach (var b in baseDtos) AddIfNew(b);
+                    foreach (var a in additions) AddIfNew(a);
+
+                    var conflits = new List<object>();
+                    foreach (var aff in merged)
+                    {
+                        if (aff.type == "Utilisateur")
+                        {
+                            conflits.AddRange(await VerifierConflitsUtilisateur(aff.id, Prs.DateDebut, Prs.DateFin));
+                        }
+                        else if (aff.type == "Groupe")
+                        {
+                            conflits.AddRange(await VerifierConflitsGroupe(aff.id, Prs.DateDebut, Prs.DateFin));
+                        }
+                    }
+
+                    if (conflits.Any())
+                    {
+                        var messages = conflits.Select(c =>
+                        {
+                            dynamic conflit = c;
+                            if (conflit.type == "direct")
+                            {
+                                return $"⚠️ {conflit.utilisateur} est déjà affecté(e) à la PRS #{conflit.prsId} '{conflit.prsTitre}' du {((DateTime)conflit.dateDebut):dd/MM/yyyy HH:mm} au {((DateTime)conflit.dateFin):dd/MM/yyyy HH:mm}";
+                            }
+                            else if (conflit.type == "groupe")
+                            {
+                                return $"⚠️ {conflit.utilisateur} fait partie du groupe '{conflit.groupe}' déjà affecté à la PRS #{conflit.prsId} '{conflit.prsTitre}' du {((DateTime)conflit.dateDebut):dd/MM/yyyy HH:mm} au {((DateTime)conflit.dateFin):dd/MM/yyyy HH:mm}";
+                            }
+                            return "Conflit détecté";
+                        }).Distinct();
+
+                        foreach (var message in messages)
+                        {
+                            ModelState.AddModelError(string.Empty, message);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[CLONE][POST] Erreur vérification conflits d'affectation");
+                }
+            }
 
             if (!ModelState.IsValid)
             {
@@ -297,6 +588,104 @@ namespace PlanifPRS.Pages
             if (Prs.LigneId == 0)
                 ModelState.AddModelError("Prs.LigneId", "La sélection d'une ligne est obligatoire.");
 
+            // Vérification disponibilité (utilise les affectations saisies + affectations source - suppressions)
+            if (!string.IsNullOrEmpty(AffectationsData) || !string.IsNullOrEmpty(AffectationsToDelete))
+            {
+                try
+                {
+                    var srcAffFull = await _context.PrsAffectations
+                        .Where(a => a.PrsId == Prs.Id)
+                        .Select(a => new { a.Id, a.UtilisateurId, a.GroupeId })
+                        .ToListAsync();
+
+                    var deletedIds = new HashSet<int>();
+                    if (!string.IsNullOrWhiteSpace(AffectationsToDelete))
+                    {
+                        var rawDel = AffectationsToDelete.Trim();
+                        if (!(rawDel.Equals("[]", StringComparison.Ordinal) || rawDel.Equals("\"[]\"", StringComparison.Ordinal) || rawDel.Equals("null", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            try
+                            {
+                                deletedIds = new HashSet<int>(JsonSerializer.Deserialize<List<int>>(rawDel,
+                                    new JsonSerializerOptions { NumberHandling = JsonNumberHandling.AllowReadingFromString }) ?? new List<int>());
+                            }
+                            catch (Exception exDel) { _logger.LogWarning(exDel, "[CLONE][POST CreateNew] Parsing deletions ignoré"); }
+                        }
+                    }
+
+                    var baseDtos = srcAffFull
+                        .Where(a => !deletedIds.Contains(a.Id))
+                        .Select(a => new AffectationDto
+                        {
+                            id = a.UtilisateurId ?? a.GroupeId ?? 0,
+                            type = a.UtilisateurId.HasValue ? "Utilisateur" : "Groupe"
+                        })
+                        .Where(x => x.id > 0)
+                        .ToList();
+
+                    var additions = new List<AffectationDto>();
+                    if (!string.IsNullOrWhiteSpace(AffectationsData) && AffectationsData.Trim() != "[]")
+                    {
+                        try
+                        {
+                            additions = JsonSerializer.Deserialize<List<AffectationDto>>(AffectationsData,
+                                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<AffectationDto>();
+                        }
+                        catch (Exception exAdd) { _logger.LogWarning(exAdd, "[CLONE][POST CreateNew] Parsing additions ignoré"); }
+                    }
+
+                    var merged = new List<AffectationDto>();
+                    var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    void AddIfNew(AffectationDto dto)
+                    {
+                        if (dto == null || dto.id <= 0 || string.IsNullOrWhiteSpace(dto.type)) return;
+                        var key = $"{dto.type}:{dto.id}";
+                        if (seen.Add(key)) merged.Add(dto);
+                    }
+                    foreach (var b in baseDtos) AddIfNew(b);
+                    foreach (var a in additions) AddIfNew(a);
+
+                    var conflits = new List<object>();
+                    foreach (var aff in merged)
+                    {
+                        if (aff.type == "Utilisateur")
+                        {
+                            conflits.AddRange(await VerifierConflitsUtilisateur(aff.id, Prs.DateDebut, Prs.DateFin));
+                        }
+                        else if (aff.type == "Groupe")
+                        {
+                            conflits.AddRange(await VerifierConflitsGroupe(aff.id, Prs.DateDebut, Prs.DateFin));
+                        }
+                    }
+
+                    if (conflits.Any())
+                    {
+                        var messages = conflits.Select(c =>
+                        {
+                            dynamic conflit = c;
+                            if (conflit.type == "direct")
+                            {
+                                return $"⚠️ {conflit.utilisateur} est déjà affecté(e) à la PRS #{conflit.prsId} '{conflit.prsTitre}' du {((DateTime)conflit.dateDebut):dd/MM/yyyy HH:mm} au {((DateTime)conflit.dateFin):dd/MM/yyyy HH:mm}";
+                            }
+                            else if (conflit.type == "groupe")
+                            {
+                                return $"⚠️ {conflit.utilisateur} fait partie du groupe '{conflit.groupe}' déjà affecté à la PRS #{conflit.prsId} '{conflit.prsTitre}' du {((DateTime)conflit.dateDebut):dd/MM/yyyy HH:mm} au {((DateTime)conflit.dateFin):dd/MM/yyyy HH:mm}";
+                            }
+                            return "Conflit détecté";
+                        }).Distinct();
+
+                        foreach (var message in messages)
+                        {
+                            ModelState.AddModelError(string.Empty, message);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[CLONE][POST CreateNew] Erreur vérification conflits");
+                }
+            }
+
             if (!ModelState.IsValid)
             {
                 await ChargerDonneesAsync();
@@ -322,7 +711,6 @@ namespace PlanifPRS.Pages
                     InfoDiverses = Prs.InfoDiverses,
                     FamilleId = Prs.FamilleId,
                     LigneId = Prs.LigneId,
-                    // Conserver la couleur (même pour non-admin) si présente dans le form
                     CouleurPRS = string.IsNullOrWhiteSpace(Prs.CouleurPRS) ? null : Prs.CouleurPRS,
                     DateCreation = DateTime.Now,
                     DerniereModification = DateTime.Now,
@@ -340,13 +728,11 @@ namespace PlanifPRS.Pages
                     // Nouvelle logique: construire la liste FINALE désirée = (Affectations source - suppressions) U (ajouts IHM)
                     _logger.LogInformation("[CLONE][CreateNew] Préparation affectations | AffectationsData='{Data}' | AffectationsToDelete='{Del}'", AffectationsData ?? "null", AffectationsToDelete ?? "null");
 
-                    // 1) Charger les affectations de la PRS source
                     var srcAffFull = await _context.PrsAffectations
                         .Where(a => a.PrsId == originalId)
                         .ToListAsync();
                     _logger.LogInformation("[CLONE][CreateNew] Source affectations count={Count}", srcAffFull.Count);
 
-                    // 2) Parser les suppressions (IDs d'affectations source)
                     var deletedIds = new List<int>();
                     try
                     {
@@ -365,7 +751,6 @@ namespace PlanifPRS.Pages
                     }
                     _logger.LogInformation("[CLONE][CreateNew] DeletedIds count={Count}", deletedIds.Count);
 
-                    // 3) Base = source - suppressions
                     var baseDtos = srcAffFull
                         .Where(a => !deletedIds.Contains(a.Id))
                         .Select(a => new AffectationDto
@@ -380,7 +765,6 @@ namespace PlanifPRS.Pages
 
                     _logger.LogInformation("[CLONE][CreateNew] Base (après suppressions) count={Count}", baseDtos.Count);
 
-                    // 4) Ajouts depuis l'IHM (si non vide et != "[]")
                     var additions = new List<AffectationDto>();
                     if (!string.IsNullOrWhiteSpace(AffectationsData) && AffectationsData.Trim() != "[]")
                     {
@@ -396,7 +780,6 @@ namespace PlanifPRS.Pages
                     }
                     _logger.LogInformation("[CLONE][CreateNew] Additions (IHM) count={Count}", additions.Count);
 
-                    // 5) Fusion: union par clé (type:id)
                     var merged = new List<AffectationDto>();
                     var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     void addIfNew(AffectationDto dto)
@@ -411,13 +794,11 @@ namespace PlanifPRS.Pages
 
                     _logger.LogInformation("[CLONE][CreateNew] Fusion finale: SourceKept={BaseCount} + Additions={AddCount} => Merged={MergedCount}", baseDtos.Count, additions.Count, merged.Count);
 
-                    // 6) Remplacer AffectationsData par le merged final puis synchroniser
                     AffectationsData = JsonSerializer.Serialize(merged);
                     _logger.LogInformation("[CLONE][CreateNew] AffectationsData (merged)='{Data}'", AffectationsData);
 
                     await SynchroniserAffectationsPrsAsync();
 
-                    // Fallback 2: liens PRS — si le hidden est vide, recopier les liens
                     if (string.IsNullOrWhiteSpace(PrsFolderLinks))
                     {
                         var srcLinks = await _context.LiensDossierPrs.Where(l => l.PrsId == originalId).ToListAsync();
@@ -428,13 +809,11 @@ namespace PlanifPRS.Pages
                         }
                     }
 
-                    // Checklist: tenter l'IHM, puis fallback si rien n'a été créé
                     await TraiterChecklistsEtAffectationsAsync();
 
                     var newHasChecklist = await _context.PrsChecklists.AnyAsync(c => c.PRSId == newPrs.Id);
                     if (!newHasChecklist)
                     {
-                        // Fallback 3: copier checklist + affectations depuis la PRS source
                         var srcItems = await _context.PrsChecklists
                             .Where(c => c.PRSId == originalId)
                             .OrderBy(c => c.Priorite)
@@ -483,10 +862,8 @@ namespace PlanifPRS.Pages
                         }
                     }
 
-                    // Fichiers: traiter uploads et liens via service
                     await TraiterFichiersEtLiensAsync();
 
-                    // Fallback 4: si aucun upload et aucun fichier ajouté, dupliquer les références de fichiers
                     var hasNewFiles = await _context.PrsFichiers.AnyAsync(f => f.PrsId == newPrs.Id);
                     if (!hasNewFiles)
                     {
@@ -499,7 +876,7 @@ namespace PlanifPRS.Pages
                                 {
                                     PrsId = newPrs.Id,
                                     NomOriginal = f.NomOriginal,
-                                    CheminFichier = f.CheminFichier, // référence le même fichier physique
+                                    CheminFichier = f.CheminFichier,
                                     TypeMime = f.TypeMime,
                                     Taille = f.Taille,
                                     DateUpload = DateTime.Now,
@@ -779,12 +1156,10 @@ namespace PlanifPRS.Pages
             {
                 _logger.LogInformation("[EDIT] AffectationsToDelete brut: {raw}", raw);
 
-                // Tolérer des nombres encodés en string
                 var options = new JsonSerializerOptions { NumberHandling = JsonNumberHandling.AllowReadingFromString };
 
                 List<int>? ids = null;
 
-                // Accepter aussi un wrapper { ids: [...] } ou { affectations: [...] }
                 if (raw.StartsWith("{"))
                 {
                     var wrapper = JsonSerializer.Deserialize<Dictionary<string, List<int>>>(raw, options);
@@ -805,7 +1180,6 @@ namespace PlanifPRS.Pages
                     return;
                 }
 
-                // 1) Charger les IDs existants pour cette PRS (requête simple)
                 var existingIds = await _context.PrsAffectations
                     .Where(a => a.PrsId == Prs.Id)
                     .Select(a => a.Id)
@@ -817,7 +1191,6 @@ namespace PlanifPRS.Pages
                     return;
                 }
 
-                // 2) Intersecter en mémoire
                 var toDeleteIds = existingIds.Intersect(ids).ToList();
                 if (toDeleteIds.Count == 0)
                 {
@@ -826,7 +1199,6 @@ namespace PlanifPRS.Pages
                     return;
                 }
 
-                // 3) Supprimer par clé (stubs) — évite une requête SELECT avec IN côté SQL
                 foreach (var id in toDeleteIds)
                 {
                     _context.PrsAffectations.Remove(new PrsAffectation { Id = id });
@@ -968,7 +1340,6 @@ namespace PlanifPRS.Pages
                             break;
                     }
 
-                    // APPLIQUER LES AFFECTATIONS POUR TOUS LES CAS (y compris copy)
                     if (checklistIds.Any())
                     {
                         await TraiterAffectationsChecklistAsync(checklistIds);
@@ -1209,23 +1580,11 @@ namespace PlanifPRS.Pages
 
             string cleanedText = input;
 
-            // Conserver les lettres accentuées, ne retirer que les emojis/symboles concernés
-            // 1) Emojis en paires de substituts (surrogate pairs)
             cleanedText = Regex.Replace(cleanedText, @"[\uD83C-\uDBFF][\uDC00-\uDFFF]", "");
-
-            // 2) Variation selector-16 et Zero-Width Joiner (utilisés par les emojis)
             cleanedText = Regex.Replace(cleanedText, @"[\uFE0F\u200D]", "");
-
-            // 3) Optionnel: retirer quelques gammes de pictogrammes (flèches/dingbats), sans toucher aux accents
             cleanedText = Regex.Replace(cleanedText, @"[\u2190-\u21FF\u2600-\u27BF]", "");
-
-            // Remplacer l’espace insécable par un espace normal plutôt que de supprimer (préserve les mots)
             cleanedText = cleanedText.Replace('\u00A0', ' ');
-
-            // Nettoyage du début de texte (conserve les lettres Unicode)
             cleanedText = Regex.Replace(cleanedText, @"^\s*[^\w]*\s*", "");
-
-            // Mappages explicites des libellés s’ils contiennent des emojis en entrée
             cleanedText = cleanedText.Replace("👨‍🔧 Besoin opérateur", "Besoin opérateur")
                                      .Replace("❌ Aucun", "Aucun")
                                      .Replace("✅ Client présent", "Client présent")
