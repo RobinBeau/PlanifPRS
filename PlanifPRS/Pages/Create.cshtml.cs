@@ -39,8 +39,6 @@ namespace PlanifPRS.Pages.Prs
 
         public IList<Utilisateur> Utilisateurs { get; set; }
         public IList<GroupeUtilisateurs> GroupesUtilisateurs { get; set; }
-      
-
 
         [BindProperty]
         public Models.Prs Prs { get; set; }
@@ -98,6 +96,134 @@ namespace PlanifPRS.Pages.Prs
             }
         }
 
+        // ✅ NOUVELLE MÉTHODE POUR VÉRIFIER LA DISPONIBILITÉ
+        public async Task<IActionResult> OnGetCheckAvailabilityAsync(string dateDebut, string dateFin, string affectationsData)
+        {
+            try
+            {
+                if (!DateTime.TryParse(dateDebut, out var debut) || !DateTime.TryParse(dateFin, out var fin))
+                {
+                    return new JsonResult(new { success = false, message = "Dates invalides" });
+                }
+
+                var conflits = new List<object>();
+
+                if (!string.IsNullOrEmpty(affectationsData))
+                {
+                    var affectations = JsonSerializer.Deserialize<List<AffectationDto>>(affectationsData, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    if (affectations?.Any() == true)
+                    {
+                        foreach (var affectation in affectations)
+                        {
+                            if (affectation.type == "Utilisateur")
+                            {
+                                var utilisateurConflits = await VerifierConflitsUtilisateur(affectation.id, debut, fin);
+                                conflits.AddRange(utilisateurConflits);
+                            }
+                            else if (affectation.type == "Groupe")
+                            {
+                                var groupeConflits = await VerifierConflitsGroupe(affectation.id, debut, fin);
+                                conflits.AddRange(groupeConflits);
+                            }
+                        }
+                    }
+                }
+
+                return new JsonResult(new
+                {
+                    success = true,
+                    hasConflicts = conflits.Any(),
+                    conflicts = conflits
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la vérification de disponibilité");
+                return new JsonResult(new { success = false, message = "Erreur lors de la vérification" });
+            }
+        }
+
+        private async Task<List<object>> VerifierConflitsUtilisateur(int utilisateurId, DateTime debut, DateTime fin)
+        {
+            var conflits = new List<object>();
+
+            var utilisateur = await _context.Utilisateurs.FindAsync(utilisateurId);
+            if (utilisateur == null) return conflits;
+
+            // Vérifier les conflits directs (affectations utilisateur)
+            var conflitsDirects = await _context.PrsAffectations
+                .Where(a => a.UtilisateurId == utilisateurId)
+                .Include(a => a.Prs)
+                .Where(a => a.Prs.DateDebut < fin && a.Prs.DateFin > debut)
+                .Select(a => new
+                {
+                    type = "direct",
+                    utilisateur = $"{utilisateur.Prenom} {utilisateur.Nom}",
+                    prsId = a.Prs.Id,
+                    prsTitre = a.Prs.Titre,
+                    dateDebut = a.Prs.DateDebut,
+                    dateFin = a.Prs.DateFin
+                })
+                .ToListAsync();
+
+            conflits.AddRange(conflitsDirects);
+
+            // Vérifier les conflits via groupes
+            var groupesUtilisateur = await _context.GroupesUtilisateurs
+                .Where(g => g.Actif && g.Membres.Any(m => m.UtilisateurId == utilisateurId))
+                .Select(g => g.Id)
+                .ToListAsync();
+
+            if (groupesUtilisateur.Any())
+            {
+                var conflitsGroupes = await _context.PrsAffectations
+                    .Where(a => a.GroupeId.HasValue && groupesUtilisateur.Contains(a.GroupeId.Value))
+                    .Include(a => a.Prs)
+                    .Include(a => a.Groupe)
+                    .Where(a => a.Prs.DateDebut < fin && a.Prs.DateFin > debut)
+                    .Select(a => new
+                    {
+                        type = "groupe",
+                        utilisateur = $"{utilisateur.Prenom} {utilisateur.Nom}",
+                        groupe = a.Groupe.NomGroupe,
+                        prsId = a.Prs.Id,
+                        prsTitre = a.Prs.Titre,
+                        dateDebut = a.Prs.DateDebut,
+                        dateFin = a.Prs.DateFin
+                    })
+                    .ToListAsync();
+
+                conflits.AddRange(conflitsGroupes);
+            }
+
+            return conflits;
+        }
+
+        private async Task<List<object>> VerifierConflitsGroupe(int groupeId, DateTime debut, DateTime fin)
+        {
+            var conflits = new List<object>();
+
+            var groupe = await _context.GroupesUtilisateurs
+                .Include(g => g.Membres)
+                .ThenInclude(m => m.Utilisateur)
+                .FirstOrDefaultAsync(g => g.Id == groupeId);
+
+            if (groupe == null) return conflits;
+
+            // Vérifier les conflits pour chaque membre du groupe
+            foreach (var membre in groupe.Membres)
+            {
+                var utilisateurConflits = await VerifierConflitsUtilisateur(membre.UtilisateurId, debut, fin);
+                conflits.AddRange(utilisateurConflits);
+            }
+
+            return conflits;
+        }
+
         public async Task<IActionResult> OnPostAsync()
         {
             _logger.LogInformation($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Début de OnPostAsync");
@@ -117,6 +243,62 @@ namespace PlanifPRS.Pages.Prs
             if (Prs.LigneId == 0)
             {
                 ModelState.AddModelError("Prs.LigneId", "La sélection d'une ligne est obligatoire.");
+            }
+
+            // ✅ VÉRIFICATION DE DISPONIBILITÉ AVANT CRÉATION
+            if (!string.IsNullOrEmpty(AffectationsData))
+            {
+                try
+                {
+                    var affectations = JsonSerializer.Deserialize<List<AffectationDto>>(AffectationsData, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    if (affectations?.Any() == true)
+                    {
+                        var conflits = new List<object>();
+                        foreach (var affectation in affectations)
+                        {
+                            if (affectation.type == "Utilisateur")
+                            {
+                                var utilisateurConflits = await VerifierConflitsUtilisateur(affectation.id, Prs.DateDebut, Prs.DateFin);
+                                conflits.AddRange(utilisateurConflits);
+                            }
+                            else if (affectation.type == "Groupe")
+                            {
+                                var groupeConflits = await VerifierConflitsGroupe(affectation.id, Prs.DateDebut, Prs.DateFin);
+                                conflits.AddRange(groupeConflits);
+                            }
+                        }
+
+                        if (conflits.Any())
+                        {
+                            var messages = conflits.Select(c =>
+                            {
+                                var conflit = c as dynamic;
+                                if (conflit.type == "direct")
+                                {
+                                    return $"⚠️ {conflit.utilisateur} est déjà affecté(e) à la PRS #{conflit.prsId} '{conflit.prsTitre}' du {((DateTime)conflit.dateDebut):dd/MM/yyyy HH:mm} au {((DateTime)conflit.dateFin):dd/MM/yyyy HH:mm}";
+                                }
+                                else if (conflit.type == "groupe")
+                                {
+                                    return $"⚠️ {conflit.utilisateur} fait partie du groupe '{conflit.groupe}' qui est déjà affecté à la PRS #{conflit.prsId} '{conflit.prsTitre}' du {((DateTime)conflit.dateDebut):dd/MM/yyyy HH:mm} au {((DateTime)conflit.dateFin):dd/MM/yyyy HH:mm}";
+                                }
+                                return "Conflit détecté";
+                            }).Distinct();
+
+                            foreach (var message in messages)
+                            {
+                                ModelState.AddModelError(string.Empty, message);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Erreur lors de la vérification des conflits d'affectation");
+                }
             }
 
             // Définir automatiquement le statut en fonction des droits de l'utilisateur
@@ -763,13 +945,13 @@ namespace PlanifPRS.Pages.Prs
             // 3) Optionnel: retirer quelques gammes de pictogrammes (flèches/dingbats), sans toucher aux accents
             cleanedText = Regex.Replace(cleanedText, @"[\u2190-\u21FF\u2600-\u27BF]", "");
 
-            // Remplacer l’espace insécable par un espace normal plutôt que de supprimer (préserve les mots)
+            // Remplacer l'espace insécable par un espace normal plutôt que de supprimer (préserve les mots)
             cleanedText = cleanedText.Replace('\u00A0', ' ');
 
             // Nettoyage du début de texte (conserve les lettres Unicode)
             cleanedText = Regex.Replace(cleanedText, @"^\s*[^\w]*\s*", "");
 
-            // Mappages explicites des libellés s’ils contiennent des emojis en entrée
+            // Mappages explicites des libellés s'ils contiennent des emojis en entrée
             cleanedText = cleanedText.Replace("👨‍🔧 Besoin opérateur", "Besoin opérateur")
                                      .Replace("❌ Aucun", "Aucun")
                                      .Replace("✅ Client présent", "Client présent")
