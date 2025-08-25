@@ -81,6 +81,10 @@
                             <input class="filter-check" type="checkbox" value="En attente" id="filterPending" checked style="display: none;">
                             <i class="fas fa-clock me-1"></i>En attente
                         </label>
+                        <label class="btn btn-outline-danger btn-sm filter-checkbox active" for="filterRevalider">
+                            <input class="filter-check" type="checkbox" value="À re-valider" id="filterRevalider" checked style="display: none;">
+                            <i class="fas fa-rotate-left me-1"></i>À re-valider
+                        </label>
                         <label class="btn btn-outline-success btn-sm filter-checkbox" for="filterValide">
                             <input class="filter-check" type="checkbox" value="Validé" id="filterValide" style="display: none;">
                             <i class="fas fa-check me-1"></i>Validé
@@ -141,7 +145,6 @@
                                 @foreach (var prs in Model.PrsList)
                                 {
                                     var equipement = prs.Equipement ?? "";
-                                    // Si Equipement est vide, c'est probablement une PRS CMS classique
                                     var typeAffiche = string.IsNullOrEmpty(equipement) ? "CMS" : equipement;
 
                                     <tr class="prs-row"
@@ -161,6 +164,10 @@
                                             {
                                                 <span class="badge bg-warning text-dark">En attente</span>
                                             }
+                                            else if (statut == "À re-valider")
+                                            {
+                                                <span class="badge bg-danger">À re-valider</span>
+                                            }
                                             else if (statut == "Validé")
                                             {
                                                 <span class="badge bg-success">Validé</span>
@@ -179,7 +186,7 @@
                                         <td>@(prs.CreatedByLogin ?? "Inconnu")</td>
                                         <td>
                                             @{
-                                                var editPage = "/Edit"; // Par défaut
+                                                var editPage = "/Edit";
                                                 if (equipement == "Audit" || equipement == "Intervention" || equipement == "Visite Client")
                                                 {
                                                     editPage = "/EditAudit";
@@ -265,14 +272,13 @@
 
         // FONCTION DE FILTRAGE - LOGIQUE ET
         function filterPrs() {
-            // Séparer les filtres par catégorie
             const typeFilters = [];
             const statusFilters = [];
 
             filterChecks.forEach(chk => {
                 if (chk.checked) {
                     const value = chk.value;
-                    if (value === "En attente" || value === "Validé" || value === "Refusé") {
+                    if (value === "En attente" || value === "Validé" || value === "Refusé" || value === "À re-valider") {
                         statusFilters.push(value);
                     } else {
                         typeFilters.push(value);
@@ -281,7 +287,6 @@
             });
 
             const selectedSector = sectorFilter.value;
-
             let visibleRows = 0;
             const allRows = document.querySelectorAll('.prs-row');
 
@@ -290,27 +295,18 @@
                 const prsStatut = row.getAttribute('data-statut');
                 const prsSecteur = row.getAttribute('data-secteur');
 
-                let isVisible = false;
+                let matchType = true;
+                let matchStatus = true;
 
-                // LOGIQUE ET : La PRS doit correspondre aux critères cochés
-                let matchType = true;  // Par défaut OK si aucun filtre de type
-                let matchStatus = true; // Par défaut OK si aucun filtre de statut
-
-                // Vérifier les filtres de type (si au moins un est coché)
                 if (typeFilters.length > 0) {
                     matchType = typeFilters.includes(prsType);
                 }
-
-                // Vérifier les filtres de statut (si au moins un est coché)
                 if (statusFilters.length > 0) {
                     matchStatus = statusFilters.includes(prsStatut);
                 }
 
-                // Vérifier le secteur
                 const matchSector = (selectedSector === "Tous" || prsSecteur === selectedSector);
-
-                // La PRS est visible si elle correspond à TOUS les critères cochés
-                isVisible = matchType && matchStatus && matchSector;
+                const isVisible = matchType && matchStatus && matchSector;
 
                 if (isVisible) {
                     row.style.display = '';
@@ -320,10 +316,8 @@
                 }
             });
 
-            // Mettre à jour les compteurs
             visibleCount.textContent = `${visibleRows} visible(s)`;
 
-            // Afficher/cacher le message "aucun résultat"
             if (visibleRows === 0) {
                 if (prsTable) prsTable.style.display = 'none';
                 noResults.style.display = 'block';
@@ -357,7 +351,7 @@
         filterChecks.forEach(chk => chk.addEventListener("change", filterPrs));
         sectorFilter.addEventListener("change", filterPrs);
 
-        // Filtrage initial
+        // Filtrage initial (inclut déjà En attente et À re-valider cochés par défaut)
         filterPrs();
     });
 </script>

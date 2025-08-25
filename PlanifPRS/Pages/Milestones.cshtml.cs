@@ -102,10 +102,12 @@ namespace PlanifPRS.Pages
                     bool isLate = !isValidated && daysLeft < 0;
                     bool isDueSoon = !isValidated && daysLeft >= 0 && daysLeft <= 3; // fenêtre "proche" par défaut
 
-                    // État PRS pour filtrage client: "attente" | "valide" | "autre"
+                    // État PRS pour filtrage client: "attente" | "revalider" | "valide" | "autre"
                     string prsState = "autre";
                     if (string.Equals(r.p.Statut ?? "", "En attente", StringComparison.OrdinalIgnoreCase))
                         prsState = "attente";
+                    else if (string.Equals(r.p.Statut ?? "", "À re-valider", StringComparison.OrdinalIgnoreCase))
+                        prsState = "revalider";
                     else if (string.Equals(r.p.Statut ?? "", "Validé", StringComparison.OrdinalIgnoreCase))
                         prsState = "valide";
 
@@ -208,7 +210,7 @@ namespace PlanifPRS.Pages
             public int Id { get; set; }
             public int PrsId { get; set; }
             public string PrsTitre { get; set; }
-            public string PrsState { get; set; } // "attente" | "valide" | "autre" (pour filtrage client)
+            public string PrsState { get; set; } // "attente" | "revalider" | "valide" | "autre" (pour filtrage client)
             public string Categorie { get; set; }
             public string SousCategorie { get; set; }
             public string Libelle { get; set; }

@@ -95,7 +95,7 @@ namespace PlanifPRS.Pages
                         .ToListAsync();
                 }
 
-                // Base checklist (permissions) - filtrage par liste d'IDs pour éviter CTE
+                // Base checklist (permissions) - filtrage par liste d'IDs
                 var baseChecklist = IsManagerView
                     ? (from c in _context.PrsChecklists.AsNoTracking()
                        join p in _context.Prs.AsNoTracking() on c.PRSId equals p.Id
@@ -105,7 +105,6 @@ namespace PlanifPRS.Pages
                        where myChecklistIds.Contains(c.Id)
                        select new { c, p });
 
-                // Charger en mémoire (projection nécessaire pour calcul date)
                 var rows = await baseChecklist
                     .OrderBy(x => x.p.DateDebut)
                     .ThenBy(x => x.c.Priorite)
@@ -114,7 +113,6 @@ namespace PlanifPRS.Pages
                     .ThenBy(x => x.c.SousCategorie)
                     .ToListAsync();
 
-                // Construire items avec calcul d'échéance
                 var items = rows.Select(r =>
                 {
                     var delai = r.c.DelaiDefautJours > 0 ? r.c.DelaiDefautJours : 1;
@@ -165,7 +163,7 @@ namespace PlanifPRS.Pages
                     .Take(10)
                     .ToList();
 
-                // PRS à venir (permissions via liste d'IDs)
+                // PRS à venir
                 var prsQuery = _context.Prs.AsNoTracking()
                     .Where(p => p.DateDebut >= today);
 
@@ -188,9 +186,8 @@ namespace PlanifPRS.Pages
                     })
                     .ToListAsync();
 
-                // Activité récente PRS (permissions via liste d'IDs)
+                // Activité récente PRS
                 var recentQuery = _context.Prs.AsNoTracking();
-
                 if (!IsManagerView)
                 {
                     recentQuery = recentQuery.Where(p => prsIdsAssigned.Contains(p.Id));
@@ -209,30 +206,40 @@ namespace PlanifPRS.Pages
                     })
                     .ToListAsync();
 
-                // Vue manager (globale)
+                // Vue manager
                 if (IsManagerView)
                 {
+                    var allPrs = _context.Prs.AsNoTracking();
+                    var enAttenteCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "En attente");
+                    var aReValiderCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "À re-valider");
+                    var valideesCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "Validé");
+
+                    var pendingList = await allPrs
+                        .Where(p => (p.Statut ?? "") == "En attente" || (p.Statut ?? "") == "À re-valider")
+                        .OrderBy(p => p.DateDebut)
+                        .ThenBy(p => p.Statut)
+                        .Take(6)
+                        .Select(p => new AdminPrsVM
+                        {
+                            Id = p.Id,
+                            Titre = p.Titre,
+                            Statut = p.Statut,
+                            DateDebut = p.DateDebut,
+                            DateFin = p.DateFin,
+                            CreatedBy = p.CreatedByLogin,
+                            DerniereModification = p.DerniereModification
+                        })
+                        .ToListAsync();
+
                     AdminSummary = new AdminSummaryVM
                     {
-                        TotalPrs = await _context.Prs.AsNoTracking().CountAsync(),
-                        PrsEnAttente = await _context.Prs.AsNoTracking().CountAsync(p => (p.Statut ?? "") == "En attente"),
-                        PrsValidees = await _context.Prs.AsNoTracking().CountAsync(p => (p.Statut ?? "") == "Validé"),
+                        TotalPrs = await allPrs.CountAsync(),
+                        PrsEnAttente = enAttenteCount,
+                        PrsAReValider = aReValiderCount,
+                        PrsValidees = valideesCount,
                         UsersActifs = await _context.Utilisateurs.AsNoTracking().CountAsync(u => u.DateDeleted == null),
                         GroupesActifs = await _context.GroupesUtilisateurs.AsNoTracking().CountAsync(g => g.Actif),
-                        PrsEnAttenteList = await _context.Prs.AsNoTracking()
-                            .Where(p => (p.Statut ?? "") == "En attente")
-                            .OrderBy(p => p.DateDebut)
-                            .Take(6)
-                            .Select(p => new AdminPrsVM
-                            {
-                                Id = p.Id,
-                                Titre = p.Titre,
-                                DateDebut = p.DateDebut,
-                                DateFin = p.DateFin,
-                                CreatedBy = p.CreatedByLogin,
-                                DerniereModification = p.DerniereModification
-                            })
-                            .ToListAsync()
+                        PrsEnAttenteList = pendingList
                     };
                 }
             }
@@ -245,7 +252,7 @@ namespace PlanifPRS.Pages
             return Page();
         }
 
-        // Validation depuis le dashboard (mêmes permissions que Milestones)
+        // Validation depuis le dashboard
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> OnPostValidateChecklistAsync(int checklistId)
         {
@@ -285,7 +292,7 @@ namespace PlanifPRS.Pages
                 item.EstCoche = true;
                 item.DateValidation = DateTime.Now;
                 item.ValidePar = login;
-                item.Statut = true; // booléen
+                item.Statut = true;
 
                 await _context.SaveChangesAsync();
                 Flash = "Élément validé.";
@@ -377,6 +384,7 @@ namespace PlanifPRS.Pages
         {
             public int TotalPrs { get; set; }
             public int PrsEnAttente { get; set; }
+            public int PrsAReValider { get; set; }
             public int PrsValidees { get; set; }
             public int UsersActifs { get; set; }
             public int GroupesActifs { get; set; }
@@ -387,6 +395,7 @@ namespace PlanifPRS.Pages
         {
             public int Id { get; set; }
             public string Titre { get; set; }
+            public string Statut { get; set; }
             public DateTime DateDebut { get; set; }
             public DateTime DateFin { get; set; }
             public string CreatedBy { get; set; }

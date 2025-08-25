@@ -95,6 +95,9 @@
                             <span>PRS "En attente"</span><span class="fw-bold">@Model.AdminSummary.PrsEnAttente</span>
                         </div>
                         <div class="d-flex justify-content-between small">
+                            <span>PRS "À re-valider"</span><span class="fw-bold">@Model.AdminSummary.PrsAReValider</span>
+                        </div>
+                        <div class="d-flex justify-content-between small">
                             <span>PRS validées</span><span class="fw-bold">@Model.AdminSummary.PrsValidees</span>
                         </div>
                         <div class="d-flex justify-content-between small">
@@ -110,7 +113,9 @@
                 <div class="card shadow-sm">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <div class="fw-semibold text-muted"><i class="fas fa-clipboard-list me-1"></i>PRS en attente de validation</div>
+                            <div class="fw-semibold text-muted">
+                                <i class="fas fa-clipboard-list me-1"></i>PRS en attente / à re-valider
+                            </div>
                             <a href="/Index" class="btn btn-sm btn-outline-primary"><i class="fas fa-arrow-right"></i></a>
                         </div>
                         @if (Model.AdminSummary.PrsEnAttenteList.Any())
@@ -130,7 +135,17 @@
                                         @foreach (var p in Model.AdminSummary.PrsEnAttenteList)
                                         {
                                             <tr>
-                                                <td>@p.Titre</td>
+                                                <td>
+                                                    @p.Titre
+                                                    @if (p.Statut == "En attente")
+                                                    {
+                                                        <span class="badge bg-warning text-dark ms-1">En attente</span>
+                                                    }
+                                                    else if (p.Statut == "À re-valider")
+                                                    {
+                                                        <span class="badge bg-danger ms-1">À re-valider</span>
+                                                    }
+                                                </td>
                                                 <td>@p.DateDebut.ToString("dd/MM/yyyy")</td>
                                                 <td>@p.DateFin.ToString("dd/MM/yyyy")</td>
                                                 <td>@p.CreatedBy</td>
@@ -143,7 +158,7 @@
                         }
                         else
                         {
-                            <div class="text-muted small">Aucune PRS en attente.</div>
+                            <div class="text-muted small">Aucune PRS en attente ou à re-valider.</div>
                         }
                     </div>
                 </div>
@@ -179,10 +194,12 @@
                                             <td>@it.PrsTitre</td>
                                             <td>
                                                 <div>@it.Libelle</div>
-                                                <div class="small text-muted">@it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                                <div class="small text-muted">
+                                                    @it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
                                                     {
                                                         <text>• @it.SousCategorie</text>
-                                                    }</div>
+                                                    }
+                                                </div>
                                             </td>
                                             <td>@it.DueDate.ToString("dd/MM/yyyy")</td>
                                             <td><span class="badge bg-danger">@Math.Abs(it.DaysLeft) j</span></td>
@@ -226,10 +243,12 @@
                                     data-daysleft="@it.DaysLeft">
                                     <div class="me-3">
                                         <div class="fw-semibold">@it.Libelle</div>
-                                        <div class="small text-muted">@it.PrsTitre • @it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                        <div class="small text-muted">
+                                            @it.PrsTitre • @it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
                                             {
                                                 <text>• @it.SousCategorie</text>
-                                            }</div>
+                                            }
+                                        </div>
                                     </div>
                                     <div class="text-end">
                                         <div class="small">Échéance: <strong>@it.DueDate.ToString("dd/MM/yyyy")</strong></div>
@@ -276,7 +295,22 @@
                                         <tr>
                                             <td>@p.Titre</td>
                                             <td>
-                                                <span class="badge bg-@(p.Statut == "Validé" ? "success" : "secondary")">@p.Statut</span>
+                                                @if (p.Statut == "Validé")
+                                                {
+                                                    <span class="badge bg-success">Validé</span>
+                                                }
+                                                else if (p.Statut == "À re-valider")
+                                                {
+                                                    <span class="badge bg-danger">À re-valider</span>
+                                                }
+                                                else if (p.Statut == "En attente")
+                                                {
+                                                    <span class="badge bg-warning text-dark">En attente</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">@p.Statut</span>
+                                                }
                                             </td>
                                             <td>@p.DateDebut.ToString("dd/MM/yyyy")</td>
                                             <td>@p.DateFin.ToString("dd/MM/yyyy")</td>
@@ -350,13 +384,11 @@
                 });
                 if (soonCount) soonCount.innerText = count;
                 if (kpiSoonValue) kpiSoonValue.innerText = count;
-                // Persist locally
                 try { localStorage.setItem('dashboard.dueSoonDays', maxDays.toString()); } catch {}
             }
 
             slider.addEventListener('input', applySoonFilter);
 
-            // Restore persisted slider value if present
             try {
                 const saved = localStorage.getItem('dashboard.dueSoonDays');
                 if (saved) {
