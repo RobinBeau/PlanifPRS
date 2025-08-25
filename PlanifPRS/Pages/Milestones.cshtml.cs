@@ -47,7 +47,7 @@ namespace PlanifPRS.Pages
 
                 // Base query
                 var query = from c in _context.PrsChecklists.AsNoTracking()
-                            join p in _context.Prs.AsNoTracking() on c.PRSId equals p.Id
+                            join p in _context.Prs.AsNoTracking().Where(p => p.Statut != "Supprimé") on c.PRSId equals p.Id // EXCLUSION PRS supprimées
                             select new { c, p };
 
                 // Permissions: si non autorisé, ne voir que les éléments assignés (directement ou via groupe)

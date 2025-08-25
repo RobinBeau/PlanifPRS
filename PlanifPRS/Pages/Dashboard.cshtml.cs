@@ -96,12 +96,13 @@ namespace PlanifPRS.Pages
                 }
 
                 // Base checklist (permissions) - filtrage par liste d'IDs
+                // EXCLUSION des PRS "Supprimé"
                 var baseChecklist = IsManagerView
                     ? (from c in _context.PrsChecklists.AsNoTracking()
-                       join p in _context.Prs.AsNoTracking() on c.PRSId equals p.Id
+                       join p in _context.Prs.AsNoTracking().Where(p => p.Statut != "Supprimé") on c.PRSId equals p.Id
                        select new { c, p })
                     : (from c in _context.PrsChecklists.AsNoTracking()
-                       join p in _context.Prs.AsNoTracking() on c.PRSId equals p.Id
+                       join p in _context.Prs.AsNoTracking().Where(p => p.Statut != "Supprimé") on c.PRSId equals p.Id
                        where myChecklistIds.Contains(c.Id)
                        select new { c, p });
 
@@ -163,9 +164,9 @@ namespace PlanifPRS.Pages
                     .Take(10)
                     .ToList();
 
-                // PRS à venir
+                // PRS à venir (exclure Supprimé)
                 var prsQuery = _context.Prs.AsNoTracking()
-                    .Where(p => p.DateDebut >= today);
+                    .Where(p => p.DateDebut >= today && p.Statut != "Supprimé");
 
                 if (!IsManagerView)
                 {
@@ -186,8 +187,9 @@ namespace PlanifPRS.Pages
                     })
                     .ToListAsync();
 
-                // Activité récente PRS
-                var recentQuery = _context.Prs.AsNoTracking();
+                // Activité récente PRS (exclure Supprimé)
+                var recentQuery = _context.Prs.AsNoTracking()
+                    .Where(p => p.Statut != "Supprimé");
                 if (!IsManagerView)
                 {
                     recentQuery = recentQuery.Where(p => prsIdsAssigned.Contains(p.Id));
@@ -206,10 +208,13 @@ namespace PlanifPRS.Pages
                     })
                     .ToListAsync();
 
-                // Vue manager
+                // Vue manager (exclure Supprimé dans toutes les métriques)
                 if (IsManagerView)
                 {
-                    var allPrs = _context.Prs.AsNoTracking();
+                    var allPrs = _context.Prs
+                        .AsNoTracking()
+                        .Where(p => p.Statut != "Supprimé"); // EXCLUSION
+
                     var enAttenteCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "En attente");
                     var aReValiderCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "À re-valider");
                     var valideesCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "Validé");
@@ -233,7 +238,7 @@ namespace PlanifPRS.Pages
 
                     AdminSummary = new AdminSummaryVM
                     {
-                        TotalPrs = await allPrs.CountAsync(),
+                        TotalPrs = await allPrs.CountAsync(), // déjà sans Supprimé
                         PrsEnAttente = enAttenteCount,
                         PrsAReValider = aReValiderCount,
                         PrsValidees = valideesCount,
