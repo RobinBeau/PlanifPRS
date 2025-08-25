@@ -335,6 +335,7 @@ namespace PlanifPRS.Pages
             if (Prs.LigneId == 0)
                 ModelState.AddModelError("Prs.LigneId", "La sélection d'une ligne est obligatoire.");
 
+
             // ✅ VÉRIFICATION DE DISPONIBILITÉ AVANT MODIFICATION
             if (!string.IsNullOrEmpty(AffectationsData))
             {
@@ -408,6 +409,45 @@ namespace PlanifPRS.Pages
                 var createdByLogin = prsFromDb.CreatedByLogin;
                 var couleurOriginal = prsFromDb.CouleurPRS;
 
+                // ***** NOUVELLE LOGIQUE DE GESTION DES STATUTS *****
+                string nouveauStatut;
+                DateTime? nouvelleAncienneDateDebut = prsFromDb.AncienneDateDebut;
+                DateTime? nouvelleAncienneDateFin = prsFromDb.AncienneDateFin;
+
+                if (IsAdminOrValidateur)
+                {
+                    // Si admin/validateur modifie : toujours "Validé"
+                    nouveauStatut = "Validé";
+                    // Si c'était "À re-valider", on remet les anciennes dates à null
+                    if (prsFromDb.Statut == "À re-valider")
+                    {
+                        nouvelleAncienneDateDebut = null;
+                        nouvelleAncienneDateFin = null;
+                    }
+                }
+                else
+                {
+                    // Si non admin/validateur modifie
+                    if (prsFromDb.Statut == "Validé")
+                    {
+                        // PRS était validée -> passer à "À re-valider" et sauvegarder les anciennes dates
+                        nouveauStatut = "À re-valider";
+                        nouvelleAncienneDateDebut = prsFromDb.DateDebut;
+                        nouvelleAncienneDateFin = prsFromDb.DateFin;
+                    }
+                    else if (prsFromDb.Statut == "À re-valider")
+                    {
+                        // PRS était déjà "À re-valider" -> garder ce statut et les anciennes dates
+                        nouveauStatut = "À re-valider";
+                        // nouvelleAncienneDateDebut et nouvelleAncienneDateFin restent les mêmes
+                    }
+                    else
+                    {
+                        // PRS était "En attente" -> reste "En attente"
+                        nouveauStatut = "En attente";
+                    }
+                }
+
                 prsFromDb.Titre = CleanEmojis(Prs.Titre);
                 prsFromDb.Equipement = Prs.Equipement;
                 prsFromDb.ReferenceProduit = Prs.ReferenceProduit;
@@ -416,7 +456,9 @@ namespace PlanifPRS.Pages
                 prsFromDb.PresenceClient = Prs.PresenceClient;
                 prsFromDb.DateDebut = Prs.DateDebut;
                 prsFromDb.DateFin = Prs.DateFin;
-                prsFromDb.Statut = IsAdminOrValidateur ? "Validé" : "En attente";
+                prsFromDb.Statut = nouveauStatut;
+                prsFromDb.AncienneDateDebut = nouvelleAncienneDateDebut;
+                prsFromDb.AncienneDateFin = nouvelleAncienneDateFin;
                 prsFromDb.InfoDiverses = Prs.InfoDiverses;
                 prsFromDb.FamilleId = Prs.FamilleId;
                 prsFromDb.LigneId = Prs.LigneId;

@@ -56,6 +56,10 @@ namespace PlanifPRS.Models
         [MaxLength(100)]
         public string? CreatedByLogin { get; set; }
 
+        // Nouvelles propriétés pour stocker les anciennes dates de validation
+        public DateTime? AncienneDateDebut { get; set; }
+        public DateTime? AncienneDateFin { get; set; }
+
         // Relations
         [ValidateNever]
         public List<PrsChecklist> Checklist { get; set; }

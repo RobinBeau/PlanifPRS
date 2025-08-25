@@ -119,6 +119,33 @@
         </div>
     }
 
+    @* Affichage des anciennes dates pour les PRS "À re-valider" *@
+    @if (Model.Prs.Statut == "À re-valider" && (Model.Prs.AncienneDateDebut.HasValue || Model.Prs.AncienneDateFin.HasValue))
+    {
+        <div class="alert alert-warning alert-modern">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-clock me-2 fs-5"></i>
+                <span>
+                    <strong>PRS à re-valider :</strong>
+                    Cette PRS était précédemment validée avec les dates :
+                    @if (Model.Prs.AncienneDateDebut.HasValue)
+                    {
+                        <strong>Début : @Model.Prs.AncienneDateDebut.Value.ToString("dd/MM/yyyy à HH:mm")</strong>
+                    }
+                    @if (Model.Prs.AncienneDateFin.HasValue)
+                    {
+                        @if (Model.Prs.AncienneDateDebut.HasValue)
+                        {
+                            <text> - </text>
+                        }
+                        <strong>Fin : @Model.Prs.AncienneDateFin.Value.ToString("dd/MM/yyyy à HH:mm")</strong>
+                    }
+                    <br />Elle nécessite une nouvelle validation suite à des modifications.
+                </span>
+            </div>
+        </div>
+    }
+
     @if (!string.IsNullOrEmpty(Model.Flash))
     {
         <div class="alert alert-success alert-modern">
