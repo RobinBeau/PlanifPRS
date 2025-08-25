@@ -70,6 +70,28 @@
         font-weight: bold;
     }
 
+    /* Style pour les événements "À re-valider" (même logique que En attente mais en rouge) */
+    .event-revalidate {
+        background-color: #f8d7da !important;
+        border-color: #f5c2c7 !important;
+        color: #842029 !important;
+    }
+
+        .event-revalidate .fc-event-title,
+        .event-revalidate .fc-event-time {
+            color: #842029 !important;
+        }
+
+    .badge-revalidate {
+        background-color: #dc3545;
+        color: #ffffff;
+        font-size: 0.75em;
+        padding: 0.25em 0.5em;
+        border-radius: 0.25rem;
+        margin-right: 0.5em;
+        font-weight: bold;
+    }
+
     /* Style pour l'arrière-plan coloré du texte PRS - bloc uniforme */
     .prs-text-background {
         padding: 3px 5px;
@@ -184,11 +206,9 @@
 
     // Fonction pour calculer une couleur de texte contrastée à partir d'une couleur de fond
     function getContrastColor(backgroundColor) {
-        // Convertir la couleur hex ou rgb/rgba en valeurs RGB
         let r, g, b;
 
         if (backgroundColor.startsWith('#')) {
-            // Couleur hexadécimale
             const hex = backgroundColor.slice(1);
             if (hex.length === 3) {
                 r = parseInt(hex[0] + hex[0], 16);
@@ -200,24 +220,18 @@
                 b = parseInt(hex.slice(4, 6), 16);
             }
         } else if (backgroundColor.startsWith('rgb')) {
-            // Couleur rgb ou rgba
             const values = backgroundColor.match(/\d+/g);
             r = parseInt(values[0]);
             g = parseInt(values[1]);
             b = parseInt(values[2]);
         } else {
-            // Couleur nommée - retourner noir par défaut
             return '#000000';
         }
 
-        // Calculer la luminosité selon la formule W3C
         const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-
-        // Retourner blanc pour fond sombre, noir pour fond clair
         return luminance > 0.5 ? '#000000' : '#ffffff';
     }
 
-    // Fonction améliorée pour trouver le lundi
     function getMonday(date) {
         const d = new Date(date);
         const day = d.getDay();
@@ -241,33 +255,25 @@
         const equipement = event.extendedProps?.equipement || event.extendedProps?.Equipement || '';
         const titre = event.title || '';
 
-        // VÉRIFIER D'ABORD PAR L'ÉQUIPEMENT
         if (equipement === 'Audit' || equipement === 'Intervention' || equipement === 'Visite Client') {
             return '/EditAudit';
         }
 
-        // VÉRIFIER PAR LE TITRE SI ÉQUIPEMENT VIDE
         if (titre.includes('Audit') || titre.includes('Intervention') || titre.includes('Visite Client')) {
             return '/EditAudit';
         }
 
-        // PRS CLASSIQUES → PAGE EDIT NORMALE
         return '/Edit';
     }
 
     // Fonction pour déterminer si un événement est une semaine complète
     function isFullWeek(event) {
-        // Si on a un événement "En attente"
-        if (event.extendedProps.statut === "En attente") {
-            // Vérifier si c'est une semaine entière
+        const statut = event.extendedProps.statut;
+        if (statut === "En attente" || statut === "À re-valider") {
             const start = new Date(event.start);
             const end = new Date(event.end);
-
-            // Calculer la durée en jours
             const durationMs = end - start;
             const durationDays = durationMs / (1000 * 60 * 60 * 24);
-
-            // Si la durée est proche de 7 jours (6.5-7.5), considérer comme semaine complète
             if (durationDays >= 6.5 && durationDays <= 7.5) {
                 return true;
             }
@@ -329,7 +335,6 @@
                 checkbox.dispatchEvent(new Event('change'));
             });
 
-            // État initial
             if (checkbox.checked) {
                 label.classList.add('active');
             }
@@ -348,7 +353,6 @@
                 center: 'title',
                 right: 'timeGridDay,workWeek,fullWeek,week2,week3,dayGridMonth'
             },
-            // Vues corrigées avec visibleRange pour toutes les vues semaine
             views: {
                 timeGridDay: {
                     type: 'timeGrid',
@@ -409,20 +413,22 @@
             },
             eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
 
-            // FORCER L'APPLICATION DES COULEURS ET NE PAS MODIFIER L'ARRIÈRE-PLAN DE L'ÉVÉNEMENT
             eventDidMount: function (info) {
-                // Gérer les événements en attente
-                if (info.event.extendedProps.statut === "En attente" && isFullWeek(info.event)) {
-                    info.el.classList.add('event-pending');
+                const statut = info.event.extendedProps.statut;
+
+                if ((statut === "En attente" || statut === "À re-valider") && isFullWeek(info.event)) {
+                    if (statut === "En attente") {
+                        info.el.classList.add('event-pending');
+                    } else if (statut === "À re-valider") {
+                        info.el.classList.add('event-revalidate');
+                    }
                 }
 
-                // FORCER LA COULEUR DE FOND STANDARD
                 if (info.event.backgroundColor) {
                     info.el.style.backgroundColor = info.event.backgroundColor;
                     info.el.style.borderColor = info.event.borderColor || info.event.backgroundColor;
                     info.el.style.color = info.event.textColor || '#ffffff';
 
-                    // FORCER AUSSI LES ÉLÉMENTS ENFANTS
                     const eventContent = info.el.querySelector('.fc-event-main');
                     if (eventContent) {
                         eventContent.style.backgroundColor = info.event.backgroundColor;
@@ -442,8 +448,8 @@
                 }
 
                 let infoDiverses = info.event.extendedProps.infoDiverses ||
-                                  info.event.extendedProps.InfoDiverses ||
-                                  'Aucune information complémentaire';
+                                   info.event.extendedProps.InfoDiverses ||
+                                   'Aucune information complémentaire';
 
                 if (infoDiverses.length > 100) {
                     infoDiverses = infoDiverses.substring(0, 97) + '...';
@@ -451,10 +457,8 @@
 
                 infoDiverses = infoDiverses.replace(/\n/g, '<br>');
 
-                // ICÔNE POUR INFO-BULLE
                 const eventIcon = '<i class="fas fa-info-circle" style="color: #667eea; margin-right: 6px;"></i>';
 
-                // GESTION DE LA COULEUR PRS DANS L'INFO-BULLE (SEULEMENT SI L'UTILISATEUR A LES DROITS)
                 let couleurPrsDisplay = '';
                 const couleurPRS = info.event.extendedProps.couleurPRS;
                 if (hasColorViewRights && couleurPRS && couleurPRS.trim() !== '') {
@@ -467,17 +471,21 @@
                     `;
                 }
 
-                // Ajouter une badge si c'est une PRS en attente
                 let statusBadge = '';
-                if (info.event.extendedProps.statut === "En attente") {
+                if (statut === "En attente") {
                     statusBadge = `
                         <div class="mt-2">
                             <span class="badge bg-warning">En attente</span>
                         </div>
                     `;
+                } else if (statut === "À re-valider") {
+                    statusBadge = `
+                        <div class="mt-2">
+                            <span class="badge bg-danger">À re-valider</span>
+                        </div>
+                    `;
                 }
 
-                // Ajouter information sur le créateur
                 let creatorInfo = '';
                 if (info.event.extendedProps.createdByLogin) {
                     creatorInfo = `
@@ -529,7 +537,6 @@
                         return response.json();
                     })
                     .then(data => {
-                        // Log des couleurs PRS pour débogage uniquement si l'utilisateur a les droits
                         if (hasColorViewRights) {
                             const eventsWithPrsColor = data.filter(ev =>
                                 ev.extendedProps && ev.extendedProps.couleurPRS);
@@ -542,18 +549,15 @@
                             }
                         }
 
-                        // Vérifier si certaines PRS sont en attente
                         const pendingEvents = data.filter(ev =>
-                            ev.extendedProps && ev.extendedProps.statut === "En attente");
+                            ev.extendedProps && (ev.extendedProps.statut === "En attente" || ev.extendedProps.statut === "À re-valider"));
 
-                        console.log(`${pendingEvents.length} PRS en attente trouvées`);
+                        console.log(`${pendingEvents.length} PRS en attente / à re-valider trouvées`);
 
                         const events = data.map(ev => {
-                            // Conserver le statut dans extendedProps pour filtrage
                             if (!ev.extendedProps) ev.extendedProps = {};
                             if (ev.statut) ev.extendedProps.statut = ev.statut;
 
-                            // Traiter les allDay et semaines complètes
                             if (ev.start && ev.end) {
                                 const start = new Date(ev.start);
                                 const end = new Date(ev.end);
@@ -576,15 +580,12 @@
                     });
             },
 
-            // CLIC SUR ÉVÉNEMENT - REDIRECTION INTELLIGENTE
             eventClick: function (info) {
                 const prsId = info.event.id;
                 if (prsId) {
-                    // Animation visuelle
                     info.el.style.transform = 'scale(0.95)';
                     info.el.style.transition = 'transform 0.2s ease';
 
-                    // DÉTERMINER LA PAGE DE DESTINATION
                     const editPage = getEditPageForEvent(info.event);
                     const fullUrl = `${editPage}/${prsId}`;
 
@@ -651,15 +652,15 @@
                 }
             },
 
-            // CONTENU DES ÉVÉNEMENTS AVEC BLOC DE COULEUR UNIFORME
             eventContent: function (arg) {
                 const baseTitle = arg.event.title.split(' - ')[0];
                 const ligne = arg.event.extendedProps?.ligne || "—";
-                const isPending = arg.event.extendedProps?.statut === "En attente";
+                const statut = arg.event.extendedProps?.statut;
+                const isPending = statut === "En attente";
+                const isRevalidate = statut === "À re-valider";
                 const isFullWeekEvent = isFullWeek(arg.event);
                 const couleurPRS = arg.event.extendedProps?.couleurPRS;
 
-                // Fonction pour créer le bloc de couleur uniforme
                 function createColorBackground(content) {
                     if (hasColorViewRights && couleurPRS && couleurPRS.trim() !== '') {
                         const textColor = getContrastColor(couleurPRS);
@@ -668,11 +669,14 @@
                     return `<div>${content}</div>`;
                 }
 
-                // Si c'est une PRS en attente pour une semaine complète, afficher un style spécial
-                if (isPending && isFullWeekEvent) {
+                if ((isPending || isRevalidate) && isFullWeekEvent) {
+                    const badge = isPending
+                        ? '<span class="badge-pending">En attente</span>'
+                        : '<span class="badge-revalidate">À re-valider</span>';
+
                     const content = `
                         <div style="font-weight: 600; font-size: 0.85em;">
-                            <span class="badge-pending">En attente</span>
+                            ${badge}
                             ${baseTitle}
                         </div>
                         <div style="font-size: 0.75em; margin-top: 2px; display: flex; align-items: center;">
@@ -687,13 +691,16 @@
                             </div>`
                     };
                 } else if (arg.view.type.startsWith("timeGrid")) {
-                    // Vue semaine ou jour (avec heures)
+                    const badge = isPending
+                        ? '<span class="badge-pending">En attente</span>'
+                        : (isRevalidate ? '<span class="badge-revalidate">À re-valider</span>' : '');
+
                     const content = `
                         <div style="font-weight: 700; font-size: 0.75em; opacity: 0.9; display: flex; align-items: center;">
                             <i class="fas fa-industry" style="margin-right: 3px;"></i>${ligne}
                         </div>
                         <div style="font-weight: 600; font-size: 0.85em; margin-top: 2px;">
-                            ${isPending ? '<span class="badge-pending">En attente</span>' : ''}
+                            ${badge}
                             ${baseTitle}
                         </div>
                     `;
@@ -705,10 +712,13 @@
                             </div>`
                     };
                 } else {
-                    // Vue mois ou plusieurs semaines
+                    const badge = isPending
+                        ? '<span class="badge-pending">En attente</span>'
+                        : (isRevalidate ? '<span class="badge-revalidate">À re-valider</span>' : '');
+
                     const content = `
                         <div style="font-weight: 600; font-size: 0.8em;">
-                            ${isPending ? '<span class="badge-pending">En attente</span>' : ''}
+                            ${badge}
                             ${baseTitle}
                         </div>
                         <div style="font-size: 0.7em; opacity: 0.9; margin-top: 1px; display: flex; align-items: center;">
@@ -725,7 +735,6 @@
                 }
             },
 
-            // Gestion corrigée pour toutes les vues semaine
             datesSet: function (info) {
                 const currentDate = calendar.getDate();
                 const viewType = info.view.type;
@@ -750,11 +759,9 @@
 
             let visibleCount = 0;
             calendar.getEvents().forEach(ev => {
-                // Types standards
                 let matchType = checkedTypes.includes(ev.extendedProps.type);
 
-                // Pour les événements "En attente"
-                if (ev.extendedProps.statut === "En attente") {
+                if (ev.extendedProps.statut === "En attente" || ev.extendedProps.statut === "À re-valider") {
                     matchType = showPending;
                 }
 
