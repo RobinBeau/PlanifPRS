@@ -940,6 +940,7 @@ namespace PlanifPRS.Controllers.Api
                     LEFT JOIN [PlanifPRS].[dbo].[Lignes] l ON p.LigneId = l.Id
                     LEFT JOIN [PlanifPRS].[dbo].[Secteur] s ON l.idSecteur = s.id
                     WHERE p.DateDebut >= @startDate AND p.DateDebut <= @endDate
+                      AND ISNULL(p.Statut,'') <> 'Supprimé'  -- EXCLUSION PRS supprimées
                     ORDER BY p.DateDebut";
 
                 var startParam = command.CreateParameter();
@@ -994,7 +995,8 @@ namespace PlanifPRS.Controllers.Api
                 var sameLigneQuery = await _context.Prs
                     .Where(p => p.LigneId == request.LigneId &&
                                p.DateDebut >= startAnalysis &&
-                               p.DateDebut <= endAnalysis)
+                               p.DateDebut <= endAnalysis &&
+                               p.Statut != "Supprimé") // EXCLUSION PRS supprimées
                     .Select(p => new { p.DateDebut, p.DateFin })
                     .ToListAsync();
 
@@ -1184,7 +1186,8 @@ namespace PlanifPRS.Controllers.Api
                 SELECT p.DateDebut, p.DateFin, p.LigneId, l.idSecteur AS SecteurId
                 FROM [PlanifPRS].[dbo].[PRS] p
                 LEFT JOIN [PlanifPRS].[dbo].[Lignes] l ON p.LigneId = l.Id
-                WHERE p.DateDebut >= @startDate AND p.DateDebut <= @endDate";
+                WHERE p.DateDebut >= @startDate AND p.DateDebut <= @endDate
+                  AND ISNULL(p.Statut,'') <> 'Supprimé'"; // EXCLUSION PRS supprimées
 
             if (ligneId.HasValue)
             {
