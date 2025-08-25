@@ -296,7 +296,7 @@ namespace PlanifPRS.Pages
             var conflitsDirects = await _context.PrsAffectations
                 .Where(a => a.UtilisateurId == utilisateurId)
                 .Include(a => a.Prs)
-                .Where(a => a.Prs.Id != Prs.Id && a.Prs.DateDebut < fin && a.Prs.DateFin > debut)
+                .Where(a => a.Prs.Id != Prs.Id && a.Prs.Statut != "Supprimé" && a.Prs.DateDebut < fin && a.Prs.DateFin > debut) // Exclusion PRS supprimées
                 .Select(a => new
                 {
                     type = "direct",
@@ -322,7 +322,7 @@ namespace PlanifPRS.Pages
                     .Where(a => a.GroupeId.HasValue && groupesUtilisateur.Contains(a.GroupeId.Value))
                     .Include(a => a.Prs)
                     .Include(a => a.Groupe)
-                    .Where(a => a.Prs.Id != Prs.Id && a.Prs.DateDebut < fin && a.Prs.DateFin > debut)
+                    .Where(a => a.Prs.Id != Prs.Id && a.Prs.Statut != "Supprimé" && a.Prs.DateDebut < fin && a.Prs.DateFin > debut) // Exclusion PRS supprimées
                     .Select(a => new
                     {
                         type = "groupe",
