@@ -197,17 +197,34 @@
                 <input type="hidden" asp-for="Prs.Statut" />
                 <input type="hidden" asp-for="Prs.FamilleId" />
                 <input type="hidden" asp-for="Prs.DateCreation" />
-
-                <div class="col-12 text-center">
-                    <button type="submit" class="btn btn-primary btn-lg px-5 me-3" id="submit-btn" disabled>
-                        <i class="fas fa-save me-2"></i>
-                        <span id="submit-text">Sélectionnez d'abord un type d'événement</span>
-                    </button>
-                    <a asp-page="/Index" class="btn btn-secondary btn-lg px-5">
-                        <i class="fas fa-times me-2"></i>Annuler
-                    </a>
-                </div>
             </form>
+        </div>
+
+        <!-- Barre d'actions (sortie du form pour pouvoir ajouter le form de suppression) -->
+        <div class="col-12 text-center mt-3">
+            <button type="submit" form="edit-audit-form" class="btn btn-primary btn-lg px-5 me-3" id="submit-btn" disabled>
+                <i class="fas fa-save me-2"></i>
+                <span id="submit-text">Sélectionnez d'abord un type d'événement</span>
+            </button>
+            <a asp-page="/Index" class="btn btn-secondary btn-lg px-5 me-3">
+                <i class="fas fa-times me-2"></i>Annuler
+            </a>
+
+            @* --- MODIF : Formulaire de suppression séparé --- *@
+            @if (Model.CanDelete && Model.Prs?.Statut != "Supprimé")
+            {
+                <form method="post"
+                      asp-page-handler="Supprimer"
+                      class="d-inline"
+                      onsubmit="return confirm('Confirmer la suppression ? L\'événement sera marqué comme Supprimé.');">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@Model.Prs.Id" />
+                    <button type="submit" class="btn btn-outline-danger btn-lg px-5">
+                        <i class="fas fa-trash me-2"></i>Supprimer
+                    </button>
+                </form>
+            }
+            @* --- FIN MODIF --- *@
         </div>
     }
 </div>
@@ -234,11 +251,10 @@
         const submitText = document.getElementById('submit-text');
         const eventTypeCards = document.querySelectorAll('.event-type-card');
 
-        // ✅ PRÉ-SÉLECTION DEPUIS LES DONNÉES EXISTANTES
-                const preselectedType = '@Html.Raw(System.Net.WebUtility.HtmlDecode(ViewData["PreselectedEventType"]?.ToString() ?? ""))';
+        // PRÉ-SÉLECTION
+        const preselectedType = '@Html.Raw(System.Net.WebUtility.HtmlDecode(ViewData["PreselectedEventType"]?.ToString() ?? ""))';
         const preselectedDetails = '@Html.Raw(System.Net.WebUtility.HtmlDecode(ViewData["PreselectedEventDetails"]?.ToString() ?? ""))';
 
-        // Gestion de la sélection des types d'événements
         eventTypeCards.forEach(card => {
             card.addEventListener('click', function() {
                 const eventType = this.getAttribute('data-event-type');
@@ -247,97 +263,59 @@
         });
 
         function selectEventType(eventType, cardElement) {
-            // Supprimer la sélection précédente
             eventTypeCards.forEach(c => c.classList.remove('selected'));
-
-            // Sélectionner la nouvelle carte
             cardElement.classList.add('selected');
-
-            // Mettre à jour les champs
             eventTypeInput.value = eventType;
-
-            // ✅ APPELER updateSubmitButton IMMÉDIATEMENT
             updateSubmitButton();
-
-            // Animation
             cardElement.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                cardElement.style.transform = '';
-            }, 150);
-
-            // Focus sur détails si vide
+            setTimeout(() => { cardElement.style.transform = ''; }, 150);
             if (!eventDetailsInput.value.trim()) {
-                setTimeout(() => {
-                    eventDetailsInput.focus();
-                }, 200);
+                setTimeout(() => { eventDetailsInput.focus(); }, 200);
             }
         }
 
-        // ✅ FONCTION DE VALIDATION COMPLÈTE (DÉTAILS OBLIGATOIRES)
         function updateSubmitButton() {
             const hasEventType = eventTypeInput.value.trim() !== '';
             const hasEventDetails = eventDetailsInput.value.trim() !== '';
             const hasLigne = ligneSelect.value.trim() !== '';
 
-            // ✅ TOUTES LES 3 CONDITIONS REQUISES
             if (hasEventType && hasEventDetails && hasLigne) {
                 submitBtn.disabled = false;
                 submitBtn.className = 'btn btn-success btn-lg px-5 me-3';
                 submitText.textContent = `Modifier ${eventTypeInput.value}`;
-            }
-            // ✅ ÉTAPES DE VALIDATION PROGRESSIVE
-            else if (!hasEventType) {
+            } else if (!hasEventType) {
                 submitBtn.disabled = true;
                 submitBtn.className = 'btn btn-primary btn-lg px-5 me-3';
                 submitText.textContent = 'Sélectionnez d\'abord un type d\'événement';
-            }
-            else if (!hasEventDetails) {
+            } else if (!hasEventDetails) {
                 submitBtn.disabled = true;
                 submitBtn.className = 'btn btn-warning btn-lg px-5 me-3';
                 submitText.textContent = 'Saisissez les détails de l\'événement';
-            }
-            else if (!hasLigne) {
+            } else if (!hasLigne) {
                 submitBtn.disabled = true;
                 submitBtn.className = 'btn btn-info btn-lg px-5 me-3';
                 submitText.textContent = 'Sélectionnez une ligne';
-
-                // ✅ METTRE EN ÉVIDENCE LE SELECT LIGNE
                 ligneSelect.style.borderColor = '#0dcaf0';
                 ligneSelect.style.boxShadow = '0 0 0 0.2rem rgba(13, 202, 240, 0.25)';
             }
         }
 
-        // ✅ ÉVÉNEMENTS DE VALIDATION AVEC DÉTAILS OBLIGATOIRES
-        eventDetailsInput.addEventListener('input', function() {
-            // ✅ VALIDATION À CHAQUE SAISIE
-            updateSubmitButton();
-        });
-
+        eventDetailsInput.addEventListener('input', updateSubmitButton);
         ligneSelect.addEventListener('change', function() {
-            // Enlever la mise en évidence
             this.style.borderColor = '';
             this.style.boxShadow = '';
-
-            // ✅ APPELER updateSubmitButton QUAND ON CHANGE DE LIGNE
             updateSubmitButton();
         });
 
-        // ✅ INITIALISATION AVEC DONNÉES EXISTANTES
         document.addEventListener('DOMContentLoaded', function() {
-            // Pré-sélectionner le type d'événement depuis les données
             if (preselectedType) {
                 const targetCard = document.querySelector(`[data-event-type="${preselectedType}"]`);
-                if (targetCard) {
-                    selectEventType(preselectedType, targetCard);
-                }
+                if (targetCard) selectEventType(preselectedType, targetCard);
             }
-
-            // Pré-remplir les détails depuis les données
             if (preselectedDetails) {
                 eventDetailsInput.value = preselectedDetails;
             }
 
-            // Animation d'entrée
             eventTypeCards.forEach((card, index) => {
                 card.style.opacity = '0';
                 card.style.transform = 'translateY(20px)';
@@ -348,55 +326,30 @@
                 }, index * 100);
             });
 
-            // ✅ VALIDATION INITIALE FORCÉE
-            setTimeout(() => {
-                updateSubmitButton();
-            }, 500);
+            setTimeout(updateSubmitButton, 400);
         });
 
-        // ✅ VALIDATION RENFORCÉE DU FORMULAIRE
         document.getElementById('edit-audit-form').addEventListener('submit', function(e) {
             if (!eventTypeInput.value) {
-                e.preventDefault();
-                showValidationError('Veuillez sélectionner un type d\'événement');
-                return false;
+                e.preventDefault(); showValidationError('Veuillez sélectionner un type d\'événement'); return false;
             }
-
-            // ✅ VALIDATION DÉTAILS OBLIGATOIRE
             if (!eventDetailsInput.value.trim()) {
-                e.preventDefault();
-                showValidationError('Veuillez saisir les détails de l\'événement');
-                eventDetailsInput.focus();
-                eventDetailsInput.style.borderColor = '#dc3545';
-                eventDetailsInput.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
-                return false;
+                e.preventDefault(); showValidationError('Veuillez saisir les détails de l\'événement');
+                eventDetailsInput.focus(); return false;
             }
-
             if (!ligneSelect.value) {
-                e.preventDefault();
-                showValidationError('Veuillez sélectionner une ligne');
-                ligneSelect.focus();
-                ligneSelect.style.borderColor = '#dc3545';
-                ligneSelect.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
-                return false;
+                e.preventDefault(); showValidationError('Veuillez sélectionner une ligne');
+                ligneSelect.focus(); return false;
             }
-
-            // ✅ VALIDATION DES DATES
             const dateDebut = new Date(document.querySelector('input[name="Prs.DateDebut"]').value);
             const dateFin = new Date(document.querySelector('input[name="Prs.DateFin"]').value);
-
             if (dateFin <= dateDebut) {
-                e.preventDefault();
-                showValidationError('La date de fin doit être postérieure à la date de début');
-                return false;
+                e.preventDefault(); showValidationError('La date de fin doit être postérieure à la date de début'); return false;
             }
-
-            // Animation de soumission
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Modification en cours...';
             submitBtn.disabled = true;
         });
 
-        // ✅ FONCTION D'AFFICHAGE DES ERREURS
         function showValidationError(message) {
             const notification = document.createElement('div');
             notification.className = 'alert alert-danger alert-dismissible fade show position-fixed';
@@ -404,39 +357,30 @@
             notification.innerHTML = `
                 <div class="d-flex align-items-center">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Erreur de validation :</strong> ${message}
+                    <strong>Erreur :</strong> ${message}
                     <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
-                </div>
-            `;
-
+                </div>`;
             document.body.appendChild(notification);
-
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
-            }, 5000);
+            setTimeout(() => { if (notification.parentNode) notification.remove(); }, 5000);
         }
 
-        // Synchronisation des dates
+        // Synchronisation dates
         const dateDebutInput = document.querySelector('input[name="Prs.DateDebut"]');
         const dateFinInput = document.querySelector('input[name="Prs.DateFin"]');
 
         dateDebutInput.addEventListener('change', function() {
-            const dateDebut = new Date(this.value);
-            const dateFin = new Date(dateFinInput.value);
-
-            if (dateFin <= dateDebut) {
-                const newDateFin = new Date(dateDebut.getTime() + (2 * 60 * 60 * 1000));
-                dateFinInput.value = newDateFin.toISOString().slice(0, 16);
+            const d1 = new Date(this.value);
+            const d2 = new Date(dateFinInput.value);
+            if (d2 <= d1) {
+                const newEnd = new Date(d1.getTime() + 2 * 3600 * 1000);
+                dateFinInput.value = newEnd.toISOString().slice(0, 16);
             }
         });
 
         dateFinInput.addEventListener('change', function() {
-            const dateDebut = new Date(dateDebutInput.value);
-            const dateFin = new Date(this.value);
-
-            if (dateFin <= dateDebut) {
+            const d1 = new Date(dateDebutInput.value);
+            const d2 = new Date(this.value);
+            if (d2 <= d1) {
                 this.style.borderColor = '#dc3545';
                 this.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
             } else {

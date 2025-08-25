@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using PlanifPRS.Data;
 using PlanifPRS.Models;
 using System.Net;
+using System.Text.Json;            // HISTO: pour sérialisation diff
+using System.Collections.Generic;  // HISTO: pour Dictionary
 
 namespace PlanifPRS.Pages.Prs
 {
@@ -24,13 +26,15 @@ namespace PlanifPRS.Pages.Prs
 
         public string? Flash { get; set; }
 
-        // ✅ PROPRIÉTÉS POUR IDENTIFIER LE TYPE D'ÉVÉNEMENT
+        // PROPRIÉTÉS POUR IDENTIFIER LE TYPE D'ÉVÉNEMENT
         public string EventType { get; set; } = "";
         public string EventDetails { get; set; } = "";
 
+        // autorisation suppression
+        public bool CanDelete { get; set; } = false;
+
         public async Task<IActionResult> OnGetAsync(int? id)
         {
-            // ✅ MÊME LOGIQUE QUE VOTRE PAGE USERS
             if (!HasRequiredRole())
             {
                 return Redirect("/AccessDenied");
@@ -49,7 +53,6 @@ namespace PlanifPRS.Pages.Prs
                     return NotFound();
                 }
 
-                // ✅ VÉRIFIER QUE C'EST BIEN UN AUDIT/INTERVENTION/VISITE CLIENT
                 if (!IsSpecialEvent(prs.Equipement))
                 {
                     return RedirectToPage("./Edit", new { id = id });
@@ -57,21 +60,22 @@ namespace PlanifPRS.Pages.Prs
 
                 Prs = prs;
 
-                // ✅ DÉCODER IMMÉDIATEMENT APRÈS LE CHARGEMENT
                 if (!string.IsNullOrEmpty(Prs.Titre))
                 {
-                    Prs.Titre = System.Net.WebUtility.HtmlDecode(Prs.Titre);
+                    Prs.Titre = WebUtility.HtmlDecode(Prs.Titre);
                 }
 
                 if (!string.IsNullOrEmpty(Prs.InfoDiverses))
                 {
-                    Prs.InfoDiverses = System.Net.WebUtility.HtmlDecode(Prs.InfoDiverses);
+                    Prs.InfoDiverses = WebUtility.HtmlDecode(Prs.InfoDiverses);
                 }
 
                 await ChargerLignesAsync();
-
-                // ✅ EXTRAIRE TYPE ET DÉTAILS DEPUIS LE TITRE (maintenant décodé)
                 ExtractEventInfo();
+
+                CanDelete = IsAdminOrValidateur() ||
+                            (!string.IsNullOrEmpty(Prs.CreatedByLogin) &&
+                             Prs.CreatedByLogin.Equals(GetCurrentUserLogin(), StringComparison.OrdinalIgnoreCase));
 
                 return Page();
             }
@@ -84,7 +88,6 @@ namespace PlanifPRS.Pages.Prs
 
         public async Task<IActionResult> OnPostAsync()
         {
-            // ✅ MÊME LOGIQUE QUE VOTRE PAGE USERS
             if (!HasRequiredRole())
             {
                 return Redirect("/AccessDenied");
@@ -97,16 +100,37 @@ namespace PlanifPRS.Pages.Prs
                 var eventType = Request.Form["EventType"].ToString();
                 var eventDetails = Request.Form["EventDetails"].ToString();
 
+                // HISTO: récupérer l'état original pour diff
+                var original = await _context.Prs.AsNoTracking().FirstOrDefaultAsync(p => p.Id == Prs.Id);
+                if (original == null) return NotFound();
+                if (!IsSpecialEvent(original.Equipement)) return RedirectToPage("./Edit", new { id = Prs.Id });
+
                 if (!ValiderFormulaire(eventType, eventDetails))
                 {
-                    ExtractEventInfo(); // Pour réafficher les données
+                    ExtractEventInfo();
+                    CanDelete = IsAdminOrValidateur() ||
+                                (!string.IsNullOrEmpty(Prs.CreatedByLogin) &&
+                                 Prs.CreatedByLogin.Equals(GetCurrentUserLogin(), StringComparison.OrdinalIgnoreCase));
                     return Page();
                 }
 
                 await ConstruirePrsAsync(eventType, eventDetails);
 
+                // préserver création/auteur
+                Prs.DateCreation = original.DateCreation;
+                Prs.CreatedByLogin = original.CreatedByLogin;
+
+                // HISTO: construire diff avant sauvegarde
+                var diffJson = BuildDiffJson(original, Prs);
+
                 _context.Update(Prs);
                 await _context.SaveChangesAsync();
+
+                // HISTO: log si modifications
+                if (!string.IsNullOrWhiteSpace(diffJson) && diffJson != "{}")
+                {
+                    await LogHistoriqueAsync(Prs.Id, "Modification", original.Statut, Prs.Statut, diffJson);
+                }
 
                 TempData["SuccessMessage"] = $"✅ {eventType} '{eventDetails}' modifié(e) avec succès pour le {Prs.DateDebut:dd/MM/yyyy à HH:mm} par {User.Identity?.Name} !";
 
@@ -116,36 +140,81 @@ namespace PlanifPRS.Pages.Prs
             {
                 ModelState.AddModelError(string.Empty, $"Erreur : {ex.Message}");
                 ExtractEventInfo();
+                CanDelete = IsAdminOrValidateur() ||
+                            (!string.IsNullOrEmpty(Prs.CreatedByLogin) &&
+                             Prs.CreatedByLogin.Equals(GetCurrentUserLogin(), StringComparison.OrdinalIgnoreCase));
                 return Page();
             }
         }
 
-        #region ✅ MÉTHODES PRIVÉES
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> OnPostSupprimerAsync(int id)
+        {
+            if (!HasRequiredRole()) return Redirect("/AccessDenied");
 
-        /// <summary>
-        /// ✅ MÊME LOGIQUE QUE VOTRE PAGE USERS - SIMPLE ET EFFICACE
-        /// </summary>
+            var prs = await _context.Prs.FirstOrDefaultAsync(p => p.Id == id);
+            if (prs == null) return NotFound();
+            if (!IsSpecialEvent(prs.Equipement)) return RedirectToPage("./Edit", new { id });
+
+            bool allowed = IsAdminOrValidateur() ||
+                           (!string.IsNullOrEmpty(prs.CreatedByLogin) &&
+                            prs.CreatedByLogin.Equals(GetCurrentUserLogin(), StringComparison.OrdinalIgnoreCase));
+
+            if (!allowed) return Forbid();
+
+            if (prs.Statut != "Supprimé")
+            {
+                var ancienStatut = prs.Statut;
+                prs.Statut = "Supprimé";
+                prs.DerniereModification = DateTime.Now;
+
+                // diff simple statut
+                var diff = "{\"Statut\":{\"old\":\"" + (ancienStatut ?? "") + "\",\"new\":\"Supprimé\"}}";
+
+                await _context.SaveChangesAsync();
+                await LogHistoriqueAsync(prs.Id, "Suppression", ancienStatut, "Supprimé", diff);
+            }
+
+            return RedirectToPage("/Index");
+        }
+
+        #region MÉTHODES PRIVÉES
+
+        private string GetCurrentUserLogin()
+        {
+            var full = User.Identity?.Name;
+            if (string.IsNullOrEmpty(full)) return "";
+            var parts = full.Split('\\');
+            return parts.Length > 1 ? parts[1] : full;
+        }
+
+        private bool IsAdminOrValidateur()
+        {
+            try
+            {
+                var login = GetCurrentUserLogin();
+                if (string.IsNullOrEmpty(login)) return false;
+                var user = _context.Utilisateurs.FirstOrDefault(u => u.LoginWindows == login && !u.DateDeleted.HasValue);
+                if (user == null) return false;
+                var d = user.Droits?.ToLower() ?? "";
+                return d == "admin" || d == "validateur";
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private bool HasRequiredRole()
         {
             try
             {
-                // ✅ NETTOYER LE LOGIN COMME DANS VOTRE CODE USERS
                 var login = User.Identity?.Name?.Split('\\').LastOrDefault();
+                if (string.IsNullOrEmpty(login)) return false;
 
-                if (string.IsNullOrEmpty(login))
-                {
-                    return false;
-                }
-
-                // ✅ CHERCHER L'UTILISATEUR DANS LA BASE
                 var user = _context.Utilisateurs.FirstOrDefault(u => u.LoginWindows == login);
+                if (user == null || user.DateDeleted.HasValue) return false;
 
-                if (user == null || user.DateDeleted.HasValue)
-                {
-                    return false;
-                }
-
-                // ✅ VÉRIFIER LES DROITS REQUIS POUR EDITAUDIT
                 var droitsAutorises = new[] { "admin", "cdp", "process", "maintenance", "validateur" };
                 var droitUser = user.Droits?.ToLower() ?? "";
 
@@ -157,23 +226,16 @@ namespace PlanifPRS.Pages.Prs
             }
         }
 
-        /// <summary>
-        /// Vérifie si c'est un événement (Audit, Intervention, Visite Client)
-        /// </summary>
         private static bool IsSpecialEvent(string? equipement)
         {
             return !string.IsNullOrEmpty(equipement) &&
                    new[] { "Audit", "Intervention", "Visite Client" }.Contains(equipement);
         }
 
-        /// <summary>
-        /// Extrait le type et les détails depuis le titre existant
-        /// </summary>
         private void ExtractEventInfo()
         {
             if (!string.IsNullOrEmpty(Prs.Titre))
             {
-                // Format attendu : "Type - Détails"
                 var parts = Prs.Titre.Split(" - ", 2);
                 if (parts.Length >= 2)
                 {
@@ -183,7 +245,7 @@ namespace PlanifPRS.Pages.Prs
                 else
                 {
                     EventType = Prs.Equipement ?? "";
-                    EventDetails = Prs.Titre; // Maintenant déjà décodé
+                    EventDetails = Prs.Titre;
                 }
             }
             else
@@ -192,10 +254,10 @@ namespace PlanifPRS.Pages.Prs
                 EventDetails = "";
             }
 
-            // ✅ PASSER À LA VUE
             ViewData["PreselectedEventType"] = EventType;
             ViewData["PreselectedEventDetails"] = EventDetails;
         }
+
         private async Task ChargerLignesAsync()
         {
             try
@@ -231,7 +293,7 @@ namespace PlanifPRS.Pages.Prs
 
                 LigneList = new SelectList(lignesList, "Value", "Text");
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 LigneList = new SelectList(new List<SelectListItem>(), "Value", "Text");
                 throw;
@@ -248,7 +310,6 @@ namespace PlanifPRS.Pages.Prs
                 isValid = false;
             }
 
-            // ✅ DÉTAILS OBLIGATOIRES
             if (string.IsNullOrWhiteSpace(eventDetails))
             {
                 ModelState.AddModelError(string.Empty, "Les détails de l'événement sont requis.");
@@ -267,6 +328,7 @@ namespace PlanifPRS.Pages.Prs
                 isValid = false;
             }
 
+            // on ignore vérifications modelstate sur champs non utilisés
             ModelState.Remove("Prs.Statut");
             ModelState.Remove("Prs.ReferenceProduit");
             ModelState.Remove("Prs.Quantite");
@@ -278,17 +340,14 @@ namespace PlanifPRS.Pages.Prs
 
         private async Task ConstruirePrsAsync(string eventType, string eventDetails)
         {
-            // ✅ DÉTAILS OBLIGATOIRES
             Prs.Titre = $"{eventType} - {eventDetails}";
             Prs.Equipement = eventType;
 
-            // ✅ CONSERVER L'ID DE FAMILLE EXISTANT OU LE METTRE À JOUR
             if (Prs.FamilleId == null || Prs.FamilleId <= 0)
             {
                 Prs.FamilleId = await GetFamilleIdAsync(eventType);
             }
 
-            // ✅ STATUT SELON LE RÔLE DE L'UTILISATEUR
             var login = User.Identity?.Name?.Split('\\').LastOrDefault();
             var user = _context.Utilisateurs.FirstOrDefault(u => u.LoginWindows == login);
             var droitUser = user?.Droits?.ToLower() ?? "";
@@ -296,11 +355,6 @@ namespace PlanifPRS.Pages.Prs
 
             Prs.Statut = isAdminOrValidateur ? "Validé" : "En attente";
             Prs.DerniereModification = DateTime.Now;
-
-
-
-            // ✅ CONSERVER LA DATE DE CRÉATION ORIGINALE
-            // Prs.DateCreation = DateTime.Now; // NE PAS MODIFIER
 
             Prs.ReferenceProduit = null;
             Prs.Quantite = null;
@@ -326,7 +380,6 @@ namespace PlanifPRS.Pages.Prs
                     return Convert.ToInt32(result);
                 }
 
-                // ✅ FALLBACK SELON VOS DONNÉES
                 return eventType switch
                 {
                     "Audit" => 8,
@@ -338,6 +391,55 @@ namespace PlanifPRS.Pages.Prs
             catch
             {
                 return null;
+            }
+        }
+
+        // HISTO: construction diff
+        private string BuildDiffJson(Models.Prs original, Models.Prs updated)
+        {
+            if (original == null || updated == null) return "{}";
+            var diffs = new Dictionary<string, object>();
+
+            void Compare<T>(string name, T oldVal, T newVal)
+            {
+                if (!EqualityComparer<T>.Default.Equals(oldVal, newVal))
+                    diffs[name] = new { old = oldVal, @new = newVal };
+            }
+
+            Compare("Titre", original.Titre, updated.Titre);
+            Compare("Equipement", original.Equipement, updated.Equipement);
+            Compare("DateDebut", original.DateDebut.ToString("o"), updated.DateDebut.ToString("o"));
+            Compare("DateFin", original.DateFin.ToString("o"), updated.DateFin.ToString("o"));
+            Compare("Statut", original.Statut, updated.Statut);
+            Compare("InfoDiverses", original.InfoDiverses, updated.InfoDiverses);
+            Compare("LigneId", original.LigneId, updated.LigneId);
+            Compare("FamilleId", original.FamilleId, updated.FamilleId);
+
+            if (diffs.Count == 0) return "{}";
+            return JsonSerializer.Serialize(diffs, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        }
+
+        // HISTO: enregistrement historique
+        private async Task LogHistoriqueAsync(int prsId, string action, string ancienStatut, string nouveauStatut, string diffJson)
+        {
+            try
+            {
+                var entry = new HistoriqueEdit
+                {
+                    PrsId = prsId,
+                    Action = action,
+                    AncienStatut = ancienStatut,
+                    NouveauStatut = nouveauStatut,
+                    UserLogin = GetCurrentUserLogin(),
+                    DateAction = DateTime.Now,
+                    Changements = string.IsNullOrWhiteSpace(diffJson) ? "{}" : diffJson
+                };
+                _context.HistoriqueEdit.Add(entry);
+                await _context.SaveChangesAsync();
+            }
+            catch
+            {
+                // silencieux
             }
         }
 
