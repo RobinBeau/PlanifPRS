@@ -23,9 +23,8 @@ namespace PlanifPRS.Data
         public DbSet<GroupeUtilisateurs> GroupesUtilisateurs { get; set; }
         public DbSet<GroupeUtilisateur> GroupeUtilisateurs { get; set; }
         public DbSet<PrsAffectation> PrsAffectations { get; set; }
-
         public DbSet<ChecklistAffectation> ChecklistAffectations { get; set; }
-
+        public DbSet<HistoriqueEdit> HistoriqueEdit { get; set; }   // <-- Ajout pour l'historique des éditions
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -288,6 +287,25 @@ namespace PlanifPRS.Data
                       .WithMany()
                       .HasForeignKey(ca => ca.GroupeId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configuration HistoriqueEdit
+            modelBuilder.Entity<HistoriqueEdit>(entity =>
+            {
+                entity.ToTable("HistoriqueEdit");
+                entity.HasKey(h => h.Id);
+
+                entity.Property(h => h.Action).IsRequired().HasMaxLength(30);
+                entity.Property(h => h.AncienStatut).HasMaxLength(50);
+                entity.Property(h => h.NouveauStatut).IsRequired().HasMaxLength(50);
+                entity.Property(h => h.UserLogin).IsRequired().HasMaxLength(100);
+                entity.Property(h => h.DateAction).IsRequired();
+                entity.Property(h => h.Changements).IsRequired();
+
+                entity.HasOne(h => h.Prs)
+                      .WithMany()                // Pas de collection inverse nécessaire
+                      .HasForeignKey(h => h.PrsId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

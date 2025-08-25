@@ -1,4 +1,7 @@
-﻿@* _CalendarBlock.cshtml - Version moderne avec affichage des couleurs PRS selon droits utilisateur *@
+﻿@* _CalendarBlock.cshtml - Version moderne avec affichage des couleurs PRS selon droits utilisateur
+   MODIF: Exclusion des PRS dont le statut = "Supprimé" (ne plus les afficher dans le calendrier).
+   (Modification minimale : filtrage juste après la récupération des données dans la fonction events:)
+*@
 @using System.Security.Claims
 @using PlanifPRS.Data
 @inject PlanifPrsDbContext DbContext
@@ -70,7 +73,7 @@
         font-weight: bold;
     }
 
-    /* Style pour les événements "À re-valider" (même logique que En attente mais en rouge) */
+    /* Style pour les événements "À re-valider" */
     .event-revalidate {
         background-color: #f8d7da !important;
         border-color: #f5c2c7 !important;
@@ -92,7 +95,6 @@
         font-weight: bold;
     }
 
-    /* Style pour l'arrière-plan coloré du texte PRS - bloc uniforme */
     .prs-text-background {
         padding: 3px 5px;
         border-radius: 4px;
@@ -201,13 +203,10 @@
 </div>
 
 <script>
-    // Variable indiquant si l'utilisateur a les droits pour voir les couleurs PRS
     const hasColorViewRights = @Json.Serialize(hasColorViewRights);
 
-    // Fonction pour calculer une couleur de texte contrastée à partir d'une couleur de fond
     function getContrastColor(backgroundColor) {
         let r, g, b;
-
         if (backgroundColor.startsWith('#')) {
             const hex = backgroundColor.slice(1);
             if (hex.length === 3) {
@@ -227,7 +226,6 @@
         } else {
             return '#000000';
         }
-
         const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
         return luminance > 0.5 ? '#000000' : '#ffffff';
     }
@@ -240,7 +238,6 @@
         d.setHours(0, 0, 0, 0);
         return d;
     }
-
     function formatDateTimeLocal(date) {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -250,23 +247,18 @@
         return `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
-    // FONCTION POUR DÉTERMINER LA PAGE SELON LE TYPE D'ÉVÉNEMENT
     function getEditPageForEvent(event) {
         const equipement = event.extendedProps?.equipement || event.extendedProps?.Equipement || '';
         const titre = event.title || '';
-
         if (equipement === 'Audit' || equipement === 'Intervention' || equipement === 'Visite Client') {
             return '/EditAudit';
         }
-
         if (titre.includes('Audit') || titre.includes('Intervention') || titre.includes('Visite Client')) {
             return '/EditAudit';
         }
-
         return '/Edit';
     }
 
-    // Fonction pour déterminer si un événement est une semaine complète
     function isFullWeek(event) {
         const statut = event.extendedProps.statut;
         if (statut === "En attente" || statut === "À re-valider") {
@@ -318,23 +310,18 @@
 
         loadSecteurs();
 
-        // Gestion des checkboxes visuelles
         document.querySelectorAll('.filter-checkbox').forEach(label => {
             const checkbox = label.querySelector('input');
-
             label.addEventListener('click', function(e) {
                 e.preventDefault();
                 checkbox.checked = !checkbox.checked;
-
                 if (checkbox.checked) {
                     label.classList.add('active');
                 } else {
                     label.classList.remove('active');
                 }
-
                 checkbox.dispatchEvent(new Event('change'));
             });
-
             if (checkbox.checked) {
                 label.classList.add('active');
             }
@@ -454,7 +441,6 @@
                 if (infoDiverses.length > 100) {
                     infoDiverses = infoDiverses.substring(0, 97) + '...';
                 }
-
                 infoDiverses = infoDiverses.replace(/\n/g, '<br>');
 
                 const eventIcon = '<i class="fas fa-info-circle" style="color: #667eea; margin-right: 6px;"></i>';
@@ -473,17 +459,9 @@
 
                 let statusBadge = '';
                 if (statut === "En attente") {
-                    statusBadge = `
-                        <div class="mt-2">
-                            <span class="badge bg-warning">En attente</span>
-                        </div>
-                    `;
+                    statusBadge = `<div class="mt-2"><span class="badge bg-warning">En attente</span></div>`;
                 } else if (statut === "À re-valider") {
-                    statusBadge = `
-                        <div class="mt-2">
-                            <span class="badge bg-danger">À re-valider</span>
-                        </div>
-                    `;
+                    statusBadge = `<div class="mt-2"><span class="badge bg-danger">À re-valider</span></div>`;
                 }
 
                 let creatorInfo = '';
@@ -537,24 +515,26 @@
                         return response.json();
                     })
                     .then(data => {
-                        if (hasColorViewRights) {
-                            const eventsWithPrsColor = data.filter(ev =>
-                                ev.extendedProps && ev.extendedProps.couleurPRS);
+                        // --- MODIF: Exclure les événements avec statut "Supprimé" ---
+                        const filteredData = data.filter(ev => {
+                            const statut = ev?.extendedProps?.statut || ev?.statut;
+                            return statut !== 'Supprimé';
+                        });
+                        // -------------------------------------------------------------
 
+                        if (hasColorViewRights) {
+                            const eventsWithPrsColor = filteredData.filter(ev =>
+                                ev.extendedProps && ev.extendedProps.couleurPRS);
                             if (eventsWithPrsColor.length > 0) {
-                                console.log(`${eventsWithPrsColor.length} événement(s) avec couleur PRS trouvé(s)`);
-                                console.log('Exemple de couleur:', eventsWithPrsColor[0].extendedProps.couleurPRS);
-                            } else {
-                                console.log('Aucune couleur PRS trouvée dans les événements');
+                                console.log(`${eventsWithPrsColor.length} événement(s) avec couleur PRS (hors Supprimé)`);
                             }
                         }
 
-                        const pendingEvents = data.filter(ev =>
+                        const pendingEvents = filteredData.filter(ev =>
                             ev.extendedProps && (ev.extendedProps.statut === "En attente" || ev.extendedProps.statut === "À re-valider"));
+                        console.log(`${pendingEvents.length} PRS en attente / à re-valider (hors Supprimé)`);
 
-                        console.log(`${pendingEvents.length} PRS en attente / à re-valider trouvées`);
-
-                        const events = data.map(ev => {
+                        const events = filteredData.map(ev => {
                             if (!ev.extendedProps) ev.extendedProps = {};
                             if (ev.statut) ev.extendedProps.statut = ev.statut;
 
@@ -585,10 +565,8 @@
                 if (prsId) {
                     info.el.style.transform = 'scale(0.95)';
                     info.el.style.transition = 'transform 0.2s ease';
-
                     const editPage = getEditPageForEvent(info.event);
                     const fullUrl = `${editPage}/${prsId}`;
-
                     setTimeout(() => {
                         window.location.href = fullUrl;
                     }, 200);
@@ -598,44 +576,34 @@
             dateClick: function (info) {
                 const clickedDate = new Date(info.date);
                 let localStart;
-
                 const viewType = info.view.type;
                 const isTimeGridView = viewType === 'timeGridDay' ||
                                      viewType === 'workWeek' ||
                                      viewType === 'fullWeek' ||
                                      viewType.includes('timeGrid');
-
                 if (isTimeGridView) {
                     localStart = new Date(
                         clickedDate.getFullYear(),
                         clickedDate.getMonth(),
                         clickedDate.getDate(),
                         clickedDate.getHours(),
-                        clickedDate.getMinutes(),
-                        0,
-                        0
+                        clickedDate.getMinutes(), 0, 0
                     );
                 } else {
                     localStart = new Date(
                         clickedDate.getFullYear(),
                         clickedDate.getMonth(),
                         clickedDate.getDate(),
-                        9,
-                        0,
-                        0,
-                        0
+                        9, 0, 0, 0
                     );
                 }
-
                 const localEnd = new Date(localStart.getTime() + 60 * 60 * 1000);
 
                 const inputDebut = document.querySelector('#Prs_DateDebut');
                 const inputFin = document.querySelector('#Prs_DateFin');
-
                 if (inputDebut && inputFin) {
                     inputDebut.value = formatDateTimeLocal(localStart);
                     inputFin.value = formatDateTimeLocal(localEnd);
-
                     [inputDebut, inputFin].forEach(input => {
                         input.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
                         input.style.color = 'white';
@@ -647,7 +615,6 @@
                             input.style.transform = '';
                         }, 1500);
                     });
-
                     inputDebut.dispatchEvent(new Event('change'));
                 }
             },
@@ -673,7 +640,6 @@
                     const badge = isPending
                         ? '<span class="badge-pending">En attente</span>'
                         : '<span class="badge-revalidate">À re-valider</span>';
-
                     const content = `
                         <div style="font-weight: 600; font-size: 0.85em;">
                             ${badge}
@@ -683,7 +649,6 @@
                             <i class="fas fa-industry" style="margin-right: 3px;"></i>${ligne}
                         </div>
                     `;
-
                     return {
                         html: `
                             <div style="position: relative; padding: 2px; text-align: left;">
@@ -694,7 +659,6 @@
                     const badge = isPending
                         ? '<span class="badge-pending">En attente</span>'
                         : (isRevalidate ? '<span class="badge-revalidate">À re-valider</span>' : '');
-
                     const content = `
                         <div style="font-weight: 700; font-size: 0.75em; opacity: 0.9; display: flex; align-items: center;">
                             <i class="fas fa-industry" style="margin-right: 3px;"></i>${ligne}
@@ -704,7 +668,6 @@
                             ${baseTitle}
                         </div>
                     `;
-
                     return {
                         html: `
                             <div style="position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; padding-bottom: 6px;">
@@ -715,7 +678,6 @@
                     const badge = isPending
                         ? '<span class="badge-pending">En attente</span>'
                         : (isRevalidate ? '<span class="badge-revalidate">À re-valider</span>' : '');
-
                     const content = `
                         <div style="font-weight: 600; font-size: 0.8em;">
                             ${badge}
@@ -725,7 +687,6 @@
                             <i class="fas fa-industry" style="margin-right: 2px;"></i>${ligne}
                         </div>
                     `;
-
                     return {
                         html: `
                             <div style="position: relative; padding: 2px; padding-bottom: 6px; border-radius: 6px; text-align: left;">
@@ -738,7 +699,6 @@
             datesSet: function (info) {
                 const currentDate = calendar.getDate();
                 const viewType = info.view.type;
-
                 if (viewType === 'workWeek' || viewType === 'fullWeek' || viewType === 'week2' || viewType === 'week3') {
                     const monday = getMonday(currentDate);
                     if (currentDate.getTime() !== monday.getTime()) {
@@ -759,12 +719,17 @@
 
             let visibleCount = 0;
             calendar.getEvents().forEach(ev => {
-                let matchType = checkedTypes.includes(ev.extendedProps.type);
-
-                if (ev.extendedProps.statut === "En attente" || ev.extendedProps.statut === "À re-valider") {
-                    matchType = showPending;
+                const statut = ev.extendedProps.statut;
+                // Statut "Supprimé" ne devrait plus être présent, mais double sécurité :
+                if (statut === 'Supprimé') {
+                    ev.setProp('display', 'none');
+                    return;
                 }
 
+                let matchType = checkedTypes.includes(ev.extendedProps.type);
+                if (statut === "En attente" || statut === "À re-valider") {
+                    matchType = showPending;
+                }
                 const matchSector = (selectedSector === "Tous" || ev.extendedProps.secteur === selectedSector);
                 const isVisible = matchType && matchSector;
 
@@ -776,25 +741,18 @@
         }
 
         filterChecks.forEach(chk => chk.addEventListener("change", filterEvents));
-
         toggleFiltersBtn.addEventListener("click", () => {
             allChecked = !allChecked;
             filterChecks.forEach(chk => {
                 chk.checked = allChecked;
                 const label = chk.closest('.filter-checkbox');
-                if (allChecked) {
-                    label.classList.add('active');
-                } else {
-                    label.classList.remove('active');
-                }
+                if (allChecked) label.classList.add('active'); else label.classList.remove('active');
             });
-
             toggleFiltersBtn.innerHTML = allChecked
                 ? '<i class="fas fa-toggle-on me-1"></i>Tout décocher'
                 : '<i class="fas fa-toggle-off me-1"></i>Tout cocher';
             filterEvents();
         });
-
         sectorFilter.addEventListener("change", filterEvents);
         filterEvents();
     });

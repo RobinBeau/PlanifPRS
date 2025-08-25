@@ -15,7 +15,6 @@
     <link rel="stylesheet" href="~/css/edit-prs.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/robia.css" asp-append-version="true" />
     <style>
-
         /* Styles légers pour la liste des suggestions (uniforme avec Create) */
         #robia-suggestions .sugg-list {
             display: flex;
@@ -75,6 +74,23 @@
         #robia-suggestions .robia-sugg-empty {
             color: #888;
             font-style: italic;
+        }
+
+        /* Historique */
+        .history-section table td, .history-section table th {
+            vertical-align: middle;
+        }
+
+        .history-diff-pre {
+            white-space: pre;
+            font-family: Consolas, monospace;
+            font-size: .75rem;
+            background: #f8f9fa;
+            border: 1px solid #e2e6ea;
+            padding: .5rem .75rem;
+            border-radius: .35rem;
+            max-height: 300px;
+            overflow: auto;
         }
     </style>
 }
@@ -338,20 +354,17 @@
                 <label asp-for="Prs.FamilleId" class="form-label">
                     <i class="fas fa-layer-group"></i> Famille de produit
                 </label>
-
                 @{
                     var famillesAExclure = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
                 {
                 "intervention", "visite client", "audit"
                 };
-
                     var famillesFiltrees = (Model.Familles ?? Enumerable.Empty<dynamic>())
                     .Where(f => f != null
                     && !string.IsNullOrWhiteSpace(f.Libelle)
                     && !famillesAExclure.Contains(f.Libelle.Trim()))
                     .ToList();
                 }
-
                 <select asp-for="Prs.FamilleId"
                         class="form-select @(!canEdit ? "readonly-field" : "")"
                         disabled="@(!canEdit)">
@@ -437,7 +450,7 @@
                 <textarea asp-for="Prs.InfoDiverses" class="form-control @(!canEdit ? "readonly-field" : "")" readonly="@(!canEdit)" rows="3"></textarea>
             </div>
 
-             <!-- Pièces jointes -->
+            <!-- Pièces jointes -->
             <div class="col-md-12">
                 <div class="card border-primary">
                     <div class="card-header bg-primary text-white">
@@ -541,42 +554,42 @@
                     </div>
                 </div>
 
-                    <div class="mt-3">
-                        <h6><i class="fas fa-list me-1"></i>Personnes affectées</h6>
-                        <ul class="list-group" id="affectationsList">
-                            @if (Model.AffectationsExistantesDisplay?.Any() == true)
+                <div class="mt-3">
+                    <h6><i class="fas fa-list me-1"></i>Personnes affectées</h6>
+                    <ul class="list-group" id="affectationsList">
+                        @if (Model.AffectationsExistantesDisplay?.Any() == true)
+                        {
+                            foreach (var a in Model.AffectationsExistantesDisplay)
                             {
-                                foreach (var a in Model.AffectationsExistantesDisplay)
-                                {
-                                    <li class="list-group-item d-flex align-items-center"
-                                        data-existing="true"
-                                        data-affectation-id="@a.Id"
-                                        data-type="@a.Type">
-                                        <i class="fas @(a.Type == "Utilisateur" ? "fa-user" : "fa-users") me-2"></i>
-                                        <span class="me-auto">
-                                            @a.Name
-                                            @if (!string.IsNullOrEmpty(a.Info))
-                                            {
-                                                <span class="text-muted">(@a.Info)</span>
-                                            }
-                                        </span>
-                                        <button type="button" class="btn btn-sm btn-outline-danger btn-remove-aff" title="Retirer cette affectation" @(canEdit ? null : "disabled")>
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </li>
-                                }
-                            }
-                            else
-                            {
-                                <li class="list-group-item text-muted">
-                                    <i class="fas fa-info-circle me-2"></i> Aucune affectation pour le moment.
+                                <li class="list-group-item d-flex align-items-center"
+                                    data-existing="true"
+                                    data-affectation-id="@a.Id"
+                                    data-type="@a.Type">
+                                    <i class="fas @(a.Type == "Utilisateur" ? "fa-user" : "fa-users") me-2"></i>
+                                    <span class="me-auto">
+                                        @a.Name
+                                        @if (!string.IsNullOrEmpty(a.Info))
+                                        {
+                                            <span class="text-muted">(@a.Info)</span>
+                                        }
+                                    </span>
+                                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-aff" title="Retirer cette affectation" @(canEdit ? null : "disabled")>
+                                        <i class="fas fa-trash"></i>
+                                    </button>
                                 </li>
                             }
-                        </ul>
+                        }
+                        else
+                        {
+                            <li class="list-group-item text-muted">
+                                <i class="fas fa-info-circle me-2"></i> Aucune affectation pour le moment.
+                            </li>
+                        }
+                    </ul>
                 </div>
-                        <input type="hidden" name="AffectationsData" id="affectationsData" value="[]" />
-                        <input type="hidden" name="AffectationsToDelete" id="affectationsToDelete" value="[]" />
-             </div>
+                <input type="hidden" name="AffectationsData" id="affectationsData" value="[]" />
+                <input type="hidden" name="AffectationsToDelete" id="affectationsToDelete" value="[]" />
+            </div>
 
             <!-- Checklist PRS -->
             <div class="col-12">
@@ -621,7 +634,7 @@
                                 </select>
                             </div>
                             <div class="col-md-4" id="prsSelector" style="display:none;">
-                                <label class="form-label fw-bold"><i class="fas fa-copy me-1 text-info"></i>PRS source</label>
+                                <label class="form-label fw-bold"><i class="fas a-copy me-1 text-info"></i>PRS source</label>
                                 <select id="prsSourceSelect" class="form-select" @(canEdit ? null : "disabled")>
                                     <option value="">-- Chargement des PRS... --</option>
                                 </select>
@@ -641,7 +654,7 @@
                             <div id="checklistItems" class="checklist-items-container"></div>
                         </div>
 
-                        @* Au chargement: forcer "copy" depuis la PRS courante pour déclencher l'affichage *@
+                        @* Au chargement: forcer "copy" depuis la PRS courante *@
                         <input type="hidden" id="checklistData" name="ChecklistData" value='@Html.Raw(hasChecklist ? $"{{\"type\":\"copy\",\"sourceId\":{Model.Prs.Id},\"elements\":[]}}" : (Model.ChecklistInitialJson ?? "null"))' />
                         <input type="hidden" id="checklistAffectationsData" name="ChecklistAffectationsData" value='{"users":[],"groups":[]}' />
                         <input type="hidden" id="checklistDataOriginal" value='@Html.Raw(Model.ChecklistInitialJson ?? "null")' />
@@ -649,34 +662,133 @@
                 </div>
             </div>
 
-            <div class="col-12">
-                <div class="actions-bar border-top pt-3 mt-2">
-                    <div class="btn-toolbar justify-content-center flex-wrap gap-2" role="toolbar" aria-label="Actions PRS">
-                        <div class="btn-group btn-group-lg" role="group" aria-label="Annuler">
-                            <a href="javascript:history.back()" class="btn btn-outline-secondary">
-                                <i class="fas @(canEdit ? "fa-times" : "fa-arrow-left") me-2"></i>@(canEdit ? "Annuler" : "Retour")
-                            </a>
-                        </div>
-
-                        <div class="btn-group btn-group-lg" role="group" aria-label="Cloner">
-                            <a class="btn btn-success px-4"
-                               asp-page="/Clone" asp-route-id="@Model.Prs.Id" title="Créer une nouvelle PRS à partir de celle-ci">
-                                <i class="fas fa-clone me-2"></i>Cloner cette PRS
-                            </a>
-                        </div>
-
-                        @if (canEdit)
-                        {
-                            <div class="btn-group btn-group-lg" role="group" aria-label="Enregistrer">
-                                <button type="submit" class="btn btn-robia px-5">
-                                    <i class="fas fa-save me-2"></i>Enregistrer les modifications
-                                </button>
-                            </div>
-                        }
+            <!-- FIN DU FORMULAIRE PRINCIPAL -->
+        </form> <!-- // --- MODIF : fermeture déplacée avant la barre d'actions pour éviter un formulaire imbriqué -->
+        <!-- BARRE D'ACTIONS (en dehors du form principal) -->
+        <div class="col-12">
+            <div class="actions-bar border-top pt-3 mt-2">
+                <div class="btn-toolbar justify-content-center flex-wrap gap-2" role="toolbar" aria-label="Actions PRS">
+                    <div class="btn-group btn-group-lg" role="group" aria-label="Annuler">
+                        <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                            <i class="fas @(canEdit ? "fa-times" : "fa-arrow-left") me-2"></i>@(canEdit ? "Annuler" : "Retour")
+                        </a>
                     </div>
+
+                    <div class="btn-group btn-group-lg" role="group" aria-label="Cloner">
+                        <a class="btn btn-success px-4"
+                           asp-page="/Clone" asp-route-id="@Model.Prs.Id" title="Créer une nouvelle PRS à partir de celle-ci">
+                            <i class="fas fa-clone me-2"></i>Cloner cette PRS
+                        </a>
+                    </div>
+
+                    @if (canEdit)
+                    {
+                        <div class="btn-group btn-group-lg" role="group" aria-label="Enregistrer">
+                            <button type="submit" form="create-form" class="btn btn-robia px-5">
+                                <i class="fas fa-save me-2"></i>Enregistrer les modifications
+                            </button>
+                        </div>
+                    }
+
+                    @if (canEdit && (isAdminOrValidateur || isCreator))
+                    {
+                        <div class="btn-group btn-group-lg" role="group" aria-label="Supprimer">
+                            <form method="post" asp-page-handler="Supprimer" onsubmit="return confirm('Confirmer la suppression ? La PRS ne sera plus visible.');" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@Model.Prs.Id" />
+                                <button type="submit" class="btn btn-outline-danger px-4">
+                                    <i class="fas fa-trash me-2"></i>Supprimer
+                                </button>
+                            </form>
+                        </div>
+                    }
                 </div>
             </div>
-        </form>
+        </div>
+        <!-- FIN BARRE D'ACTIONS -->
+    </div>
+
+    <!-- Section Historique des modifications -->
+    <div class="history-section mt-5">
+        <h3 class="mb-3"><i class="fas fa-history me-2"></i>Historique des modifications</h3>
+        @if (Model.Historique != null && Model.Historique.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-bordered align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>Utilisateur</th>
+                            <th>Action</th>
+                            <th>Nouveau statut</th>
+                            <th>Changements</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var h in Model.Historique)
+                        {
+                            <tr>
+                                <td>@h.DateAction.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>@h.UserLogin</td>
+                                <td>
+                                    @if (h.Action == "Modification")
+                                    {
+                                        <span class="badge bg-info text-dark">Modification</span>
+                                    }
+                                    else if (h.Action == "Suppression")
+                                    {
+                                        <span class="badge bg-danger">Suppression</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">@h.Action</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (h.NouveauStatut == "Validé")
+                                    {
+                                        <span class="badge bg-success">Validé</span>
+                                    }
+                                    else if (h.NouveauStatut == "À re-valider")
+                                    {
+                                        <span class="badge bg-danger">À re-valider</span>
+                                    }
+                                    else if (h.NouveauStatut == "En attente")
+                                    {
+                                        <span class="badge bg-warning text-dark">En attente</span>
+                                    }
+                                    else if (h.NouveauStatut == "Supprimé")
+                                    {
+                                        <span class="badge bg-dark">Supprimé</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary">@h.NouveauStatut</span>
+                                    }
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#diff-@h.Id"
+                                            aria-expanded="false"
+                                            aria-controls="diff-@h.Id">
+                                        Voir
+                                    </button>
+                                    <div class="collapse mt-2" id="diff-@h.Id">
+                                        <div class="history-diff-pre">@h.Changements</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="text-muted"><i class="fas fa-info-circle me-1"></i>Aucun historique pour le moment.</div>
+        }
     </div>
 </div>
 
@@ -713,18 +825,15 @@
             const prsSel = document.getElementById('prsSourceSelect');
             const hidden = document.getElementById('checklistData');
 
-            // 1) Forcer type=copy visuellement et côté hidden
             if (typeSel) typeSel.value = 'copy';
             if (hidden && hasChecklist) {
                 hidden.value = JSON.stringify({ type: 'copy', sourceId: prsId, elements: [] });
             }
             updateChecklistTypeVisibility();
 
-            // 2) Rendre visible "PRS source" immédiatement
             const prsRow = document.getElementById('prsSelector');
             if (prsRow) prsRow.style.display = '';
 
-            // 3) Sélectionner PRS courante dans le select (une fois qu'il est peuplé par le manager)
             function trySetPrsSource() {
                 if (!prsSel) return true;
                 const wanted = String(prsId);
@@ -757,7 +866,6 @@
                 }, 50);
             }
 
-            // 4) Fix post-init si le manager écrase le hidden
             setTimeout(() => {
                 try {
                     const parsed = JSON.parse(hidden?.value || '{}');
@@ -780,7 +888,6 @@
     <script src="~/js/checklist-manager.js" asp-append-version="true"></script>
 
     <script>
-        // ============== Parité ROBIA avec Create: durée -> met à jour DateFin, et initialisation de la durée ==============
         (function () {
             if (!(canEdit && isAdminOrValidateur)) return;
 
@@ -792,14 +899,12 @@
             if (!startInput || !endInput || !durationSelect) return;
 
             function parseLocal(dt) {
-                // dt au format "YYYY-MM-DDTHH:mm"
                 if (!dt) return null;
                 const d = new Date(dt);
                 return isNaN(d.getTime()) ? null : d;
             }
 
             function toLocalDatetimeValue(date) {
-                // Renvoie "YYYY-MM-DDTHH:mm" en local
                 const pad = (n) => String(n).padStart(2, '0');
                 const y = date.getFullYear();
                 const m = pad(date.getMonth() + 1);
@@ -837,20 +942,12 @@
                 endInput.value = toLocalDatetimeValue(e);
             }
 
-            // Au chargement: caler le select sur l'écart actuel (si possible)
             syncDurationFromDates();
-
-            // Quand on change la durée: recalculer la fin
             durationSelect.addEventListener('change', updateEndFromDuration);
-
-            // Quand on change le début: recalcule la fin avec la durée sélectionnée
             startInput.addEventListener('change', updateEndFromDuration);
-
-            // Si l'utilisateur modifie la fin: recaler la durée sur la plus proche
             endInput.addEventListener('change', syncDurationFromDates);
         })();
 
-        // ============== Semaine (utilisateurs non-admin) ==============
         const hiddenDateDebutInput = document.querySelector("#hiddenDateDebut");
         const hiddenDateFinInput = document.querySelector("#hiddenDateFin");
         const weekInfoElem = document.querySelector("#weekInfo");
@@ -899,7 +996,6 @@
             hiddenDateFinInput.value = nextMonday.toISOString().slice(0, 16);
         }
 
-        // Couleur PRS admin
         document.getElementById('clearColor')?.addEventListener('click', function () {
             const colorPicker = document.querySelector('input[type="color"][name="Prs.CouleurPRS"]');
             const colorText = document.querySelector('input[type="text"][name="Prs.CouleurPRS"]');
@@ -907,7 +1003,6 @@
             console.log('[EDIT] Couleur PRS remise à défaut');
         });
 
-        // Validation
         document.querySelector("#create-form")?.addEventListener("submit", function (e) {
             const dateDebutInput = document.querySelector("#Prs_DateDebut");
             const dateFinInput = document.querySelector("#Prs_DateFin");
@@ -921,7 +1016,6 @@
             console.log('[EDIT] Soumission du formulaire');
         });
 
-        // Suppression fichier (delegation)
         document.addEventListener('click', async (e) => {
             const btn = e.target.closest('.remove-file');
             if (!btn) return;
@@ -945,7 +1039,6 @@
             }
         });
 
-        // Liens dossiers -> hidden JSON
         function updateFolderLinksHidden() {
             const items = Array.from(document.querySelectorAll('#folderList .folder-item')).map(li => {
                 return { Chemin: li.getAttribute('data-path'), Description: (li.querySelector('.folder-description')?.textContent || '').trim() };
@@ -956,7 +1049,6 @@
         }
         document.addEventListener('DOMContentLoaded', updateFolderLinksHidden);
 
-        // Ajout d'un lien (DOM safe)
         document.getElementById('btnAddFolder')?.addEventListener('click', () => {
             if (!canEdit) return;
             const path = document.getElementById('folderPathDisplay').value.trim();
@@ -980,7 +1072,6 @@
             console.log('[EDIT] Lien dossier ajouté', { path, desc });
         });
 
-        // Suppression d’un lien (event delegation)
         document.addEventListener('click', (e) => {
             const btn = e.target.closest('.remove-folder');
             if (!btn) return;
@@ -992,15 +1083,11 @@
             console.log('[EDIT] Lien dossier supprimé', { path });
         });
 
-        // Affectations PRS (ajout/suppression + logs via delegation)
         document.addEventListener('DOMContentLoaded', function () {
-            function getList() {
-                return document.getElementById('affectationsList');
-            }
-
+            function getList() { return document.getElementById('affectationsList'); }
             const dataField = document.getElementById('affectationsData');
             const delField = document.getElementById('affectationsToDelete');
-            let pending = []; // {id,type,name,info}
+            let pending = [];
 
             function syncPending() {
                 if (!dataField) return;
@@ -1011,11 +1098,9 @@
             function addListItem(item) {
                 const list = getList();
                 if (!list) {
-                    console.error('[EDIT] UL #affectationsList introuvable au moment d’ajouter un item.', item);
-                    alert('Zone "Personnes affectées" introuvable. Rechargez la page ou contactez un admin.');
+                    alert('Zone "Personnes affectées" introuvable.');
                     return;
                 }
-
                 const li = document.createElement('li');
                 li.className = 'list-group-item d-flex align-items-center';
                 li.dataset.type = item.type;
@@ -1048,34 +1133,28 @@
             }
 
             document.getElementById('addUserBtn')?.addEventListener('click', () => {
-                if (!getList()) { return; }
                 const sel = document.getElementById('userSelect');
                 const val = parseInt(sel?.value || '0', 10);
-                if (!val) { return; }
+                if (!val) return;
                 const opt = sel.selectedOptions[0];
                 const name = opt?.getAttribute('data-name') || opt?.textContent || '';
                 const info = opt?.getAttribute('data-service') || '';
                 const item = { id: val, type: 'Utilisateur', name, info };
                 if (!pending.some(x => x.id === item.id && x.type === item.type)) pending.push(item);
-                addListItem(item);
-                syncPending();
-                sel.value = '';
+                addListItem(item); syncPending(); sel.value = '';
             });
 
             document.getElementById('addGroupBtn')?.addEventListener('click', () => {
-                if (!getList()) { return; }
                 const sel = document.getElementById('groupSelect');
                 const val = parseInt(sel?.value || '0', 10);
-                if (!val) { return; }
+                if (!val) return;
                 const opt = sel.selectedOptions[0];
                 const name = opt?.getAttribute('data-name') || opt?.textContent || '';
                 const count = opt?.getAttribute('data-count') || '';
                 const info = count ? (count + ' membres') : '';
                 const item = { id: val, type: 'Groupe', name, info };
                 if (!pending.some(x => x.id === item.id && x.type === item.type)) pending.push(item);
-                addListItem(item);
-                syncPending();
-                sel.value = '';
+                addListItem(item); syncPending(); sel.value = '';
             });
 
             document.addEventListener('click', (e) => {
@@ -1102,7 +1181,6 @@
             });
         });
 
-        // ROBIA inline (suggestions IA) — unifié avec Create: plusieurs alternatives + exclusion du créneau actuel
         (function () {
             const btn = document.getElementById('suggest-slot-btn');
             const container = document.getElementById('robia-suggestions');
@@ -1118,17 +1196,11 @@
 
             function parseUtc(utcStr) {
                 const s = utcStr?.endsWith('Z') ? utcStr : (utcStr + 'Z');
-                const d = new Date(s);
-                return d;
+                return new Date(s);
             }
             function toInputValueLocal(d) {
                 const pad = n => String(n).padStart(2, '0');
-                const yyyy = d.getFullYear();
-                const MM = pad(d.getMonth() + 1);
-                const dd = pad(d.getDate());
-                const hh = pad(d.getHours());
-                const mm = pad(d.getMinutes());
-                return `${yyyy}-${MM}-${dd}T${hh}:${mm}`;
+                return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
             }
             function sameMinute(a, b) {
                 return a.getFullYear() === b.getFullYear()
@@ -1154,7 +1226,6 @@
                 return { start: a, end: b };
             }
             function computeDurationHours() {
-                // Admin: prend la sélection si présente, sinon calcule depuis Début/Fin; sinon défaut 8h
                 const select = document.getElementById('duration-select');
                 if (select && select.value) return parseInt(select.value, 10) || 8;
                 const cur = getCurrentSlot();
@@ -1164,12 +1235,10 @@
                 }
                 return 8;
             }
-
             function renderSuggestions(list) {
                 content.innerHTML = '';
                 const wrap = document.createElement('div');
                 wrap.className = 'sugg-list';
-
                 if (!list || !list.length) {
                     const empty = document.createElement('div');
                     empty.className = 'robia-sugg-empty';
@@ -1179,42 +1248,31 @@
                     applyBtn?.setAttribute('disabled', 'disabled');
                     return;
                 }
-
                 list.forEach((s, idx) => {
                     const start = parseUtc(s.dateDebut);
                     const end = parseUtc(s.dateFin);
-
                     const row = document.createElement('div');
                     row.className = 'sugg-item';
                     row.dataset.index = String(idx);
-
                     const left = document.createElement('div');
                     left.className = 'sugg-left';
-                    left.innerHTML = `
-                        <div class="sugg-dates">${formatDisplay(start)} → ${formatDisplay(end)}</div>
-                        <div class="sugg-reason">${s.raison || ''}</div>
-                    `;
-
+                    left.innerHTML = `<div class="sugg-dates">${formatDisplay(start)} → ${formatDisplay(end)}</div><div class="sugg-reason">${s.raison || ''}</div>`;
                     const right = document.createElement('div');
                     right.className = 'sugg-right';
                     const score = document.createElement('span');
                     score.className = 'sugg-score';
                     score.textContent = `Score ${s.score}`;
                     right.appendChild(score);
-
                     row.appendChild(left);
                     row.appendChild(right);
-                    row.addEventListener('click', () => selectIndex(idx));
+                    row.addEventListener('click', () => { selectedIndex = idx; highlightSelected(); });
                     wrap.appendChild(row);
                 });
-
                 content.appendChild(wrap);
-                // Sélection par défaut: 1ère ligne
                 selectedIndex = 0;
                 highlightSelected();
                 applyBtn?.removeAttribute('disabled');
             }
-
             function highlightSelected() {
                 const rows = content.querySelectorAll('.sugg-item');
                 rows.forEach((r, i) => {
@@ -1222,13 +1280,6 @@
                     else r.classList.remove('active');
                 });
             }
-
-            function selectIndex(i) {
-                if (!lastSuggestions.length) return;
-                selectedIndex = Math.max(0, Math.min(i, lastSuggestions.length - 1));
-                highlightSelected();
-            }
-
             async function fetchSuggestions() {
                 const ligneIdRaw = document.getElementById('ligne-select')?.value || '';
                 const ligneId = parseInt(ligneIdRaw, 10);
@@ -1237,38 +1288,22 @@
                     container.style.display = 'block';
                     return [];
                 }
-
                 const equipement = document.getElementById('Prs_Equipement')?.value || null;
                 const duration = computeDurationHours();
-
-                const body = {
-                    LigneId: ligneId,
-                    Equipement: equipement,
-                    DurationHours: duration
-                };
-
+                const body = { LigneId: ligneId, Equipement: equipement, DurationHours: duration };
                 const resp = await fetch('/api/ai-suggestions/suggest-slot', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
                 });
                 const data = await resp.json().catch(() => ({}));
-                if (!resp.ok || !data?.success) {
-                    throw new Error(data?.message || 'Erreur lors de la récupération des suggestions');
-                }
+                if (!resp.ok || !data?.success) throw new Error(data?.message || 'Erreur lors de la récupération des suggestions');
                 return Array.isArray(data.suggestions) ? data.suggestions : [];
             }
-
             async function suggest() {
                 try {
-                    btn.classList.add('analyzing');
-                    btn.disabled = true;
+                    btn.classList.add('analyzing'); btn.disabled = true;
                     content.innerHTML = '<div class="robia-sugg-empty">Analyse en cours...</div>';
                     container.style.display = 'block';
-
                     const raw = await fetchSuggestions();
-
-                    // Exclure le créneau identique au courant (sur Edit)
                     const cur = getCurrentSlot();
                     let filtered = raw;
                     if (cur) {
@@ -1278,8 +1313,6 @@
                             return !(sameMinute(cur.start, sStart) && sameMinute(cur.end, sEnd));
                         });
                     }
-
-                    // Garder jusqu'à 5
                     lastSuggestions = filtered.slice(0, 5);
                     renderSuggestions(lastSuggestions);
                 } catch (e) {
@@ -1287,19 +1320,15 @@
                     content.innerHTML = `<div class="alert alert-danger">Erreur ROBIA: ${(e && e.message) || e}</div>`;
                     container.style.display = 'block';
                 } finally {
-                    btn.classList.remove('analyzing');
-                    btn.disabled = false;
+                    btn.classList.remove('analyzing'); btn.disabled = false;
                 }
             }
-
             function applySelected() {
                 if (!lastSuggestions.length) return;
                 const s = lastSuggestions[selectedIndex];
                 if (!s) return;
-
                 const start = parseUtc(s.dateDebut);
                 const end = parseUtc(s.dateFin);
-
                 const deb = document.getElementById('Prs_DateDebut');
                 const fin = document.getElementById('Prs_DateFin');
                 if (deb && fin) {
@@ -1307,23 +1336,18 @@
                     fin.value = toInputValueLocal(end);
                 }
             }
-
             function rotateAlternative() {
                 if (lastSuggestions.length > 1) {
                     selectedIndex = (selectedIndex + 1) % lastSuggestions.length;
                     highlightSelected();
                     return;
                 }
-                // Si aucune autre alternative en mémoire, relancer une analyse
                 suggest();
             }
-
             btn.addEventListener('click', suggest);
             applyBtn?.addEventListener('click', applySelected);
             altBtn?.addEventListener('click', rotateAlternative);
             closeBtn?.addEventListener('click', () => { container.style.display = 'none'; });
-
-            // Auto-regénération quand la ligne/équipement/durée changent (parité avec Create)
             ['ligne-select', 'Prs_Equipement', 'duration-select', 'Prs_DateDebut', 'Prs_DateFin'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.addEventListener('change', () => {
@@ -1332,40 +1356,33 @@
             });
         })();
 
-                document.addEventListener('DOMContentLoaded', () => {
-          const dataField = document.getElementById('affectationsData');
-          const delField  = document.getElementById('affectationsToDelete');
-
-          let pending = [];
-          try { pending = dataField?.value ? JSON.parse(dataField.value) : []; } catch { pending = []; }
-
-          function syncPending() {
-            if (dataField) dataField.value = JSON.stringify(pending);
-          }
-
-          document.addEventListener('click', (e) => {
-            const btn = e.target.closest('.btn-remove-aff');
-            if (!btn) return;
-            const li = btn.closest('li');
-            if (!li) return;
-
-            if (li.dataset.existing === 'true') {
-              const affId = parseInt(li.dataset.affectationId, 10);
-              if (!isNaN(affId) && delField) {
-                let arr = [];
-                try { arr = delField.value ? JSON.parse(delField.value) : []; } catch { arr = []; }
-                if (!arr.includes(affId)) arr.push(affId);
-                delField.value = JSON.stringify(arr);
-              }
-            } else {
-              const nameText = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
-              const type = li.dataset.type || 'Utilisateur';
-              pending = pending.filter(x => !(x && x.name === nameText && x.type === type));
-              syncPending();
-            }
-
-            li.remove();
-          });
+        document.addEventListener('DOMContentLoaded', () => {
+            const dataField = document.getElementById('affectationsData');
+            const delField  = document.getElementById('affectationsToDelete');
+            let pending = [];
+            try { pending = dataField?.value ? JSON.parse(dataField.value) : []; } catch { pending = []; }
+            function syncPending() { if (dataField) dataField.value = JSON.stringify(pending); }
+            document.addEventListener('click', (e) => {
+                const btn = e.target.closest('.btn-remove-aff');
+                if (!btn) return;
+                const li = btn.closest('li');
+                if (!li) return;
+                if (li.dataset.existing === 'true') {
+                    const affId = parseInt(li.dataset.affectationId, 10);
+                    if (!isNaN(affId) && delField) {
+                        let arr = [];
+                        try { arr = delField.value ? JSON.parse(delField.value) : []; } catch { arr = []; }
+                        if (!arr.includes(affId)) arr.push(affId);
+                        delField.value = JSON.stringify(arr);
+                    }
+                } else {
+                    const nameText = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
+                    const type = li.dataset.type || 'Utilisateur';
+                    pending = pending.filter(x => !(x && x.name === nameText && x.type === type));
+                    syncPending();
+                }
+                li.remove();
+            });
         });
     </script>
 }

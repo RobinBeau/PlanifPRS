@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿// Fichier d'origine + ajouts HISTORIQUE / SUPPRESSION (marqués)
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -61,6 +62,10 @@ namespace PlanifPRS.Pages
         public bool IsAdminOrValidateur => HasRequiredRole();
         public string CurrentUserLogin => GetCurrentUserLogin();
 
+        // >>> HISTORIQUE >>>
+        public IList<HistoriqueEdit> Historique { get; set; } = new List<HistoriqueEdit>();
+        // <<< HISTORIQUE <<<
+
         public async Task<IActionResult> OnGetAsync(int id)
         {
             _logger.LogInformation($"[EDIT][GET] id={id} user={CurrentUserLogin}");
@@ -68,10 +73,12 @@ namespace PlanifPRS.Pages
             Prs = await _context.Prs.FindAsync(id);
             if (Prs == null) return NotFound();
 
+            // PRS supprimée = non visible
+            if (Prs.Statut == "Supprimé") return Redirect("/Index");
+
             CanEditPrs = CheckEditPermissions(Prs);
             _logger.LogInformation($"[EDIT][GET] CanEdit={CanEditPrs} IsAdminOrValidateur={IsAdminOrValidateur}");
 
-            // Valeurs par défaut pour éviter les erreurs "required"
             AffectationsData ??= "[]";
             AffectationsToDelete ??= "[]";
 
@@ -79,7 +86,6 @@ namespace PlanifPRS.Pages
             await ChargerFichiersEtLiensAsync(Prs.Id);
             await ChargerAffectationsExistantesAsync(Prs.Id);
 
-            // IMPORTANT: forcer la valeur initiale du hidden ChecklistData en mode "copy" avec source = PRS actuelle.
             ChecklistInitialJson = JsonSerializer.Serialize(new
             {
                 type = "copy",
@@ -87,13 +93,28 @@ namespace PlanifPRS.Pages
                 elements = Array.Empty<object>()
             }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
 
-            // Indique s'il existe une checklist existante
             HasExistingChecklist = await _context.PrsChecklists.AnyAsync(c => c.PRSId == Prs.Id);
+
+            // >>> HISTORIQUE >>>
+            try
+            {
+                Historique = await _context.HistoriqueEdit
+                    .Where(h => h.PrsId == Prs.Id)
+                    .OrderByDescending(h => h.DateAction)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[EDIT][GET] Erreur chargement historique");
+                Historique = new List<HistoriqueEdit>();
+            }
+            // <<< HISTORIQUE <<<
 
             return Page();
         }
 
-        // ✅ NOUVELLE MÉTHODE POUR VÉRIFIER LA DISPONIBILITÉ
+        // (le reste de ton code original est conservé)
+
         public async Task<IActionResult> OnGetCheckAvailabilityAsync(string dateDebut, string dateFin, string affectationsData)
         {
             try
@@ -151,7 +172,6 @@ namespace PlanifPRS.Pages
             var utilisateur = await _context.Utilisateurs.FindAsync(utilisateurId);
             if (utilisateur == null) return conflits;
 
-            // Vérifier les conflits directs (affectations utilisateur) - exclure la PRS actuelle en mode édition
             var conflitsDirects = await _context.PrsAffectations
                 .Where(a => a.UtilisateurId == utilisateurId)
                 .Include(a => a.Prs)
@@ -169,7 +189,6 @@ namespace PlanifPRS.Pages
 
             conflits.AddRange(conflitsDirects);
 
-            // Vérifier les conflits via groupes
             var groupesUtilisateur = await _context.GroupesUtilisateurs
                 .Where(g => g.Actif && g.Membres.Any(m => m.UtilisateurId == utilisateurId))
                 .Select(g => g.Id)
@@ -211,7 +230,6 @@ namespace PlanifPRS.Pages
 
             if (groupe == null) return conflits;
 
-            // Vérifier les conflits pour chaque membre du groupe
             foreach (var membre in groupe.Membres)
             {
                 var utilisateurConflits = await VerifierConflitsUtilisateur(membre.UtilisateurId, debut, fin);
@@ -221,7 +239,6 @@ namespace PlanifPRS.Pages
             return conflits;
         }
 
-        // Endpoint de PREVIEW pour le front (affiche éléments + responsables)
         public async Task<IActionResult> OnGetChecklistPreviewAsync(int prsId)
         {
             try
@@ -299,7 +316,6 @@ namespace PlanifPRS.Pages
 
         public async Task<IActionResult> OnPostAsync()
         {
-            // Normalisation des champs + suppression de validations parasites
             if (string.IsNullOrWhiteSpace(AffectationsData)) AffectationsData = "[]";
             if (string.IsNullOrWhiteSpace(AffectationsToDelete)) AffectationsToDelete = "[]";
             ModelState.Remove(nameof(AffectationsData));
@@ -318,7 +334,6 @@ namespace PlanifPRS.Pages
                 return Page();
             }
 
-            // Mode "semaine" (utilisateurs non-admin)
             if (!IsAdminOrValidateur && Request.Form.ContainsKey("weekMode") && Request.Form["weekMode"] == "true")
             {
                 if (Request.Form.ContainsKey("selectedWeek") && DateTime.TryParse(Request.Form["selectedWeek"], out var weekStartDate))
@@ -335,8 +350,6 @@ namespace PlanifPRS.Pages
             if (Prs.LigneId == 0)
                 ModelState.AddModelError("Prs.LigneId", "La sélection d'une ligne est obligatoire.");
 
-
-            // ✅ VÉRIFICATION DE DISPONIBILITÉ AVANT MODIFICATION
             if (!string.IsNullOrEmpty(AffectationsData))
             {
                 try
@@ -404,21 +417,19 @@ namespace PlanifPRS.Pages
             {
                 var prsFromDb = await _context.Prs.FindAsync(Prs.Id);
                 if (prsFromDb == null) return NotFound();
+                if (prsFromDb.Statut == "Supprimé") return Redirect("/Index");
 
                 var dateCreation = prsFromDb.DateCreation;
                 var createdByLogin = prsFromDb.CreatedByLogin;
                 var couleurOriginal = prsFromDb.CouleurPRS;
 
-                // ***** NOUVELLE LOGIQUE DE GESTION DES STATUTS *****
                 string nouveauStatut;
                 DateTime? nouvelleAncienneDateDebut = prsFromDb.AncienneDateDebut;
                 DateTime? nouvelleAncienneDateFin = prsFromDb.AncienneDateFin;
 
                 if (IsAdminOrValidateur)
                 {
-                    // Si admin/validateur modifie : toujours "Validé"
                     nouveauStatut = "Validé";
-                    // Si c'était "À re-valider", on remet les anciennes dates à null
                     if (prsFromDb.Statut == "À re-valider")
                     {
                         nouvelleAncienneDateDebut = null;
@@ -427,23 +438,18 @@ namespace PlanifPRS.Pages
                 }
                 else
                 {
-                    // Si non admin/validateur modifie
                     if (prsFromDb.Statut == "Validé")
                     {
-                        // PRS était validée -> passer à "À re-valider" et sauvegarder les anciennes dates
                         nouveauStatut = "À re-valider";
                         nouvelleAncienneDateDebut = prsFromDb.DateDebut;
                         nouvelleAncienneDateFin = prsFromDb.DateFin;
                     }
                     else if (prsFromDb.Statut == "À re-valider")
                     {
-                        // PRS était déjà "À re-valider" -> garder ce statut et les anciennes dates
                         nouveauStatut = "À re-valider";
-                        // nouvelleAncienneDateDebut et nouvelleAncienneDateFin restent les mêmes
                     }
                     else
                     {
-                        // PRS était "En attente" -> reste "En attente"
                         nouveauStatut = "En attente";
                     }
                 }
@@ -469,6 +475,10 @@ namespace PlanifPRS.Pages
                 if (!IsAdminOrValidateur) prsFromDb.CouleurPRS = couleurOriginal;
                 else prsFromDb.CouleurPRS = string.IsNullOrWhiteSpace(Prs.CouleurPRS) ? null : Prs.CouleurPRS;
 
+                // >>> HISTORIQUE >>> Diff avant Save
+                var diffJson = BuildDiffJson(originalPrs, prsFromDb);
+                // <<< HISTORIQUE <<<
+
                 await _context.SaveChangesAsync();
 
                 await TraiterSuppressionsAffectationsPrsAsync();
@@ -476,10 +486,15 @@ namespace PlanifPRS.Pages
                 await TraiterChecklistsEtAffectationsAsync();
                 await TraiterFichiersEtLiensAsync();
 
+                // >>> HISTORIQUE >>> log si modifications
+                if (!string.IsNullOrWhiteSpace(diffJson) && diffJson != "{}")
+                {
+                    await LogHistoriqueAsync(prsFromDb.Id, "Modification", originalPrs.Statut, prsFromDb.Statut, diffJson);
+                }
+                // <<< HISTORIQUE <<<
+
                 Flash = "PRS modifiée avec succès ✅";
                 return RedirectToPage("/Index");
-
-
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -497,6 +512,42 @@ namespace PlanifPRS.Pages
             await ChargerAffectationsExistantesAsync(Prs.Id);
             return Page();
         }
+
+        // >>> HISTORIQUE >>> Suppression avec log
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> OnPostSupprimerAsync(int id)
+        {
+            try
+            {
+                var prs = await _context.Prs.FirstOrDefaultAsync(p => p.Id == id);
+                if (prs == null) return NotFound();
+
+                bool autorise = IsAdminOrValidateur ||
+                                (!string.IsNullOrEmpty(prs.CreatedByLogin) &&
+                                 prs.CreatedByLogin.Equals(CurrentUserLogin, StringComparison.OrdinalIgnoreCase));
+                if (!autorise) return Forbid();
+
+                if (prs.Statut == "Supprimé") return Redirect("/Index");
+
+                var ancienStatut = prs.Statut;
+                prs.Statut = "Supprimé";
+                prs.DerniereModification = DateTime.Now;
+
+                var diff = "{\"Statut\":{\"old\":\"" + (ancienStatut ?? "") + "\",\"new\":\"Supprimé\"}}";
+
+                await _context.SaveChangesAsync();
+                await LogHistoriqueAsync(prs.Id, "Suppression", ancienStatut, "Supprimé", diff);
+                Flash = "PRS supprimée.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[EDIT][POST] Erreur suppression PRS {Id}", id);
+                ErrorMessage = "Erreur lors de la suppression.";
+            }
+
+            return Redirect("/Index");
+        }
+        // <<< HISTORIQUE <<<
 
         public async Task<IActionResult> OnGetDownloadFileAsync(int id, int fileId)
         {
@@ -638,7 +689,6 @@ namespace PlanifPRS.Pages
             }
         }
 
-        // Remplace la méthode existante par celle-ci
         private async Task TraiterSuppressionsAffectationsPrsAsync()
         {
             if (string.IsNullOrWhiteSpace(AffectationsToDelete)) return;
@@ -650,12 +700,10 @@ namespace PlanifPRS.Pages
             {
                 _logger.LogInformation("[EDIT] AffectationsToDelete brut: {raw}", raw);
 
-                // Tolérer des nombres encodés en string
                 var options = new JsonSerializerOptions { NumberHandling = JsonNumberHandling.AllowReadingFromString };
 
                 List<int>? ids = null;
 
-                // Accepter aussi un wrapper { ids: [...] } ou { affectations: [...] }
                 if (raw.StartsWith("{"))
                 {
                     var wrapper = JsonSerializer.Deserialize<Dictionary<string, List<int>>>(raw, options);
@@ -676,7 +724,6 @@ namespace PlanifPRS.Pages
                     return;
                 }
 
-                // 1) Charger les IDs existants pour cette PRS (requête simple)
                 var existingIds = await _context.PrsAffectations
                     .Where(a => a.PrsId == Prs.Id)
                     .Select(a => a.Id)
@@ -688,7 +735,6 @@ namespace PlanifPRS.Pages
                     return;
                 }
 
-                // 2) Intersecter en mémoire
                 var toDeleteIds = existingIds.Intersect(ids).ToList();
                 if (toDeleteIds.Count == 0)
                 {
@@ -697,7 +743,6 @@ namespace PlanifPRS.Pages
                     return;
                 }
 
-                // 3) Supprimer par clé (stubs) — évite une requête SELECT avec IN côté SQL
                 foreach (var id in toDeleteIds)
                 {
                     _context.PrsAffectations.Remove(new PrsAffectation { Id = id });
@@ -839,7 +884,6 @@ namespace PlanifPRS.Pages
                             break;
                     }
 
-                    // APPLIQUER LES AFFECTATIONS POUR TOUS LES CAS (y compris copy)
                     if (checklistIds.Any())
                     {
                         await TraiterAffectationsChecklistAsync(checklistIds);
@@ -999,6 +1043,74 @@ namespace PlanifPRS.Pages
             }
         }
 
+        // >>> HISTORIQUE >>> Méthodes diff et log
+        private string BuildDiffJson(Models.Prs original, Models.Prs updated)
+        {
+            if (original == null || updated == null) return "{}";
+
+            var diffs = new Dictionary<string, object>();
+
+            void Compare<T>(string name, T oldVal, T newVal)
+            {
+                if (EqualityComparer<T>.Default.Equals(oldVal, newVal)) return;
+                diffs[name] = new { old = oldVal, @new = newVal };
+            }
+
+            Compare("Titre", original.Titre, updated.Titre);
+            Compare("Equipement", original.Equipement, updated.Equipement);
+            Compare("ReferenceProduit", original.ReferenceProduit, updated.ReferenceProduit);
+            Compare("Quantite", original.Quantite, updated.Quantite);
+            Compare("BesoinOperateur", original.BesoinOperateur, updated.BesoinOperateur);
+            Compare("PresenceClient", original.PresenceClient, updated.PresenceClient);
+            Compare("DateDebut", original.DateDebut.ToString("o"), updated.DateDebut.ToString("o"));
+            Compare("DateFin", original.DateFin.ToString("o"), updated.DateFin.ToString("o"));
+            Compare("Statut", original.Statut, updated.Statut);
+            if (original.AncienneDateDebut.HasValue || updated.AncienneDateDebut.HasValue)
+                Compare("AncienneDateDebut",
+                    original.AncienneDateDebut?.ToString("o"),
+                    updated.AncienneDateDebut?.ToString("o"));
+            if (original.AncienneDateFin.HasValue || updated.AncienneDateFin.HasValue)
+                Compare("AncienneDateFin",
+                    original.AncienneDateFin?.ToString("o"),
+                    updated.AncienneDateFin?.ToString("o"));
+            Compare("InfoDiverses", original.InfoDiverses, updated.InfoDiverses);
+            Compare("FamilleId", original.FamilleId, updated.FamilleId);
+            Compare("LigneId", original.LigneId, updated.LigneId);
+            Compare("CouleurPRS", original.CouleurPRS, updated.CouleurPRS);
+
+            if (diffs.Count == 0) return "{}";
+
+            return JsonSerializer.Serialize(diffs, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = false
+            });
+        }
+
+        private async Task LogHistoriqueAsync(int prsId, string action, string ancienStatut, string nouveauStatut, string diffJson)
+        {
+            try
+            {
+                var entry = new HistoriqueEdit
+                {
+                    PrsId = prsId,
+                    Action = action,
+                    AncienStatut = ancienStatut,
+                    NouveauStatut = nouveauStatut,
+                    UserLogin = CurrentUserLogin,
+                    DateAction = DateTime.Now,
+                    Changements = string.IsNullOrWhiteSpace(diffJson) ? "{}" : diffJson
+                };
+                _context.HistoriqueEdit.Add(entry);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[HISTORIQUE] Erreur lors de l'enregistrement de l'historique PRS {PrsId}", prsId);
+            }
+        }
+        // <<< HISTORIQUE <<<
+
         private async Task ChargerFamillesAsync()
         {
             try
@@ -1080,23 +1192,11 @@ namespace PlanifPRS.Pages
 
             string cleanedText = input;
 
-            // Conserver les lettres accentuées, ne retirer que les emojis/symboles concernés
-            // 1) Emojis en paires de substituts (surrogate pairs)
             cleanedText = Regex.Replace(cleanedText, @"[\uD83C-\uDBFF][\uDC00-\uDFFF]", "");
-
-            // 2) Variation selector-16 et Zero-Width Joiner (utilisés par les emojis)
             cleanedText = Regex.Replace(cleanedText, @"[\uFE0F\u200D]", "");
-
-            // 3) Optionnel: retirer quelques gammes de pictogrammes (flèches/dingbats), sans toucher aux accents
             cleanedText = Regex.Replace(cleanedText, @"[\u2190-\u21FF\u2600-\u27BF]", "");
-
-            // Remplacer l'espace insécable par un espace normal plutôt que de supprimer (préserve les mots)
             cleanedText = cleanedText.Replace('\u00A0', ' ');
-
-            // Nettoyage du début de texte (conserve les lettres Unicode)
             cleanedText = Regex.Replace(cleanedText, @"^\s*[^\w]*\s*", "");
-
-            // Mappages explicites des libellés s'ils contiennent des emojis en entrée
             cleanedText = cleanedText.Replace("👨‍🔧 Besoin opérateur", "Besoin opérateur")
                                      .Replace("❌ Aucun", "Aucun")
                                      .Replace("✅ Client présent", "Client présent")
@@ -1123,4 +1223,5 @@ namespace PlanifPRS.Pages
         public class AffectationDto { public int id { get; set; } public string type { get; set; } public string name { get; set; } public string info { get; set; } }
         public class AffectationDisplay { public int Id { get; set; } public string Type { get; set; } public string Name { get; set; } public string Info { get; set; } }
     }
+
 }
