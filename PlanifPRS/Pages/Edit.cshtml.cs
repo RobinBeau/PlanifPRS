@@ -24,13 +24,15 @@ namespace PlanifPRS.Pages
         private readonly FileService _fileService;
         private readonly ChecklistService _checklistService;
         private readonly ILogger<EditModel> _logger;
+        private readonly NotificationService _notificationService; // AJOUT
 
-        public EditModel(PlanifPrsDbContext context, FileService fileService, ChecklistService checklistService, ILogger<EditModel> logger)
+        public EditModel(PlanifPrsDbContext context, FileService fileService, ChecklistService checklistService, ILogger<EditModel> logger, NotificationService notificationService) // AJOUT param
         {
             _context = context;
             _fileService = fileService;
             _checklistService = checklistService;
             _logger = logger;
+            _notificationService = notificationService; // AJOUT
         }
 
         [BindProperty] public Models.Prs Prs { get; set; }
@@ -419,6 +421,9 @@ namespace PlanifPRS.Pages
                 if (prsFromDb == null) return NotFound();
                 if (prsFromDb.Statut == "Supprimé") return Redirect("/Index");
 
+                // AJOUT : snapshot des utilisateurs affectés avant modifications
+                var anciennesAffectations = await ExtraireUtilisateursAffectesAsync(prsFromDb.Id);
+
                 var dateCreation = prsFromDb.DateCreation;
                 var createdByLogin = prsFromDb.CreatedByLogin;
                 var couleurOriginal = prsFromDb.CouleurPRS;
@@ -486,6 +491,16 @@ namespace PlanifPRS.Pages
                 await TraiterChecklistsEtAffectationsAsync();
                 await TraiterFichiersEtLiensAsync();
 
+                // AJOUT : notifications après modifications complètes
+                try
+                {
+                    await _notificationService.EnvoyerNotificationsPRS(prsFromDb.Id, "edit", anciennesAffectations);
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogError(notifEx, "[NOTIF] Erreur notification édition PRS {Id}", prsFromDb.Id);
+                }
+
                 // >>> HISTORIQUE >>> log si modifications
                 if (!string.IsNullOrWhiteSpace(diffJson) && diffJson != "{}")
                 {
@@ -548,7 +563,6 @@ namespace PlanifPRS.Pages
             return Redirect("/Index");
         }
         // <<< HISTORIQUE <<<
-
         public async Task<IActionResult> OnGetDownloadFileAsync(int id, int fileId)
         {
             var fichier = await _context.PrsFichiers.FirstOrDefaultAsync(f => f.Id == fileId && f.PrsId == id);
@@ -1110,6 +1124,32 @@ namespace PlanifPRS.Pages
             }
         }
         // <<< HISTORIQUE <<<
+
+        // AJOUT : extraction utilisateurs affectés (direct + via groupes)
+        private async Task<List<int>> ExtraireUtilisateursAffectesAsync(int prsId)
+        {
+            var direct = await _context.PrsAffectations
+                .Where(a => a.PrsId == prsId && a.TypeAffectation == "Utilisateur" && a.UtilisateurId.HasValue)
+                .Select(a => a.UtilisateurId!.Value)
+                .ToListAsync();
+
+            var groupeIds = await _context.PrsAffectations
+                .Where(a => a.PrsId == prsId && a.TypeAffectation == "Groupe" && a.GroupeId.HasValue)
+                .Select(a => a.GroupeId!.Value)
+                .Distinct()
+                .ToListAsync();
+
+            List<int> viaGroupes = new();
+            if (groupeIds.Any())
+            {
+                viaGroupes = await _context.GroupesUtilisateurs
+                    .Where(g => groupeIds.Contains(g.Id))
+                    .SelectMany(g => g.Membres.Select(m => m.UtilisateurId))
+                    .ToListAsync();
+            }
+
+            return direct.Concat(viaGroupes).Distinct().ToList();
+        }
 
         private async Task ChargerFamillesAsync()
         {

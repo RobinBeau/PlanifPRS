@@ -22,13 +22,15 @@ namespace PlanifPRS.Pages.Prs
         private readonly FileService _fileService;
         private readonly ChecklistService _checklistService;
         private readonly ILogger<CreateModel> _logger;
+        private readonly NotificationService _notificationService; // AJOUT
 
-        public CreateModel(PlanifPrsDbContext context, FileService fileService, ChecklistService checklistService, ILogger<CreateModel> logger)
+        public CreateModel(PlanifPrsDbContext context, FileService fileService, ChecklistService checklistService, ILogger<CreateModel> logger, NotificationService notificationService) // AJOUT param
         {
             _context = context;
             _fileService = fileService;
             _checklistService = checklistService;
             _logger = logger;
+            _notificationService = notificationService; // AJOUT
         }
 
         [BindProperty]
@@ -357,13 +359,23 @@ namespace PlanifPRS.Pages.Prs
                 // GESTION DES FICHIERS ET LIENS
                 await TraiterFichiersEtLiensAsync();
 
+                // NOTIFICATIONS (création) - après toutes les écritures
+                try
+                {
+                    await _notificationService.EnvoyerNotificationsPRS(Prs.Id, "create");
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogError(notifEx, "[NOTIF] Erreur notification création PRS {Id}", Prs.Id);
+                }
+
                 Flash = "PRS ajoutée avec succès ✅";
                 return RedirectToPage("./Index");
             }
             catch (Exception ex)
             {
                 ErrorMessage = $"Erreur lors de l'ajout de la PRS: {ex.Message}";
-                ModelState.AddModelError(string.Empty, "Erreur lors de l'ajout de la PRS.");
+                ModelState.AddModelError(string.IsNullOrEmpty(ex.Message) ? string.Empty : ex.Message, "Erreur lors de l'ajout de la PRS.");
                 _logger.LogError($"Exception lors de la création de la PRS: {ex.Message}");
                 _logger.LogError($"Stack trace: {ex.StackTrace}");
                 return Page();

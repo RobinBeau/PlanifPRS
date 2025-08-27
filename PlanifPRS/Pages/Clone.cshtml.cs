@@ -23,13 +23,15 @@ namespace PlanifPRS.Pages
         private readonly FileService _fileService;
         private readonly ChecklistService _checklistService;
         private readonly ILogger<EditModel> _logger;
+        private readonly NotificationService _notificationService; // AJOUT
 
-        public CloneModel(PlanifPrsDbContext context, FileService fileService, ChecklistService checklistService, ILogger<EditModel> logger)
+        public CloneModel(PlanifPrsDbContext context, FileService fileService, ChecklistService checklistService, ILogger<EditModel> logger, NotificationService notificationService) // AJOUT param
         {
             _context = context;
             _fileService = fileService;
             _checklistService = checklistService;
             _logger = logger;
+            _notificationService = notificationService; // AJOUT
         }
 
         [BindProperty] public Models.Prs Prs { get; set; }
@@ -892,6 +894,16 @@ namespace PlanifPRS.Pages
                 finally
                 {
                     Prs.Id = originalId;
+                }
+
+                // AJOUT : notifications clonage
+                try
+                {
+                    await _notificationService.EnvoyerNotificationsPRS(newPrs.Id, "clone");
+                }
+                catch (Exception notifEx)
+                {
+                    _logger.LogError(notifEx, "[NOTIF] Erreur notification clonage PRS {Id}", newPrs.Id);
                 }
 
                 Flash = (Flash ?? "") + " PRS créée avec succès ✅";

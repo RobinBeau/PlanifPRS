@@ -38,6 +38,7 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<LienDossierPrsService>();
 builder.Services.AddScoped<ChecklistService>(); // Nouveau service pour les checklists
+builder.Services.AddScoped<NotificationService>(); // Service de notifications (invitations + mails)
 
 // Configuration du téléchargement de fichiers volumineux
 builder.Services.Configure<FormOptions>(options =>
