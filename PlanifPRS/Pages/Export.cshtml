@@ -1,8 +1,186 @@
 ﻿@page
-@model PlanifPRS.Pages.ExportModel
+@model ExportModel
 @{
-    ViewData["Title"] = "Export Excel";
+    ViewData["Title"] = "Export Calendrier PRS";
 }
 
-<h2>Export Excel</h2>
-<p>Interface pour exporter les données PRS vers Excel.</p>
+<h2>Export Calendrier PRS</h2>
+
+@if (!Model.ModelState.IsValid)
+{
+    <div style="color:#b00020;font-weight:bold">
+        @foreach (var err in Model.ModelState.Values.SelectMany(v => v.Errors))
+        {
+            <div>@err.ErrorMessage</div>
+        }
+    </div>
+}
+
+<form id="exportForm" method="post" asp-page-handler="Download" onsubmit="return beforeSubmit();">
+    <input type="hidden" name="WeeksInput" id="WeeksInputHidden" value="@Model.WeeksInput" />
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end;margin-bottom:1rem">
+        <div>
+            <label for="YearInput">Année</label><br />
+            <input type="number" id="YearInput" name="Year" value="@Model.Year" min="2020" max="2100" />
+        </div>
+        <div style="min-width:260px">
+            <label for="WeeksInputText">Semaines (ex: 26,27-29,31)</label><br />
+            <input type="text" id="WeeksInputText" value="@Model.WeeksInput" placeholder="26,27-29" style="width:250px" />
+            <div style="font-size:.7rem;color:#555;margin-top:2px">
+                Formats : 26 / 26,28,30-32 / 01-05
+            </div>
+        </div>
+        <div>
+            <label for="RequesterLogin">Login (contrôle droits)</label><br />
+            <input type="text" id="RequesterLogin" name="RequesterLogin" value="@Model.RequesterLogin" />
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.3rem">
+            <button type="submit" class="btn-primary">Télécharger</button>
+            <button type="button" onclick="clearWeeks()" class="btn-secondary">Effacer semaines</button>
+        </div>
+    </div>
+</form>
+
+<hr />
+<h4>Sélection rapide des semaines</h4>
+<div id="weekButtons" style="display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem">
+    @for (int w = 1; w <= 52; w++)
+    {
+        var active = Model.SelectedWeeks.Contains(w);
+        <button type="button"
+                class="wk-btn @(active ? "active":"")"
+                data-week="@w"
+                onclick="toggleWeek(@w)">
+            @($"S{w:00}")
+        </button>
+    }
+</div>
+
+<style>
+    .btn-primary {
+        background: #0d6efd;
+        border: 1px solid #0d6efd;
+        color: #fff;
+        padding: 6px 14px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+        .btn-primary:hover {
+            background: #0b5ed7;
+        }
+
+    .btn-secondary {
+        background: #e9ecef;
+        border: 1px solid #ced4da;
+        color: #222;
+        padding: 4px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: .8rem;
+    }
+
+        .btn-secondary:hover {
+            background: #dde2e6;
+        }
+
+    .wk-btn {
+        border: 1px solid #aaa;
+        background: #f5f5f5;
+        cursor: pointer;
+        padding: 4px 8px;
+        font-size: .75rem;
+        min-width: 48px;
+        border-radius: 3px;
+    }
+
+        .wk-btn.active {
+            background: #d0ebff;
+            border-color: #69b7e8;
+            font-weight: 600;
+        }
+
+    input[type=number], input[type=text] {
+        padding: 4px 6px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+    }
+</style>
+
+<script>
+    function parseWeeksText(text) {
+        if (!text) return [];
+        const items = text.split(',').map(s=>s.trim()).filter(s=>s.length>0);
+        let weeks = [];
+        items.forEach(part=>{
+            if (part.includes('-')) {
+                const ab = part.split('-').map(x=>parseInt(x,10));
+                if (ab.length === 2 && !isNaN(ab[0]) && !isNaN(ab[1])) {
+                    const start=Math.min(ab[0],ab[1]), end=Math.max(ab[0],ab[1]);
+                    for(let k=start;k<=end;k++) weeks.push(k);
+                }
+            } else {
+                const v = parseInt(part,10);
+                if(!isNaN(v)) weeks.push(v);
+            }
+        });
+        weeks = weeks.filter(w=>w>=1 && w<=53);
+        return [...new Set(weeks)].sort((a,b)=>a-b);
+    }
+
+    function weeksToCompressed(list) {
+        if(!list.length) return "";
+        list = [...list].sort((a,b)=>a-b);
+        let ranges = [];
+        let start = list[0], prev = list[0];
+        for (let i=1;i<list.length;i++) {
+            if (list[i] === prev + 1) {
+                prev = list[i];
+            } else {
+                ranges.push(start===prev ? start.toString() : start + "-" + prev);
+                start = prev = list[i];
+            }
+        }
+        ranges.push(start===prev ? start.toString() : start + "-" + prev);
+        return ranges.join(',');
+    }
+
+    function syncButtonsFromInput() {
+        const list = parseWeeksText(document.getElementById('WeeksInputText').value);
+        document.querySelectorAll('#weekButtons .wk-btn').forEach(btn=>{
+            const w = parseInt(btn.getAttribute('data-week'),10);
+            if (list.includes(w)) btn.classList.add('active'); else btn.classList.remove('active');
+        });
+    }
+
+    function toggleWeek(w) {
+        const textInput = document.getElementById('WeeksInputText');
+        let weeks = parseWeeksText(textInput.value);
+        if (weeks.includes(w)) {
+            weeks = weeks.filter(x=>x!==w);
+        } else {
+            weeks.push(w);
+        }
+        textInput.value = weeksToCompressed(weeks);
+        syncButtonsFromInput();
+    }
+
+    function clearWeeks() {
+        document.getElementById('WeeksInputText').value = "";
+        syncButtonsFromInput();
+    }
+
+    function beforeSubmit() {
+        const textInput = document.getElementById('WeeksInputText');
+        const parsed = parseWeeksText(textInput.value);
+        if (parsed.length === 0) {
+            alert("Sélectionne au moins une semaine.");
+            return false;
+        }
+        document.getElementById('WeeksInputHidden').value = parsed.join(',');
+        return true;
+    }
+
+    document.addEventListener('DOMContentLoaded', syncButtonsFromInput);
+</script>
