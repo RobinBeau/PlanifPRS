@@ -1086,14 +1086,16 @@
         const weekHighlightElem = document.querySelector("#weekHighlight");
         const selectedWeekInput = document.querySelector("#selectedWeek");
 
-        // Initialisation avec la date actuelle (10 juillet 2025 07:50:28 UTC)
-        const now = new Date('2025-07-10T07:50:28Z');
+                // Initialisation dynamique de la date courante (remplace l’ancienne date figée)
+        const now = new Date();
+
+        // Préparation de "demain 09:00"
         const tomorrow = new Date(now);
         tomorrow.setDate(tomorrow.getDate() + 1);
         tomorrow.setHours(9, 0, 0, 0);
 
-        // Variable pour la semaine sélectionnée (pour utilisateurs normaux)
-        let currentWeekStart = getMonday(new Date(now));
+        // Lundi de la semaine courante
+        let currentWeekStart = getMonday(now);
 
         // Variables pour la gestion des dossiers
         let selectedFolders = [];
