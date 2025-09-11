@@ -1,32 +1,33 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using PlanifPRS.Data;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
+using PlanifPRS.Data;
 using PlanifPRS.Services;
+
+// Absences / Microsoft Graph
+using PlanifPRS.Infrastructure.Graph;
+using PlanifPRS.Infrastructure.Absences;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// ================================================================
+// Razor Pages + Routes existantes
+// ================================================================
 builder.Services.AddRazorPages(options =>
 {
-    // Configuration des conventions de routage
     options.Conventions.AllowAnonymousToPage("/AccessDenied");
-
-    // Route explicite pour la page Edit, nécessaire si vous avez l'erreur 404
     options.Conventions.AddPageRoute("/Prs/Edit", "/Edit/{id:int?}");
 });
 
+// ================================================================
+// Authentification / Autorisation (Windows)
+// ================================================================
 builder.Services.AddAuthentication(Microsoft.AspNetCore.Server.IISIntegration.IISDefaults.AuthenticationScheme);
-
-// Configuration de l'autorisation
 builder.Services.AddAuthorization(options =>
 {
-    // Politique qui permet à tous les utilisateurs authentifiés d'accéder aux pages
-    options.AddPolicy("PrsAccessPolicy", policy =>
-        policy.RequireAuthenticatedUser());
+    options.AddPolicy("PrsAccessPolicy", policy => policy.RequireAuthenticatedUser());
 });
 
-// Configuration pour gérer les accès refusés
+// (Si un cookie d’auth personnalisé était utilisé, à conserver – ici Windows auth)
 builder.Services.ConfigureApplicationCookie(options =>
 {
     options.AccessDeniedPath = "/AccessDenied";
@@ -34,38 +35,92 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.SlidingExpiration = true;
 });
 
-// Ajout des services
+// ================================================================
+// Services applicatifs existants
+// ================================================================
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<LienDossierPrsService>();
-builder.Services.AddScoped<ChecklistService>(); // Nouveau service pour les checklists
-builder.Services.AddScoped<NotificationService>(); // Service de notifications (invitations + mails)
-builder.Services.AddScoped<ExportCalendarService>(); // AJOUT : enregistrement du service d'export
+builder.Services.AddScoped<ChecklistService>();
+builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<ExportCalendarService>();
 
-// Configuration du téléchargement de fichiers volumineux
+// ================================================================
+// Form upload / Kestrel limites
+// ================================================================
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 104857600; // 100 MB
+    options.MultipartBodyLengthLimit = 104_857_600; // 100 MB
     options.ValueLengthLimit = int.MaxValue;
     options.MultipartHeadersLengthLimit = int.MaxValue;
     options.BufferBodyLengthLimit = int.MaxValue;
 });
 
-// Configuration de Kestrel pour permettre les uploads volumineux
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Limits.MaxRequestBodySize = 104857600; // 100 MB
+    options.Limits.MaxRequestBodySize = 104_857_600; // 100 MB
 });
 
+// ================================================================
+// DbContext
+// ================================================================
 builder.Services.AddDbContext<PlanifPrsDbContext>(options =>
-    options.UseSqlServer("Server=MSLTest20\\test;Database=PlanifPRS;User Id=ssis;Password=ssis;TrustServerCertificate=True;Encrypt=True;"));
+{
+    var cs = builder.Configuration.GetConnectionString("PlanifPRSConnection")
+             ?? "Server=MSLTest20\\test;Database=PlanifPRS;User Id=ssis;Password=ssis;TrustServerCertificate=True;Encrypt=True;";
+    options.UseSqlServer(cs);
+});
 
+// ================================================================
+// Controllers (pour endpoints API absences)
+// ================================================================
+builder.Services.AddControllers();
+// Swagger (optionnel)
+// builder.Services.AddEndpointsApiExplorer();
+// builder.Services.AddSwaggerGen();
+
+// ================================================================
+// SYNCHRO ABSENCES MICROSOFT GRAPH
+// ================================================================
+
+// 1. Options de configuration
+builder.Services.Configure<GraphOptions>(builder.Configuration.GetSection("MicrosoftGraph"));
+builder.Services.Configure<AbsenceSyncOptions>(builder.Configuration.GetSection("AbsenceSync"));
+
+// 2. Services Graph & Absence
+builder.Services.AddSingleton<IGraphClientProvider, GraphClientProvider>();
+builder.Services.AddScoped<IAbsenceService, AbsenceService>();
+
+// 3. Stockage snapshots / état (fichiers => singleton OK)
+builder.Services.AddSingleton<IAbsenceRepository, JsonAbsenceRepository>();
+builder.Services.AddSingleton<IAbsenceSyncStateStore, FileAbsenceSyncStateStore>();
+
+// 4. Provider emails utilisateurs
+// IMPORTANT: Scoped (utilise probablement le DbContext)
+builder.Services.AddScoped<IUserEmailProvider, SqlUserEmailProvider>();
+
+// 5. Exécuteur de synchro
+// Reste en singleton mais NE DOIT PAS injecter de services scoped directement.
+// (AbsenceSyncExecutor utilise IServiceScopeFactory pour créer un scope à l'exécution)
+builder.Services.AddSingleton<IAbsenceSyncExecutor, AbsenceSyncExecutor>();
+
+// ================================================================
+// Build
+// ================================================================
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// ================================================================
+// Pipeline
+// ================================================================
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
     app.UseHsts();
+}
+else
+{
+    // Swagger si activé plus haut
+    // app.UseSwagger();
+    // app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
@@ -73,7 +128,7 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-// Middleware de journalisation pour le débogage
+// Log simple des requêtes (existant)
 app.Use(async (context, next) =>
 {
     var path = context.Request.Path;
@@ -85,53 +140,73 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// Protection endpoint POST /api/absences/sync-now par clé API
+app.Use(async (ctx, next) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/api/absences/sync-now"))
+    {
+        var expected = app.Configuration["AbsenceSync:ApiKey"];
+        if (!string.IsNullOrEmpty(expected))
+        {
+            var provided = ctx.Request.Headers["X-API-KEY"].FirstOrDefault();
+            if (provided != expected)
+            {
+                ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await ctx.Response.WriteAsync("Unauthorized");
+                return;
+            }
+        }
+    }
+    await next();
+});
+
+// Middleware Lazy Sync (déclenche la synchro au 1er accès après l'heure prévue)
+app.UseMiddleware<LazySyncMiddleware>();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Middleware personnalisé pour gérer les erreurs 404/403
+// Middleware gestion 404/403 (éviter redirection sur API)
 app.Use(async (context, next) =>
 {
-    var originalPath = context.Request.Path.Value;
-
+    var originalPath = context.Request.Path.Value ?? "";
     await next();
-
     var statusCode = context.Response.StatusCode;
+    bool isApi = originalPath.StartsWith("/api", StringComparison.OrdinalIgnoreCase);
 
-    // Si on a un code 404 et que c'est une tentative d'accès à la page Edit
-    if (statusCode == 404 &&
-        (originalPath?.Contains("/Edit/") == true || originalPath?.StartsWith("/Prs/Edit/") == true))
+    if (!isApi)
     {
-        // Extraire l'ID de l'URL
-        var pathParts = originalPath.Split('/');
-        string id = null;
-
-        for (int i = 0; i < pathParts.Length; i++)
+        // Redirection spéciale /Prs/Edit/{id}
+        if (statusCode == 404 &&
+            (originalPath.Contains("/Edit/") || originalPath.StartsWith("/Prs/Edit/")))
         {
-            if (pathParts[i].Equals("Edit", StringComparison.OrdinalIgnoreCase) && i + 1 < pathParts.Length)
+            var parts = originalPath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            string? id = null;
+            for (int i = 0; i < parts.Length; i++)
             {
-                id = pathParts[i + 1];
-                break;
+                if (parts[i].Equals("Edit", StringComparison.OrdinalIgnoreCase) && i + 1 < parts.Length)
+                {
+                    id = parts[i + 1];
+                    break;
+                }
+            }
+            if (!string.IsNullOrEmpty(id) && int.TryParse(id, out _))
+            {
+                Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Redirection de {originalPath} vers /Prs/Edit/{id}");
+                context.Response.Redirect($"/Prs/Edit/{id}");
+                return;
             }
         }
 
-        // Si on a trouvé un ID, rediriger vers la bonne URL
-        if (!string.IsNullOrEmpty(id) && int.TryParse(id, out _))
+        if ((statusCode == 404 || statusCode == 403) && !originalPath.Contains("/AccessDenied"))
         {
-            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Redirection de {originalPath} vers /Prs/Edit/{id}");
-            context.Response.Redirect($"/Prs/Edit/{id}");
-            return;
+            Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Redirection vers /AccessDenied (code={statusCode}) pour {originalPath}");
+            context.Response.Redirect($"/AccessDenied?code={statusCode}");
         }
-    }
-
-    // Pour les autres erreurs 404/403, rediriger vers AccessDenied
-    if ((statusCode == 404 || statusCode == 403) && !originalPath.Contains("/AccessDenied"))
-    {
-        Console.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Redirection vers AccessDenied pour: {originalPath} (code: {statusCode})");
-        context.Response.Redirect($"/AccessDenied?code={statusCode}");
     }
 });
 
-// Enregistrement des endpoints
+// Endpoints
 app.MapControllers();
 app.MapRazorPages();
 

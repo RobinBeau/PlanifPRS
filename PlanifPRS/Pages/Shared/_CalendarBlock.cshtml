@@ -507,58 +507,69 @@
                 loader.style.display = isLoading ? 'block' : 'none';
             },
 
-            events: function(fetchInfo, successCallback, failureCallback) {
-                loader.style.display = 'block';
-                fetch('/api/events')
-                    .then(response => {
-                        if (!response.ok) throw new Error('Erreur réseau');
-                        return response.json();
-                    })
-                    .then(data => {
-                        // --- MODIF: Exclure les événements avec statut "Supprimé" ---
-                        const filteredData = data.filter(ev => {
-                            const statut = ev?.extendedProps?.statut || ev?.statut;
-                            return statut !== 'Supprimé';
-                        });
-                        // -------------------------------------------------------------
+                events: function(fetchInfo, successCallback, failureCallback) {
+        loader.style.display = 'block';
+        fetch('/api/events')
+            .then(response => {
+                if (!response.ok) throw new Error('Erreur réseau');
+                return response.json();
+            })
+            .then(data => {
+                // --- MODIF: Exclure les événements avec statut "Supprimé" ---
+                const filteredData = data.filter(ev => {
+                    const statut = ev?.extendedProps?.statut || ev?.statut;
+                    return statut !== 'Supprimé';
+                });
+                // -------------------------------------------------------------
 
-                        if (hasColorViewRights) {
-                            const eventsWithPrsColor = filteredData.filter(ev =>
-                                ev.extendedProps && ev.extendedProps.couleurPRS);
-                            if (eventsWithPrsColor.length > 0) {
-                                console.log(`${eventsWithPrsColor.length} événement(s) avec couleur PRS (hors Supprimé)`);
-                            }
+                if (hasColorViewRights) {
+                    const eventsWithPrsColor = filteredData.filter(ev =>
+                        ev.extendedProps && ev.extendedProps.couleurPRS);
+                    if (eventsWithPrsColor.length > 0) {
+                        console.log(`${eventsWithPrsColor.length} événement(s) avec couleur PRS (hors Supprimé)`);
+                    }
+                }
+
+                const pendingEvents = filteredData.filter(ev =>
+                    ev.extendedProps && (ev.extendedProps.statut === "En attente" || ev.extendedProps.statut === "À re-valider"));
+                console.log(`${pendingEvents.length} PRS en attente / à re-valider (hors Supprimé)`);
+
+                const events = filteredData.map(ev => {
+                    if (!ev.extendedProps) ev.extendedProps = {};
+                    if (ev.statut) ev.extendedProps.statut = ev.statut;
+
+                    // NOUVELLE LOGIQUE : Utiliser les anciennes dates pour les PRS "À re-valider"
+                    if (ev.extendedProps.statut === "À re-valider") {
+                        if (ev.extendedProps.ancienneDateDebut && ev.extendedProps.ancienneDateFin) {
+                            ev.start = ev.extendedProps.ancienneDateDebut;
+                            ev.end = ev.extendedProps.ancienneDateFin;
+                        } else if (ev.AncienneDateDebut && ev.AncienneDateFin) {
+                            ev.start = ev.AncienneDateDebut;
+                            ev.end = ev.AncienneDateFin;
                         }
+                    }
 
-                        const pendingEvents = filteredData.filter(ev =>
-                            ev.extendedProps && (ev.extendedProps.statut === "En attente" || ev.extendedProps.statut === "À re-valider"));
-                        console.log(`${pendingEvents.length} PRS en attente / à re-valider (hors Supprimé)`);
+                    if (ev.start && ev.end) {
+                        const start = new Date(ev.start);
+                        const end = new Date(ev.end);
+                        const diff = end - start;
+                        ev.allDay = diff >= 86400000 && start.getHours() === 0 && end.getHours() === 0;
+                    }
+                    return ev;
+                });
 
-                        const events = filteredData.map(ev => {
-                            if (!ev.extendedProps) ev.extendedProps = {};
-                            if (ev.statut) ev.extendedProps.statut = ev.statut;
-
-                            if (ev.start && ev.end) {
-                                const start = new Date(ev.start);
-                                const end = new Date(ev.end);
-                                const diff = end - start;
-                                ev.allDay = diff >= 86400000 && start.getHours() === 0 && end.getHours() === 0;
-                            }
-                            return ev;
-                        });
-
-                        eventCount.innerHTML = `<i class="fas fa-calendar-check me-1"></i>${events.length} événement(s)`;
-                        successCallback(events);
-                    })
-                    .catch(error => {
-                        console.error('Erreur de chargement des événements:', error);
-                        eventCount.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Erreur';
-                        failureCallback(error);
-                    })
-                    .finally(() => {
-                        loader.style.display = 'none';
-                    });
-            },
+                eventCount.innerHTML = `<i class="fas fa-calendar-check me-1"></i>${events.length} événement(s)`;
+                successCallback(events);
+            })
+            .catch(error => {
+                console.error('Erreur de chargement des événements:', error);
+                eventCount.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Erreur';
+                failureCallback(error);
+            })
+            .finally(() => {
+                loader.style.display = 'none';
+            });
+    } ,
 
             eventClick: function (info) {
                 const prsId = info.event.id;

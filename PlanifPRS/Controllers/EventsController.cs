@@ -199,15 +199,14 @@ namespace PlanifPRS.Controllers
                 if (!int.TryParse(parts[1].Substring(1), out int weekNumber))
                     return false;
 
-                // Calculer le premier jour de la semaine (lundi)
-                var jan1 = new DateTime(year, 1, 1);
-                var daysOffset = DayOfWeek.Monday - jan1.DayOfWeek;
-                var firstMonday = jan1.AddDays(daysOffset);
+                // ✅ UTILISER LA MÊME LOGIQUE ISO QUE LE FRONTEND
+                // Calculer le premier jour (lundi) de la semaine ISO
+                var jan4 = new DateTime(year, 1, 4);
+                var daysFromMonday = ((int)jan4.DayOfWeek + 6) % 7; // Lundi = 0
+                var firstMondayOfYear = jan4.AddDays(-daysFromMonday);
 
-                if (firstMonday.Year < year)
-                    firstMonday = firstMonday.AddDays(7);
-
-                weekStart = firstMonday.AddDays((weekNumber - 1) * 7);
+                // Calculer le début de la semaine demandée
+                weekStart = firstMondayOfYear.AddDays((weekNumber - 1) * 7);
                 weekEnd = weekStart.AddDays(7);
 
                 return true;
@@ -275,6 +274,8 @@ namespace PlanifPRS.Controllers
                         p.LigneId,
                         p.FamilleId,
                         p.CouleurPRS,
+                        p.AncienneDateDebut,
+                        p.AncienneDateFin,
                         l.Nom as LigneNom,
                         l.idSecteur,
                         s.nom as SecteurNom,
@@ -423,7 +424,10 @@ namespace PlanifPRS.Controllers
                                 ligne = ligneNom,
                                 secteur = secteurNom,
                                 infoDiverses = infoDiverses,
-                                couleurPRS = couleurPRS // Inclure la couleur PRS dans les propriétés étendues
+                                couleurPRS = couleurPRS, // Inclure la couleur PRS dans les propriétés étendues
+                                ancienneDateDebut = reader["AncienneDateDebut"] != DBNull.Value ? ((DateTime)reader["AncienneDateDebut"]).ToString("s") : null,
+                                ancienneDateFin = reader["AncienneDateFin"] != DBNull.Value ? ((DateTime)reader["AncienneDateFin"]).ToString("s") : null
+
                             }
                         };
 
@@ -471,6 +475,257 @@ namespace PlanifPRS.Controllers
             }
         }
 
+        [HttpGet("week-users")]
+        public async Task<IActionResult> GetWeekUsers(string week)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(week))
+                    return BadRequest("Paramètre 'week' requis");
+
+                if (!TryParseWeek(week, out DateTime weekStart, out DateTime weekEnd))
+                    return BadRequest("Format de semaine invalide. Utilisez YYYY-WXX (ex: 2025-W01)");
+
+                // SCHÉMA UTILISÉ :
+                // Prs(Id, DateDebut, ...)
+                // PrsAffectations(Id, PrsId, UtilisateurId, GroupeId, TypeAffectation)  (TypeAffectation = 'Utilisateur' ou 'Groupe')
+                // GroupeUtilisateurs(GroupeId, UtilisateurId)
+                // Utilisateurs(Id, Nom, Prenom, Mail, Service, DateDeleted)
+                //
+                // OPTIONNEL (si existe) : Groupes(Id, Nom, DateDeleted) -> tu peux décommenter la jointure et sélection associée.
+
+                var sql = @"
+WITH WeekPrs AS (
+    SELECT p.Id
+    FROM [PlanifPRS].[dbo].[Prs] p
+    WHERE p.DateDebut >= @weekStart AND p.DateDebut < @weekEnd
+),
+
+-- Affectations directes
+DirectUsers AS (
+    SELECT DISTINCT
+        u.Id                    AS UserId,
+        u.Nom,
+        u.Prenom,
+        u.Mail,
+        u.Service,
+        CAST(NULL AS INT)       AS GroupeId,
+        CAST(NULL AS NVARCHAR(150)) AS GroupeNom,
+        1                       AS FlagDirect,
+        0                       AS FlagGroup
+    FROM WeekPrs w
+    INNER JOIN [PlanifPRS].[dbo].[PrsAffectations] pa ON pa.PrsId = w.Id
+    INNER JOIN [PlanifPRS].[dbo].[Utilisateurs] u ON u.Id = pa.UtilisateurId
+    WHERE pa.UtilisateurId IS NOT NULL
+      AND (pa.TypeAffectation = 'Utilisateur' OR pa.TypeAffectation IS NULL)
+      AND u.Mail IS NOT NULL
+      AND u.Mail <> ''
+      AND u.DateDeleted IS NULL
+),
+
+-- Utilisateurs issus des groupes affectés
+GroupUsers AS (
+    SELECT DISTINCT
+        ug.Id                   AS UserId,
+        ug.Nom,
+        ug.Prenom,
+        ug.Mail,
+        ug.Service,
+        pa.GroupeId             AS GroupeId,
+        /* Si table Groupes disponible :
+           g.Nom AS GroupeNom,
+           sinon : */ 
+        CAST(NULL AS NVARCHAR(150)) AS GroupeNom,
+        0                       AS FlagDirect,
+        1                       AS FlagGroup
+    FROM WeekPrs w
+    INNER JOIN [PlanifPRS].[dbo].[PrsAffectations] pa ON pa.PrsId = w.Id
+    INNER JOIN [PlanifPRS].[dbo].[GroupeUtilisateurs] gu ON gu.GroupeId = pa.GroupeId
+    INNER JOIN [PlanifPRS].[dbo].[Utilisateurs] ug ON ug.Id = gu.UtilisateurId
+    /* LEFT JOIN [PlanifPRS].[dbo].[Groupes] g ON g.Id = pa.GroupeId AND g.DateDeleted IS NULL */
+    WHERE pa.GroupeId IS NOT NULL
+      AND pa.TypeAffectation = 'Groupe'
+      AND ug.Mail IS NOT NULL
+      AND ug.Mail <> ''
+      AND ug.DateDeleted IS NULL
+),
+
+Unioned AS (
+    SELECT * FROM DirectUsers
+    UNION ALL
+    SELECT * FROM GroupUsers
+)
+
+SELECT 
+    UserId,
+    Nom,
+    Prenom,
+    Mail,
+    Service,
+    GroupeId,
+    GroupeNom,
+    FlagDirect,
+    FlagGroup
+FROM Unioned
+ORDER BY Service, Nom, Prenom, GroupeId;
+";
+
+                using var connection = _context.Database.GetDbConnection();
+                if (connection.State != System.Data.ConnectionState.Open)
+                    await connection.OpenAsync();
+
+                using var command = connection.CreateCommand();
+                command.CommandText = sql;
+
+                var pStart = command.CreateParameter();
+                pStart.ParameterName = "@weekStart";
+                pStart.Value = weekStart;
+                command.Parameters.Add(pStart);
+
+                var pEnd = command.CreateParameter();
+                pEnd.ParameterName = "@weekEnd";
+                pEnd.Value = weekEnd;
+                command.Parameters.Add(pEnd);
+
+                var rows = new List<RowAffectation>();
+
+                using (var reader = await command.ExecuteReaderAsync())
+                {
+                    while (await reader.ReadAsync())
+                    {
+                        rows.Add(new RowAffectation
+                        {
+                            UserId = Convert.ToInt32(reader["UserId"]),
+                            Nom = DecodeHtmlEntities(reader["Nom"]?.ToString()),
+                            Prenom = DecodeHtmlEntities(reader["Prenom"]?.ToString()),
+                            Email = reader["Mail"]?.ToString(),
+                            Service = DecodeHtmlEntities(reader["Service"]?.ToString()) ?? "Non défini",
+                            GroupeId = reader["GroupeId"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["GroupeId"]),
+                            GroupeNom = reader["GroupeNom"] == DBNull.Value ? null : DecodeHtmlEntities(reader["GroupeNom"]?.ToString()),
+                            FlagDirect = Convert.ToInt32(reader["FlagDirect"]) == 1,
+                            FlagGroup = Convert.ToInt32(reader["FlagGroup"]) == 1
+                        });
+                    }
+                }
+
+                // Agrégation par utilisateur
+                var usersMap = new Dictionary<int, AggregUser2>();
+
+                foreach (var r in rows)
+                {
+                    if (!usersMap.TryGetValue(r.UserId, out var agg))
+                    {
+                        agg = new AggregUser2
+                        {
+                            UserId = r.UserId,
+                            Nom = r.Nom,
+                            Prenom = r.Prenom,
+                            Email = r.Email,
+                            Service = r.Service,
+                            Groups = new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                            Direct = false,
+                            ViaGroup = false
+                        };
+                        usersMap[r.UserId] = agg;
+                    }
+
+                    if (r.FlagDirect) agg.Direct = true;
+                    if (r.FlagGroup) agg.ViaGroup = true;
+
+                    if (r.GroupeId.HasValue)
+                    {
+                        string gLabel = r.GroupeNom;
+                        if (string.IsNullOrWhiteSpace(gLabel))
+                            gLabel = $"Groupe #{r.GroupeId}";
+                        agg.Groups.Add(gLabel);
+                    }
+                }
+
+                var finalUsers = usersMap.Values
+                    .Select(u => new
+                    {
+                        Id = u.UserId,
+                        u.Nom,
+                        u.Prenom,
+                        Email = u.Email,
+                        u.Service,
+                        Groups = u.Groups.OrderBy(g => g).ToList(),
+                        Source = (u.Direct, u.ViaGroup) switch
+                        {
+                            (true, true) => "Direct+Groupe",
+                            (true, false) => "Direct",
+                            (false, true) => "Groupe",
+                            _ => "Inconnu"
+                        }
+                    })
+                    .OrderBy(u => u.Service)
+                    .ThenBy(u => u.Nom)
+                    .ThenBy(u => u.Prenom)
+                    .ToList();
+
+                var usersByService = finalUsers
+                    .GroupBy(u => u.Service)
+                    .Select(g => new {
+                        Service = g.Key,
+                        Utilisateurs = g.ToList()
+                    })
+                    .OrderBy(g => g.Service)
+                    .ToList();
+
+                var allEmails = finalUsers
+                    .Select(u => u.Email)
+                    .Where(e => !string.IsNullOrWhiteSpace(e))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(e => e)
+                    .ToList();
+
+                return Ok(new
+                {
+                    TotalUsers = finalUsers.Count,
+                    AllEmails = allEmails,
+                    EmailsFormatted = string.Join("; ", finalUsers.Select(u => $"{u.Prenom} {u.Nom} <{u.Email}>")),
+                    UsersByService = usersByService,
+                    WeekStart = weekStart.ToString("yyyy-MM-dd"),
+                    WeekEnd = weekEnd.ToString("yyyy-MM-dd")
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    error = "Erreur lors de la récupération des utilisateurs",
+                    details = ex.Message
+                });
+            }
+        }
+
+        private sealed class RowAffectation
+        {
+            public int UserId { get; set; }
+            public string Nom { get; set; }
+            public string Prenom { get; set; }
+            public string Email { get; set; }
+            public string Service { get; set; }
+            public int? GroupeId { get; set; }
+            public string GroupeNom { get; set; }
+            public bool FlagDirect { get; set; }
+            public bool FlagGroup { get; set; }
+        }
+
+        private sealed class AggregUser2
+        {
+            public int UserId { get; set; }
+            public string Nom { get; set; }
+            public string Prenom { get; set; }
+            public string Email { get; set; }
+            public string Service { get; set; }
+            public HashSet<string> Groups { get; set; }
+            public bool Direct { get; set; }
+            public bool ViaGroup { get; set; }
+        }
+
+      
+
         [HttpGet("secteurs")]
         public async Task<IActionResult> GetSecteurs()
         {
@@ -489,5 +744,7 @@ namespace PlanifPRS.Controllers
                 return StatusCode(500, new { message = "Erreur lors de la récupération des secteurs", error = ex.Message });
             }
         }
+
+
     }
 }
