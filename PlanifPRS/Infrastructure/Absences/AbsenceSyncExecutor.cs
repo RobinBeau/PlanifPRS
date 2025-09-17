@@ -57,6 +57,8 @@ public class AbsenceSyncExecutor : IAbsenceSyncExecutor
                 using var scope = _scopeFactory.CreateScope();
                 var absenceService = scope.ServiceProvider.GetRequiredService<IAbsenceService>();
                 var userEmailProvider = scope.ServiceProvider.GetRequiredService<IUserEmailProvider>();
+                var skipStore = scope.ServiceProvider.GetRequiredService<SkipUsersStore>();
+                var scheduleService = scope.ServiceProvider.GetRequiredService<ScheduleService>();
 
                 var emails = await userEmailProvider.GetActiveUserEmailsAsync(ct);
                 if (emails.Count == 0)
@@ -65,28 +67,67 @@ public class AbsenceSyncExecutor : IAbsenceSyncExecutor
                     return false;
                 }
 
-                _logger.LogInformation("Démarrage sync (force={Force}) sur {Count} utilisateurs.", force, emails.Count);
+                var active = emails.Where(e => !skipStore.IsPermanentlySkipped(e)).ToList();
+                if (active.Count == 0)
+                {
+                    _logger.LogInformation("Tous les utilisateurs sont marqués skip.");
+                    return false;
+                }
+
+                _logger.LogInformation("Démarrage sync (force={Force}) sur {Total} utilisateurs (actifs={Active}).",
+                    force, emails.Count, active.Count);
+
                 var from = DateTimeOffset.UtcNow.Date;
                 var to = from.AddDays(_options.DaysForward);
 
+                var anchor = _options.AnchorUserEmail ?? active.First();
+                var oofMap = await scheduleService.GetOutOfOfficeAsync(
+                    anchor, active, from, to, _options.ScheduleChunkSize, ct);
+
                 var results = new List<UserAbsenceAggregate>();
 
-                foreach (var user in emails)
+                foreach (var user in active)
                 {
                     try
                     {
                         var data = await absenceService.GetUserAbsenceAsync(user, from, to, ct);
-                        if (data != null) results.Add(data);
+                        if (data == null) continue;
+
+                        if (oofMap.TryGetValue(user, out var list) && list.Count > 0)
+                        {
+                            foreach (var (s, e) in list)
+                            {
+                                data.Events.Add(new AbsenceEvent
+                                {
+                                    Subject = "OOF",
+                                    Start = s,
+                                    End = e,
+                                    IsOutOfOffice = true,
+                                    Source = "schedule"
+                                });
+                            }
+                        }
+
+                        bool useful = data.Presence?.IsOutOfOffice == true
+                                      || (data.Presence?.Availability != null &&
+                                          !string.Equals(data.Presence.Availability, "PresenceUnknown", StringComparison.OrdinalIgnoreCase))
+                                      || data.Events.Any(ev => ev.IsOutOfOffice);
+
+                        skipStore.RegisterRunResult(user, useful, _options.UselessUserRunsThreshold);
+                        results.Add(data);
                     }
                     catch (Exception exUser)
                     {
                         _logger.LogWarning(exUser, "Erreur utilisateur {User}", user);
+                        skipStore.RegisterRunResult(user, false, _options.UselessUserRunsThreshold);
                     }
                 }
 
+                skipStore.Save();
+
                 await _repo.SaveSnapshotAsync(results, DateTime.UtcNow, ct);
                 state.LastSuccessfulSyncDateUtc = DateTime.UtcNow;
-                _logger.LogInformation("Sync terminée ({Count} utilisateurs).", results.Count);
+                _logger.LogInformation("Sync terminée ({Count} agrégats, actifs={Active}).", results.Count, active.Count);
                 return true;
             }
             catch (Exception ex)

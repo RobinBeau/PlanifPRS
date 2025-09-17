@@ -86,9 +86,31 @@ builder.Services.AddControllers();
 builder.Services.Configure<GraphOptions>(builder.Configuration.GetSection("MicrosoftGraph"));
 builder.Services.Configure<AbsenceSyncOptions>(builder.Configuration.GetSection("AbsenceSync"));
 
+// Cache mailbox
+builder.Services.AddSingleton<MailboxSettingsCache>(sp =>
+{
+    var opt = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AbsenceSyncOptions>>().Value;
+    return new MailboxSettingsCache(
+        opt.MailboxCacheDirectory ?? "Data/Absences/mailbox-cache",
+        opt.MailboxDefaultRefreshHours,
+        opt.MailboxEnabledRefreshHours);
+});
+
+// Skip store
+builder.Services.AddSingleton<SkipUsersStore>(sp =>
+{
+    var opt = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AbsenceSyncOptions>>().Value;
+    return new SkipUsersStore(opt.SkipUsersFile ?? "Data/Absences/skip-users.json");
+});
+
+// Schedule service
+builder.Services.AddTransient<ScheduleService>();
+
+// Remplacer l’enregistrement d’AbsenceService pour tenir compte du nouveau constructeur
+builder.Services.AddScoped<IAbsenceService, AbsenceService>();
+
 // 2. Services Graph & Absence
 builder.Services.AddSingleton<IGraphClientProvider, GraphClientProvider>();
-builder.Services.AddScoped<IAbsenceService, AbsenceService>();
 
 // 3. Stockage snapshots / état (fichiers => singleton OK)
 builder.Services.AddSingleton<IAbsenceRepository, JsonAbsenceRepository>();

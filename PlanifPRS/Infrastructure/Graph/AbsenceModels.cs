@@ -15,6 +15,7 @@ public class AbsenceEvent
     public DateTimeOffset Start { get; set; }
     public DateTimeOffset End { get; set; }
     public bool IsOutOfOffice { get; set; }
+    public string Source { get; set; } = "calendar"; // nouveau champ
 }
 
 public class UserAbsenceAggregate

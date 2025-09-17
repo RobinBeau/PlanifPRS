@@ -1,4 +1,6 @@
-﻿namespace PlanifPRS.Infrastructure.Absences;
+﻿using System.Collections.Generic;
+
+namespace PlanifPRS.Infrastructure.Absences;
 
 public class AbsenceSyncOptions
 {
@@ -15,4 +17,17 @@ public class AbsenceSyncOptions
 
     // Optionnel : filtre sur colonne Service (dbo.Utilisateurs.Service)
     public string? ServiceFilter { get; set; }
+
+    // POINT 1 : getSchedule
+    public string? AnchorUserEmail { get; set; }
+    public int ScheduleChunkSize { get; set; } = 50;
+
+    // POINT 5 : Cache MailboxSettings
+    public string? MailboxCacheDirectory { get; set; } = "Data/Absences/mailbox-cache";
+    public int MailboxDefaultRefreshHours { get; set; } = 12;
+    public int MailboxEnabledRefreshHours { get; set; } = 6;
+
+    // POINT 9 : Skip utilisateurs “inutiles”
+    public int UselessUserRunsThreshold { get; set; } = 3;
+    public string? SkipUsersFile { get; set; } = "Data/Absences/skip-users.json";
 }

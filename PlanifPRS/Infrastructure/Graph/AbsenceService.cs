@@ -1,5 +1,6 @@
 ﻿using Microsoft.Graph;
 using Microsoft.Graph.Models;
+using PlanifPRS.Infrastructure.Absences;
 
 namespace PlanifPRS.Infrastructure.Graph;
 
@@ -11,11 +12,15 @@ public interface IAbsenceService
 public class AbsenceService : IAbsenceService
 {
     private readonly IGraphClientProvider _provider;
+    private readonly MailboxSettingsCache _mailboxCache;
     private readonly ILogger<AbsenceService> _logger;
 
-    public AbsenceService(IGraphClientProvider provider, ILogger<AbsenceService> logger)
+    public AbsenceService(IGraphClientProvider provider,
+                          MailboxSettingsCache mailboxCache,
+                          ILogger<AbsenceService> logger)
     {
         _provider = provider;
+        _mailboxCache = mailboxCache;
         _logger = logger;
     }
 
@@ -44,78 +49,45 @@ public class AbsenceService : IAbsenceService
             _logger.LogWarning(ex, "Présence non récupérée pour {Email}", email);
         }
 
-        // Mailbox OOF
-        try
+        // Mailbox OOF avec cache
+        var cached = _mailboxCache.TryGet(email);
+        if (cached != null)
         {
-            var mailbox = await client.Users[email].MailboxSettings.GetAsync(cancellationToken: ct);
-            if (mailbox?.AutomaticRepliesSetting != null)
-            {
-                aggregate.Presence ??= new PresenceInfo { Email = email };
-                var auto = mailbox.AutomaticRepliesSetting;
-                bool scheduled = auto.Status == AutomaticRepliesStatus.Scheduled
-                 || auto.Status == AutomaticRepliesStatus.AlwaysEnabled;
-                aggregate.Presence.IsOutOfOffice = scheduled;
-                aggregate.Presence.OoOMessage = auto.InternalReplyMessage;
-                aggregate.Presence.OoOMessage = CleanOoO(auto.InternalReplyMessage);
-            }
+            aggregate.Presence ??= new PresenceInfo { Email = email };
+            aggregate.Presence.IsOutOfOffice = cached.IsOutOfOffice;
+            aggregate.Presence.OoOMessage = cached.Message;
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogDebug(ex, "MailboxSettings indisponible pour {Email}", email);
-        }
-
-        // Événements OOF (calendarView)
-        try
-        {
-            var startUtc = from.ToUniversalTime().ToString("o");
-            var endUtc = to.ToUniversalTime().ToString("o");
-
-            var eventsPage = await client.Users[email].CalendarView.GetAsync(config =>
+            try
             {
-                config.QueryParameters.StartDateTime = startUtc;
-                config.QueryParameters.EndDateTime = endUtc;
-                config.QueryParameters.Select = new[] { "subject", "start", "end", "showAs" };
-                config.QueryParameters.Top = 50;
-            }, cancellationToken: ct);
-
-            if (eventsPage?.Value != null)
-            {
-                foreach (var ev in eventsPage.Value)
+                var mailbox = await client.Users[email].MailboxSettings.GetAsync(cancellationToken: ct);
+                if (mailbox?.AutomaticRepliesSetting != null)
                 {
-                    if (ev.Start?.DateTime == null || ev.End?.DateTime == null) continue;
+                    aggregate.Presence ??= new PresenceInfo { Email = email };
+                    var auto = mailbox.AutomaticRepliesSetting;
+                    bool isEnabled = auto.Status == AutomaticRepliesStatus.Scheduled
+                                     || auto.Status == AutomaticRepliesStatus.AlwaysEnabled;
 
-                    DateTimeOffset start;
-                    DateTimeOffset end;
-                    try
-                    {
-                        start = DateTimeOffset.Parse(ev.Start.DateTime);
-                        end = DateTimeOffset.Parse(ev.End.DateTime);
-                    }
-                    catch
-                    {
-                        continue;
-                    }
+                    aggregate.Presence.IsOutOfOffice = isEnabled;
+                    if (!string.IsNullOrEmpty(auto.InternalReplyMessage))
+                        aggregate.Presence.OoOMessage = CleanOoO(auto.InternalReplyMessage);
 
-                    bool isOof = ev.ShowAs == FreeBusyStatus.Oof;
+                    DateTimeOffset? scheduledEnd = null;
+                    if (auto.Status == AutomaticRepliesStatus.Scheduled &&
+                        DateTimeOffset.TryParse(auto.ScheduledEndDateTime?.DateTime, out var end))
+                        scheduledEnd = end;
 
-                    if (isOof)
-                    {
-                        aggregate.Events.Add(new AbsenceEvent
-                        {
-                            Subject = ev.Subject ?? "(Sans objet)",
-                            Start = start,
-                            End = end,
-                            IsOutOfOffice = true
-                        });
-                    }
+                    _mailboxCache.Store(email, isEnabled, scheduledEnd, aggregate.Presence.OoOMessage);
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Erreur événements pour {Email}", email);
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "MailboxSettings indisponible pour {Email}", email);
+            }
         }
 
+        // PLUS DE CalendarView ICI (getSchedule s'occupe des events)
         aggregate.GeneratedAtUtc = DateTimeOffset.UtcNow;
         return aggregate;
     }
@@ -125,7 +97,6 @@ public class AbsenceService : IAbsenceService
         if (string.IsNullOrWhiteSpace(html)) return html;
         try
         {
-            // Supprime les tags HTML basiquement
             var text = System.Text.RegularExpressions.Regex
                 .Replace(html, "<.*?>", " ")
                 .Replace("&nbsp;", " ")
