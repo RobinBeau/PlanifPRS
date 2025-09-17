@@ -52,9 +52,11 @@ public class AbsenceService : IAbsenceService
             {
                 aggregate.Presence ??= new PresenceInfo { Email = email };
                 var auto = mailbox.AutomaticRepliesSetting;
-                bool scheduled = auto.Status == AutomaticRepliesStatus.Scheduled;
+                bool scheduled = auto.Status == AutomaticRepliesStatus.Scheduled
+                 || auto.Status == AutomaticRepliesStatus.AlwaysEnabled;
                 aggregate.Presence.IsOutOfOffice = scheduled;
                 aggregate.Presence.OoOMessage = auto.InternalReplyMessage;
+                aggregate.Presence.OoOMessage = CleanOoO(auto.InternalReplyMessage);
             }
         }
         catch (Exception ex)
@@ -116,5 +118,21 @@ public class AbsenceService : IAbsenceService
 
         aggregate.GeneratedAtUtc = DateTimeOffset.UtcNow;
         return aggregate;
+    }
+
+    private static string? CleanOoO(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return html;
+        try
+        {
+            // Supprime les tags HTML basiquement
+            var text = System.Text.RegularExpressions.Regex
+                .Replace(html, "<.*?>", " ")
+                .Replace("&nbsp;", " ")
+                .Replace("&quot;", "\"")
+                .Replace("&amp;", "&");
+            return System.Text.RegularExpressions.Regex.Replace(text, @"\s+", " ").Trim();
+        }
+        catch { return html; }
     }
 }
