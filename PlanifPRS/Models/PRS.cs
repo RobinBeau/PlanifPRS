@@ -60,6 +60,17 @@ namespace PlanifPRS.Models
         public DateTime? AncienneDateDebut { get; set; }
         public DateTime? AncienneDateFin { get; set; }
 
+        // Ajouter ces propriétés à la classe Prs existante
+        public int? PrsParentId { get; set; }
+
+        [ForeignKey("PrsParentId")]
+        [ValidateNever]
+        public Prs? PrsParent { get; set; }
+
+        // Propriété de navigation pour les enfants
+        [ValidateNever]
+        public ICollection<Prs> PrsEnfants { get; set; } = new List<Prs>();
+
         // Relations
         [ValidateNever]
         public List<PrsChecklist> Checklist { get; set; }

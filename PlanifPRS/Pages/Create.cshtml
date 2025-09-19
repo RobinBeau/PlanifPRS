@@ -515,6 +515,25 @@
                 </select>
             </div>
 
+            <!-- Dropdown PRS Parent (affiché seulement si Finition sélectionnée) -->
+            <div class="col-md-6" id="prsParentContainer" style="display: none;">
+                <label asp-for="Prs.PrsParentId" class="form-label">
+                    <i class="fas fa-link"></i>
+                    PRS Parent (CMS)
+                </label>
+                <select asp-for="Prs.PrsParentId" class="form-select" id="prsParentSelect">
+                    <option value="">-- Aucune --</option>
+                    @if (Model.PrsParentOptions != null)
+                    {
+                        @foreach (var option in Model.PrsParentOptions)
+                        {
+                            <option value="@option.Id">@option.Titre (@option.DateDebut.ToString("dd/MM/yyyy") - @option.DateFin.ToString("dd/MM/yyyy"))</option>
+                        }
+                    }
+                </select>
+                <span asp-validation-for="Prs.PrsParentId" class="text-danger"></span>
+            </div>
+
             <div class="col-md-6">
                 <label asp-for="Prs.ReferenceProduit" class="form-label">
                     <i class="fas fa-barcode"></i>
@@ -1233,6 +1252,70 @@
                 updateWeekDisplay();
             });
         }
+
+        // Gestion de l'affichage du dropdown PRS Parent
+document.addEventListener('DOMContentLoaded', function() {
+    const equipementSelect = document.querySelector('select[name="Prs.Equipement"]');
+    const prsParentContainer = document.getElementById('prsParentContainer');
+    
+    function togglePrsParentVisibility() {
+        const selectedValue = equipementSelect.value;
+        if (selectedValue === '✨ Finition') {
+            prsParentContainer.style.display = 'block';
+        } else {
+            prsParentContainer.style.display = 'none';
+            // Réinitialiser la sélection si on change de type
+            document.getElementById('prsParentSelect').value = '';
+        }
+    }
+    
+    // Écouter les changements sur le dropdown type d'équipement
+    equipementSelect.addEventListener('change', togglePrsParentVisibility);
+    
+    // Vérification initiale au chargement
+    togglePrsParentVisibility();
+});
+
+// Validation des dates avant soumission
+function validatePrsParentDates() {
+    const equipementSelect = document.querySelector('select[name="Prs.Equipement"]');
+    const prsParentSelect = document.getElementById('prsParentSelect');
+    const dateDebutInput = document.querySelector('input[name="Prs.DateDebut"]');
+
+            if (equipementSelect.value === '✨ Finition' && prsParentSelect.value) {
+        // Récupérer les dates de la PRS parent depuis les options
+        const selectedOption = prsParentSelect.selectedOptions[0];
+        if (selectedOption && selectedOption.text.includes('(')) {
+            const dateText = selectedOption.text.match(/\((\d{2}\/\d{2}\/\d{4}) - (\d{2}\/\d{2}\/\d{4})\)/);
+            if (dateText) {
+                const dateFinParent = parseDate(dateText[2]); // Date de fin du parent
+                const dateDebutEnfant = new Date(dateDebutInput.value);
+                
+                if (dateFinParent >= dateDebutEnfant) {
+                    showDateValidationPopup();
+                    return false;
+                }
+            }
+        }
+    }
+    return true;
+}
+
+function parseDate(dateStr) {
+    const parts = dateStr.split('/');
+    return new Date(parts[2], parts[1] - 1, parts[0]);
+}
+
+function showDateValidationPopup() {
+    alert('❌ Impossible de créer cette PRS : la PRS parent doit être terminée AVANT le début de la PRS finition.');
+}
+
+// Attacher la validation au formulaire
+document.getElementById('create-form').addEventListener('submit', function(e) {
+    if (!validatePrsParentDates()) {
+        e.preventDefault();
+    }
+});
 
         // Mettre à jour l'affichage de la semaine
         function updateWeekDisplay() {

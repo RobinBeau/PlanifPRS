@@ -1,23 +1,23 @@
 [
   {
     "Email": "abdelkader.elbushabati@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "adelin.lequere@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "adeline.gregoire@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "adrien.sajot@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "adrien.viana@allcircuits.com",
@@ -31,53 +31,53 @@
   },
   {
     "Email": "ahlam.oali@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "alban.ardouin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "albert.mugniot@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "alexandre.arene@allcircuits.com",
-    "EmptyRuns": 2,
+    "EmptyRuns": 0,
     "Skip": false
   },
   {
     "Email": "alexandre.devaux@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "alexandre.thiault@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "alexis.bednarz@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "alexis.herpin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "alfonso.gonzalez@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "ali.salami@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "allan.zbik@allcircuits.com",
@@ -86,13 +86,13 @@
   },
   {
     "Email": "alois.cortat@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "amaury.sevestre@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "amelie.allebe@allcircuits.com",
@@ -101,8 +101,8 @@
   },
   {
     "Email": "Amelie.cassegrain@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "amelie.roy@allcircuits.com",
@@ -111,18 +111,18 @@
   },
   {
     "Email": "amilcar.ferreira@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "annick.laporte@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "anthony.dange@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "anthony.fernandes@allcircuits.com",
@@ -131,28 +131,28 @@
   },
   {
     "Email": "Anthony.goncalves@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "anthony.lemaire@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "anthony.raoul@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "anthony.riego@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "anthony.stobre@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "antoine.fontaine@allcircuits.com",
@@ -166,8 +166,8 @@
   },
   {
     "Email": "arnaud.alleaume@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "arnaud.gagneux@allcircuits.com",
@@ -181,8 +181,8 @@
   },
   {
     "Email": "arnaud.randonnet@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "arnaud.valette@allcircuits.com",
@@ -191,8 +191,8 @@
   },
   {
     "Email": "aruna.thery@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "aurelie.dagois@allcircuits.com",
@@ -216,13 +216,13 @@
   },
   {
     "Email": "aya.ben-said@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "Beatrice.walasiak@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "beni-kevin.gakuba@allcircuits.com",
@@ -231,8 +231,8 @@
   },
   {
     "Email": "benjamin.kiota@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "Benjamin.lambert@allcircuits.com",
@@ -241,18 +241,18 @@
   },
   {
     "Email": "benjamin.ronse@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "benoit.blin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "benoit.bourdin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "benoit.hue@allcircuits.com",
@@ -261,33 +261,33 @@
   },
   {
     "Email": "benoit.larcher@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
     "Email": "benoit.lebreton@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "benoit.loyer@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "benoit.thiery@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "bilal.machichi@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "brice.touchemoulin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "bruno.leythienne@allcircuits.com",
@@ -296,8 +296,8 @@
   },
   {
     "Email": "bruno.racault@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "bruno.vallee@allcircuits.com",
@@ -306,8 +306,8 @@
   },
   {
     "Email": "candide.doyen@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "carine.boucher@allcircuits.com",
@@ -316,73 +316,73 @@
   },
   {
     "Email": "caroline.gassner@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "caroline.sum-tith@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "cassandra.ramiro@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "catia.rodrigues@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "cecile.yang@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "cedric.franco-sanchez@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "cedric.trassard@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "celia.bidaux@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "celia.goure@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "christelle.barlov@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "christelle.machado@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "christelle.poirier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "christina.boucher@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "christophe.bocquillon@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "christophe.gauchard@allcircuits.com",
@@ -391,8 +391,8 @@
   },
   {
     "Email": "christophe.guilloret@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "christophe.lefevre@allcircuits.com",
@@ -401,8 +401,8 @@
   },
   {
     "Email": "christophe.sirguey@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "cindy.gorse@allcircuits.com",
@@ -416,18 +416,18 @@
   },
   {
     "Email": "clara.arnault@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "clement.brendlen@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "clement.decock@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "coline.charles@allcircuits.com",
@@ -436,23 +436,23 @@
   },
   {
     "Email": "corentin.venier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "corinne.gallou@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "corinne.ignolin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "cyrice.lardans@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "cyrielle.joubert@allcircuits.com",
@@ -461,8 +461,8 @@
   },
   {
     "Email": "cyril.boutroux@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "cyril.parrot@allcircuits.com",
@@ -471,38 +471,38 @@
   },
   {
     "Email": "david.breuvart@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "david.dacunha@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "david.dewitte@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "david.lablee@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "david.phelut@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "delphine.mothu@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "denis.girard@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "diane.schneider@allcircuits.com",
@@ -511,18 +511,18 @@
   },
   {
     "Email": "didier.bouthier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "djimmy.servieres@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "dylan.malundama@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "eliott.lebosse@allcircuits.com",
@@ -541,12 +541,12 @@
   },
   {
     "Email": "emilie.poullin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "emilien.robert@allcircuits.com",
-    "EmptyRuns": 0,
+    "EmptyRuns": 1,
     "Skip": false
   },
   {
@@ -556,8 +556,8 @@
   },
   {
     "Email": "emmanuel.mercier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "emmanuel.pecault@allcircuits.com",
@@ -566,8 +566,8 @@
   },
   {
     "Email": "emmanuel.touchard@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "emmanuel.tran-ap@allcircuits.com",
@@ -576,8 +576,8 @@
   },
   {
     "Email": "emmanuelle.thebault@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "enzo.melgueira@allcircuits.com",
@@ -586,23 +586,23 @@
   },
   {
     "Email": "eric.dabert@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "eric.dasilva@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "estelle.darblay@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "evan.archereau@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "fabien.belouet@allcircuits.com",
@@ -611,8 +611,8 @@
   },
   {
     "Email": "fabien.cavier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "fabien.lesage@allcircuits.com",
@@ -621,8 +621,8 @@
   },
   {
     "Email": "fabien.muntzer@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "fabienne.tsouri@allcircuits.com",
@@ -641,8 +641,8 @@
   },
   {
     "Email": "fabrice.saussereau@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "fanchon.menager@allcircuits.com",
@@ -651,58 +651,58 @@
   },
   {
     "Email": "fanny.cornet@allcircuits.com",
-    "EmptyRuns": 2,
+    "EmptyRuns": 0,
     "Skip": false
   },
   {
     "Email": "fatima.elabdellaoui@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "fatima.fernandes@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "flavian.isola@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "florence.balut@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "florent.baudet@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "florian.durindel@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "florian.sanfilippo@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "foued.harouch@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "franck.simon@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "franck.ulmi@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "francois.bernard@allcircuits.com",
@@ -711,13 +711,13 @@
   },
   {
     "Email": "francois-xavier.benais@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "francois-xavier.moccand@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "frederic.castano@allcircuits.com",
@@ -726,48 +726,48 @@
   },
   {
     "Email": "frederic.dufour@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "frederic.duquenet@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "frederic.gauthier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "frederic.langlois@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "frederic.naslis@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "frederic.rosso@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "gael.gauthier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "gael.thiercelin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "gaelle.guenier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "georges.gasquet@allcircuits.com",
@@ -776,23 +776,23 @@
   },
   {
     "Email": "gerald.nantois@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "ghizlane.chaguer@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "gilles.branjauneau@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "gilles.tilloy@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "gregory.droulers@allcircuits.com",
@@ -806,23 +806,23 @@
   },
   {
     "Email": "guillaume.dasilva@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "gwenaelle.boutholeau@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "habib.maamatou@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "hafedh.khedhiri@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "herve.charbonnier@allcircuits.com",
@@ -831,18 +831,18 @@
   },
   {
     "Email": "hugo.machacaz@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "hugo.oreillard@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "hugues.mantion@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "hugues.turmel@allcircuits.com",
@@ -851,8 +851,8 @@
   },
   {
     "Email": "hussain.jadi@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "ingrid.aligon@allcircuits.com",
@@ -861,18 +861,18 @@
   },
   {
     "Email": "ingrid.caumont@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "isabelle.homo@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "jawhara.hadi@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "jean.pigat@allcircuits.com",
@@ -881,13 +881,13 @@
   },
   {
     "Email": "jean-baptiste.goury@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "jean-christophe.taragon@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "jean-marc.robin@allcircuits.com",
@@ -896,8 +896,8 @@
   },
   {
     "Email": "jeannette.bourgoin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "jean-philippe.jamet@allcircuits.com",
@@ -906,18 +906,18 @@
   },
   {
     "Email": "jean-philippe.maurenard@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "jeremie.roussel@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "jerome.plaut@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "jerome.serret@allcircuits.com",
@@ -926,23 +926,23 @@
   },
   {
     "Email": "jessica.louyot@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "joel.vieira@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "johan.contier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "jonathan.mas@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "julien.balidas@allcircuits.com",
@@ -951,18 +951,18 @@
   },
   {
     "Email": "julieta.viau@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "justine.sedlak@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "kamal.elsoufi@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "karine.gruet@allcircuits.com",
@@ -971,7 +971,7 @@
   },
   {
     "Email": "karine.portier@allcircuits.com",
-    "EmptyRuns": 2,
+    "EmptyRuns": 0,
     "Skip": false
   },
   {
@@ -981,58 +981,58 @@
   },
   {
     "Email": "kevin.boisseranc@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "kevin.bourdier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "kevin.gallier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "laetitia.adrien@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "laetitia.correia@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "laetitia.montier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "larbi.lachhab@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "laure.philippe@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "laure.servieres@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "laurent.bergot@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "laurent.berthelin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "laurent.delamarche@allcircuits.com",
@@ -1061,23 +1061,23 @@
   },
   {
     "Email": "loic.hais@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "loic.poclet@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "lois.teinturier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "louis.eiras@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "louis.monvoisin@allcircuits.com",
@@ -1096,8 +1096,8 @@
   },
   {
     "Email": "ludwig.grillard@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "maelle.benayon@allcircuits.com",
@@ -1106,93 +1106,93 @@
   },
   {
     "Email": "magali.constans@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "magali.haettel@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "magalie.grillon@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "magdalena.amoussou@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mailys.bidaux@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "makrem.kefi@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "manuel.dossantos@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marc.desesquelles@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marc.leguennic@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "maribel.juchani@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marie-agnes.cousin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marie-laure.linger@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marie-luise.aldehuelo@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marie-rose.quennehen@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marine.gerbet@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marine.jamet@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mario-eduardo.belmar-letelier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marion.bourlard@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marion.pelle@allcircuits.com",
@@ -1206,33 +1206,33 @@
   },
   {
     "Email": "martine.rolland@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "marwane.daoudi@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mary.lecointe@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mateo.nowak@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "matheo.cousin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mathias.grasdepot@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mathias.vignolles-breton@allcircuits.com",
@@ -1241,8 +1241,8 @@
   },
   {
     "Email": "mathieu.bezancon@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "maud.guerin@allcircuits.com",
@@ -1256,23 +1256,23 @@
   },
   {
     "Email": "maxime.brezault@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "maxime.durand@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "maxime.kozdra@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "maxime.pothin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mehdi.mengouchi@allcircuits.com",
@@ -1281,28 +1281,28 @@
   },
   {
     "Email": "mehdi.ramauge@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mehdi.tissir@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "melina.maucotel@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "merick.dardonville@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mhena.ammour@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "michael.vigier@allcircuits.com",
@@ -1311,8 +1311,8 @@
   },
   {
     "Email": "michel.roch@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "michel.tranchant@allcircuits.com",
@@ -1331,43 +1331,43 @@
   },
   {
     "Email": "mickael.bonneville@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mickael.dijoux@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mickael.zbik@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mohamed.amarzguioui@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mohamed.slimani@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mohammed-khalil.mouhibe@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "mouhamadou.dioh@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "moussa.asrih@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "murielle.gombeau@allcircuits.com",
@@ -1376,13 +1376,13 @@
   },
   {
     "Email": "myriam.godin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "nathalie.garcia@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "nathalie.miard@allcircuits.com",
@@ -1391,18 +1391,18 @@
   },
   {
     "Email": "nathalie.tourin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "nathan.guilloit@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "nicolas.caumont@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "nicolas.cochon@allcircuits.com",
@@ -1411,23 +1411,23 @@
   },
   {
     "Email": "nicolas.garcia@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "nicolas.mormiche@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "nicolas.rapin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "nicolas.tesnier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "nicolas.texier@allcircuits.com",
@@ -1436,13 +1436,13 @@
   },
   {
     "Email": "nicole.caillard@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "noe.quero@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "olivier.bury@allcircuits.com",
@@ -1451,13 +1451,13 @@
   },
   {
     "Email": "olivier.hanoulle@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "olivier.pohu@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "olivier.prudhomme@allcircuits.com",
@@ -1466,58 +1466,58 @@
   },
   {
     "Email": "olivier.tortrat@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "olivier.trumeau@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "ozcan.ozsolak@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "pascal.bidaux@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "pascal.dornat@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "pascal.legrand@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "pascaline.dubreucq@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "patrice.besnier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "patrice.chataigner@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "patrice.gonet@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "patrice.legue@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "patrice.roland@allcircuits.com",
@@ -1536,8 +1536,8 @@
   },
   {
     "Email": "patrick.trohel@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "perrine.vukovic@allcircuits.com",
@@ -1546,38 +1546,38 @@
   },
   {
     "Email": "philippe.lefaou@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "philippe.oszwald@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "philippe.rancien@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "pierre.carcasses@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "pierre.grassin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "pierre.joonnekin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "pierre.kieffer@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "pierre-loup.chaudron@allcircuits.com",
@@ -1586,23 +1586,23 @@
   },
   {
     "Email": "quentin.henault@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "raphael.bosc@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "remi.cezac@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "remi.truaud@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "remy.janvier@allcircuits.com",
@@ -1611,17 +1611,17 @@
   },
   {
     "Email": "renaud.boyer@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "rezki.berkani@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "ricardo.carvalho@allcircuits.com",
-    "EmptyRuns": 0,
+    "EmptyRuns": 1,
     "Skip": false
   },
   {
@@ -1631,13 +1631,13 @@
   },
   {
     "Email": "robin.kerros@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "romain.lecroc@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "romain.olland@allcircuits.com",
@@ -1646,33 +1646,33 @@
   },
   {
     "Email": "romain.tortajada@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "romane.couratier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "sabine.martins@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "sabrina.gallou@allcircuits.com",
-    "EmptyRuns": 2,
+    "EmptyRuns": 0,
     "Skip": false
   },
   {
     "Email": "said.benaicha@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "salma.sakni@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "salome.blondeau@allcircuits.com",
@@ -1686,8 +1686,8 @@
   },
   {
     "Email": "sami.ramdani-retiveau@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "samuel.dreux@allcircuits.com",
@@ -1706,8 +1706,8 @@
   },
   {
     "Email": "sara.doukoure@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "sarah.saighe@allcircuits.com",
@@ -1721,42 +1721,42 @@
   },
   {
     "Email": "sebastien.camard@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "sebastien.hochard@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "sebastien.tessier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "sebastien.vaca@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "severine.leber@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "simon.fourneron@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "slavicha.colic@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "sophie.andreu@allcircuits.com",
-    "EmptyRuns": 2,
+    "EmptyRuns": 0,
     "Skip": false
   },
   {
@@ -1766,8 +1766,8 @@
   },
   {
     "Email": "stephane.delhoume@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "stephane.guay@allcircuits.com",
@@ -1776,8 +1776,8 @@
   },
   {
     "Email": "stephane.klajzyngier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "stephane.maingret@allcircuits.com",
@@ -1786,13 +1786,13 @@
   },
   {
     "Email": "stephane.morin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "stephane.torcq@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "stephane.vielle@allcircuits.com",
@@ -1801,33 +1801,33 @@
   },
   {
     "Email": "stephanie.delhoume@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "stephanie.navarro@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "stephanie.remy@allcircuits.com",
-    "EmptyRuns": 2,
+    "EmptyRuns": 0,
     "Skip": false
   },
   {
     "Email": "steve.mercier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "steven.thillay@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "surendra.singh@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "syldras.moussimbou@allcircuits.com",
@@ -1841,8 +1841,8 @@
   },
   {
     "Email": "tarrik.soulhi@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "thanh.roches-nguyen@allcircuits.com",
@@ -1856,8 +1856,8 @@
   },
   {
     "Email": "thierry.foucault@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "thierry.guesney@allcircuits.com",
@@ -1866,13 +1866,13 @@
   },
   {
     "Email": "thierry.legoff@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "thierry.lihouma@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "thierry.palud@allcircuits.com",
@@ -1881,8 +1881,8 @@
   },
   {
     "Email": "thomas.boursin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "thomas.cocquempot@allcircuits.com",
@@ -1901,18 +1901,18 @@
   },
   {
     "Email": "toni.correia@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "tony.jouas@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "valentin.lebaron@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "valerie.vibert@allcircuits.com",
@@ -1921,38 +1921,38 @@
   },
   {
     "Email": "valerie.villette@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "vanessa.lagasse@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "van-than.hun@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "veronique.chevolleau@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "victor.durand@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "vincent.chapet@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "vincent.duverger@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "vincent.girard@allcircuits.com",
@@ -1961,8 +1961,8 @@
   },
   {
     "Email": "vincent.trocmet@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "virginie.boutet@allcircuits.com",
@@ -1971,42 +1971,42 @@
   },
   {
     "Email": "virginie.margat@allcircuits.com",
-    "EmptyRuns": 2,
+    "EmptyRuns": 0,
     "Skip": false
   },
   {
     "Email": "vivien.thiercelin@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "william.macaigne@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "xavier.minier@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "yann.ledeuil@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "yassine.jabali@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "yohann.durand@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "yves.ciolkovitch@allcircuits.com",
-    "EmptyRuns": 2,
+    "EmptyRuns": 0,
     "Skip": false
   }
 ]

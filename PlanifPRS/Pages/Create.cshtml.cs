@@ -45,6 +45,9 @@ namespace PlanifPRS.Pages.Prs
         [BindProperty]
         public Models.Prs Prs { get; set; }
 
+
+        public List<PlanifPRS.Models.Prs> PrsParentOptions { get; set; } = new();
+
         [BindProperty]
         public List<IFormFile> UploadedFiles { get; set; }
 
@@ -76,6 +79,7 @@ namespace PlanifPRS.Pages.Prs
         public async Task OnGetAsync()
         {
             await ChargerDonneesAsync();
+            await LoadPrsParentOptionsAsync();
 
             var now = DateTime.Now;
             var rounded = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0);
@@ -96,6 +100,32 @@ namespace PlanifPRS.Pages.Prs
                     Prs.DateFin = parsedStart.AddHours(1);
                 }
             }
+        }
+
+
+
+        public async Task LoadPrsParentOptionsAsync()
+        {
+            // Récupérer toutes les PRS de type CMS pour les proposer comme parent
+            PrsParentOptions = await _context.Prs
+                .Where(p => p.Equipement == "CMS")
+                .OrderByDescending(p => p.DateCreation)
+                .ToListAsync();
+        }
+        // Validation côté serveur dans OnPostAsync()
+        private bool ValidatePrsParentDates()
+        {
+            if (Prs.Equipement == "✨ Finition" && Prs.PrsParentId.HasValue)
+            {
+                var prsParent = _context.Prs.Find(Prs.PrsParentId.Value);
+                if (prsParent != null && prsParent.DateFin >= Prs.DateDebut)
+                {
+                    ModelState.AddModelError("Prs.PrsParentId",
+                        "La PRS parent doit être terminée avant le début de la PRS finition.");
+                    return false;
+                }
+            }
+            return true;
         }
 
         // ✅ NOUVELLE MÉTHODE POUR VÉRIFIER LA DISPONIBILITÉ
