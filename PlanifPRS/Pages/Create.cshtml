@@ -515,24 +515,24 @@
                 </select>
             </div>
 
-            <!-- Dropdown PRS Parent (affiché seulement si Finition sélectionnée) -->
-            <div class="col-md-6" id="prsParentContainer" style="display: none;">
-                <label asp-for="Prs.PrsParentId" class="form-label">
-                    <i class="fas fa-link"></i>
-                    PRS Parent (CMS)
-                </label>
-                <select asp-for="Prs.PrsParentId" class="form-select" id="prsParentSelect">
-                    <option value="">-- Aucune --</option>
-                    @if (Model.PrsParentOptions != null)
-                    {
-                        @foreach (var option in Model.PrsParentOptions)
-                        {
-                            <option value="@option.Id">@option.Titre (@option.DateDebut.ToString("dd/MM/yyyy") - @option.DateFin.ToString("dd/MM/yyyy"))</option>
-                        }
-                    }
-                </select>
-                <span asp-validation-for="Prs.PrsParentId" class="text-danger"></span>
-            </div>
+       <!-- Dropdown PRS Parent (affiché seulement si Finition sélectionnée) -->
+<div class="col-md-6" id="prsParentContainer" style="display: none;">
+    <label asp-for="Prs.PrsParentId" class="form-label">
+        <i class="fas fa-link"></i>
+        PRS Parent (CMS)
+    </label>
+    <select asp-for="Prs.PrsParentId" class="form-select" id="prsParentSelect">
+        <option value="">-- Aucune --</option>
+        @if (Model.PrsParentOptions != null)
+        {
+            @foreach (var option in Model.PrsParentOptions)
+            {
+                <option value="@option.Id">@option.Titre (@option.DateDebut.ToString("dd/MM/yyyy") - @option.DateFin.ToString("dd/MM/yyyy"))</option>
+            }
+        }
+    </select>
+    <span asp-validation-for="Prs.PrsParentId" class="text-danger"></span>
+</div>
 
             <div class="col-md-6">
                 <label asp-for="Prs.ReferenceProduit" class="form-label">

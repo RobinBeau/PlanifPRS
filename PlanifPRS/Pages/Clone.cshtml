@@ -106,6 +106,27 @@
                 </select>
             </div>
 
+            <!-- Dropdown PRS Parent (affiché seulement si Finition sélectionnée) -->
+            <div class="col-md-6" id="prsParentContainer" style="display: none;">
+                <label asp-for="Prs.PrsParentId" class="form-label">
+                    <i class="fas fa-link"></i>
+                    PRS Parent (CMS)
+                </label>
+                <select asp-for="Prs.PrsParentId" class="form-select" id="prsParentSelect">
+                    <option value="">-- Aucune --</option>
+                    @if (Model.PrsParentOptions != null)
+                    {
+                        @foreach (var option in Model.PrsParentOptions)
+                        {
+                            <option value="@option.Id" selected="@(Model.Prs.PrsParentId == option.Id)">
+                                @option.Titre (@option.DateDebut.ToString("dd/MM/yyyy") - @option.DateFin.ToString("dd/MM/yyyy"))
+                            </option>
+                        }
+                    }
+                </select>
+                <span asp-validation-for="Prs.PrsParentId" class="text-danger"></span>
+            </div>
+
             <div class="col-md-6">
                 <label asp-for="Prs.ReferenceProduit" class="form-label"><i class="fas fa-barcode"></i> Référence produit</label>
                 <input asp-for="Prs.ReferenceProduit" class="form-control" />
@@ -698,6 +719,9 @@
 
         // Validation
         document.querySelector("#create-form")?.addEventListener("submit", function (e) {
+                 if (!validatePrsParentDates()) {
+            e.preventDefault();
+        }
             const dateDebutInput = document.querySelector("#Prs_DateDebut");
             const dateFinInput = document.querySelector("#Prs_DateFin");
             const ligneSelect = document.querySelector("#ligne-select");
@@ -775,6 +799,66 @@
             updateFolderLinksHidden();
             console.log('[CLONE] Lien dossier supprimé', { path });
         });
+                // AJOUTER ce script dans Clone.cshtml ET Edit.cshtml
+        document.addEventListener('DOMContentLoaded', function() {
+            const equipementSelect = document.querySelector('select[name="Prs.Equipement"]');
+            const prsParentContainer = document.getElementById('prsParentContainer');
+
+            function togglePrsParentVisibility() {
+                if (!equipementSelect || !prsParentContainer) return;
+
+                const selectedValue = equipementSelect.value;
+                if (selectedValue === 'Finition') {
+                    prsParentContainer.style.display = 'block';
+                } else {
+                    prsParentContainer.style.display = 'none';
+                    const prsParentSelect = document.getElementById('prsParentSelect');
+                    if (prsParentSelect && selectedValue !== 'Finition') {
+                        prsParentSelect.value = '';
+                    }
+                }
+            }
+
+            // Écouter les changements
+            if (equipementSelect) {
+                equipementSelect.addEventListener('change', togglePrsParentVisibility);
+            }
+
+            // IMPORTANT : Vérification initiale au chargement
+            togglePrsParentVisibility();
+        });
+
+        // Validation avant soumission
+        function validatePrsParentDates() {
+            const equipementSelect = document.querySelector('select[name="Prs.Equipement"]');
+            const prsParentSelect = document.getElementById('prsParentSelect');
+            const dateDebutInput = document.querySelector('input[name="Prs.DateDebut"]') ||
+                                  document.querySelector('#hiddenDateDebut');
+
+            if (equipementSelect && equipementSelect.value === 'Finition' &&
+                prsParentSelect && prsParentSelect.value && dateDebutInput) {
+
+                const selectedOption = prsParentSelect.selectedOptions[0];
+                if (selectedOption && selectedOption.text.includes('(')) {
+                    const dateText = selectedOption.text.match(/\((\d{2}\/\d{2}\/\d{4}) - (\d{2}\/\d{2}\/\d{4})\)/);
+                    if (dateText) {
+                        const dateFinParent = parseDate(dateText[2]);
+                        const dateDebutEnfant = new Date(dateDebutInput.value);
+
+                        if (dateFinParent >= dateDebutEnfant) {
+                            alert('Impossible : la PRS parent doit être terminée AVANT le début de la PRS finition.');
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        function parseDate(dateStr) {
+            const parts = dateStr.split('/');
+            return new Date(parts[2], parts[1] - 1, parts[0]);
+        }
 
         // Affectations
         document.addEventListener('DOMContentLoaded', function () {

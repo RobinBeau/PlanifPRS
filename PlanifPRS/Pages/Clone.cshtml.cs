@@ -63,6 +63,33 @@ namespace PlanifPRS.Pages
         public bool IsAdminOrValidateur => HasRequiredRole();
         public string CurrentUserLogin => GetCurrentUserLogin();
 
+        // AJOUTER cette propriété dans la classe
+        public List<PlanifPRS.Models.Prs> PrsParentOptions { get; set; } = new();
+
+        // AJOUTER cette méthode dans la classe
+        public async Task LoadPrsParentOptionsAsync()
+        {
+            PrsParentOptions = await _context.Prs
+                .Where(p => p.Equipement == "CMS" && p.Statut != "Supprimé")
+                .OrderByDescending(p => p.DateCreation)
+                .ToListAsync();
+        }
+
+        private bool ValidatePrsParentDates()
+        {
+            if (Prs.Equipement == "Finition" && Prs.PrsParentId.HasValue)
+            {
+                var prsParent = _context.Prs.Find(Prs.PrsParentId.Value);
+                if (prsParent != null && prsParent.DateFin >= Prs.DateDebut)
+                {
+                    ModelState.AddModelError("Prs.PrsParentId",
+                        "La PRS parent doit être terminée avant le début de la PRS finition.");
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public async Task<IActionResult> OnGetAsync(int id)
         {
             _logger.LogInformation($"[EDIT][GET] id={id} user={CurrentUserLogin}");
@@ -78,6 +105,7 @@ namespace PlanifPRS.Pages
             AffectationsToDelete ??= "[]";
 
             await ChargerDonneesAsync();
+            await LoadPrsParentOptionsAsync();
             await ChargerFichiersEtLiensAsync(Prs.Id);
             await ChargerAffectationsExistantesAsync(Prs.Id);
 
@@ -500,6 +528,15 @@ namespace PlanifPRS.Pages
                 }
             }
 
+            if (!ValidatePrsParentDates())
+            {
+                await ChargerDonneesAsync();
+                await LoadPrsParentOptionsAsync();
+                await ChargerFichiersEtLiensAsync(Prs.Id);
+                await ChargerAffectationsExistantesAsync(Prs.Id);
+                return Page();
+            }
+
             if (!ModelState.IsValid)
             {
                 await ChargerDonneesAsync();
@@ -687,6 +724,14 @@ namespace PlanifPRS.Pages
                     _logger.LogError(ex, "[CLONE][POST CreateNew] Erreur vérification conflits");
                 }
             }
+            if (!ValidatePrsParentDates())
+            {
+                await ChargerDonneesAsync();
+                await LoadPrsParentOptionsAsync();
+                await ChargerFichiersEtLiensAsync(Prs.Id);
+                await ChargerAffectationsExistantesAsync(Prs.Id);
+                return Page();
+            }
 
             if (!ModelState.IsValid)
             {
@@ -698,11 +743,16 @@ namespace PlanifPRS.Pages
 
             try
             {
+                var equip = Prs.Equipement;
                 // Construire une NOUVELLE PRS à partir du formulaire
                 var newPrs = new Models.Prs
                 {
+                    Equipement = equip,
+
+                    // AJOUT: si c'est une Finition, on stocke le parent; sinon on force à null
+                    PrsParentId = (equip == "Finition") ? Prs.PrsParentId : null,
+
                     Titre = CleanEmojis(Prs.Titre),
-                    Equipement = Prs.Equipement,
                     ReferenceProduit = Prs.ReferenceProduit,
                     Quantite = Prs.Quantite,
                     BesoinOperateur = CleanEmojis(Prs.BesoinOperateur),

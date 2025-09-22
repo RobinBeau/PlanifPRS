@@ -68,6 +68,55 @@ namespace PlanifPRS.Pages
         public IList<HistoriqueEdit> Historique { get; set; } = new List<HistoriqueEdit>();
         // <<< HISTORIQUE <<<
 
+        // AJOUTER cette propriété dans la classe
+        public List<PlanifPRS.Models.Prs> PrsParentOptions { get; set; } = new();
+
+        // AJOUTER cette méthode dans la classe
+        public async Task LoadPrsParentOptionsAsync()
+        {
+            PrsParentOptions = await _context.Prs
+                .Where(p => p.Equipement == "CMS" && p.Statut != "Supprimé")
+                .OrderByDescending(p => p.DateCreation)
+                .ToListAsync();
+        }
+
+        // AJOUTER cette méthode de validation dans la classe
+        private bool ValidatePrsParentDates()
+        {
+            if (Prs.Equipement == "Finition" && Prs.PrsParentId.HasValue)
+            {
+                var prsParent = _context.Prs.Find(Prs.PrsParentId.Value);
+                if (prsParent != null && prsParent.DateFin >= Prs.DateDebut)
+                {
+                    ModelState.AddModelError("Prs.PrsParentId",
+                        "La PRS parent doit être terminée avant le début de la PRS finition.");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // AJOUTER cette méthode pour vérifier les PRS enfants
+        private async Task<bool> ValidateChildrenPrsAsync()
+        {
+            if (Prs.Equipement == "CMS")
+            {
+                var enfants = await _context.Prs
+                    .Where(p => p.PrsParentId == Prs.Id && p.Statut != "Supprimé")
+                    .ToListAsync();
+
+                foreach (var enfant in enfants)
+                {
+                    if (enfant.DateDebut < Prs.DateFin)
+                    {
+                        ModelState.AddModelError("Prs.DateFin",
+                            $"⚠️ Attention : La PRS finition #{enfant.Id} '{enfant.Titre}' commence le {enfant.DateDebut:dd/MM/yyyy HH:mm} ce qui est avant la fin de cette PRS parent.");
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
         public async Task<IActionResult> OnGetAsync(int id)
         {
             _logger.LogInformation($"[EDIT][GET] id={id} user={CurrentUserLogin}");
@@ -85,6 +134,7 @@ namespace PlanifPRS.Pages
             AffectationsToDelete ??= "[]";
 
             await ChargerDonneesAsync();
+            await LoadPrsParentOptionsAsync();
             await ChargerFichiersEtLiensAsync(Prs.Id);
             await ChargerAffectationsExistantesAsync(Prs.Id);
 
@@ -406,7 +456,23 @@ namespace PlanifPRS.Pages
                     _logger.LogError(ex, "Erreur lors de la vérification des conflits d'affectation");
                 }
             }
+            if (!ValidatePrsParentDates())
+            {
+                await ChargerDonneesAsync();
+                await LoadPrsParentOptionsAsync();
+                await ChargerFichiersEtLiensAsync(Prs.Id);
+                await ChargerAffectationsExistantesAsync(Prs.Id);
+                return Page();
+            }
 
+            if (!await ValidateChildrenPrsAsync())
+            {
+                await ChargerDonneesAsync();
+                await LoadPrsParentOptionsAsync();
+                await ChargerFichiersEtLiensAsync(Prs.Id);
+                await ChargerAffectationsExistantesAsync(Prs.Id);
+                return Page();
+            }
             if (!ModelState.IsValid)
             {
                 await ChargerDonneesAsync();
@@ -461,6 +527,14 @@ namespace PlanifPRS.Pages
 
                 prsFromDb.Titre = CleanEmojis(Prs.Titre);
                 prsFromDb.Equipement = Prs.Equipement;
+                if (Prs.Equipement == "Finition")
+                {
+                    prsFromDb.PrsParentId = Prs.PrsParentId; // peut être null si aucune sélection
+                }
+                else
+                {
+                    prsFromDb.PrsParentId = null; // on nettoie si ce n’est pas une Finition
+                }
                 prsFromDb.ReferenceProduit = Prs.ReferenceProduit;
                 prsFromDb.Quantite = Prs.Quantite;
                 prsFromDb.BesoinOperateur = Prs.BesoinOperateur;

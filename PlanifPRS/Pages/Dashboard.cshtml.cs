@@ -37,6 +37,9 @@ namespace PlanifPRS.Pages
         public List<PrsCardVM> UpcomingPrs { get; private set; } = new();
         public List<ActivityVM> RecentPrs { get; private set; } = new();
 
+        // Alerts: PRS enfant (Finition) commence avant la fin de la PRS parente (CMS)
+        public List<ParentChildAlertVM> ParentChildAlerts { get; private set; } = new();
+
         private int _userId;
         private List<int> _myGroupIds = new();
 
@@ -205,6 +208,38 @@ namespace PlanifPRS.Pages
                         Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
                         CreatedBy = p.CreatedByLogin,
                         DerniereModification = p.DerniereModification
+                    })
+                    .ToListAsync();
+
+                // ALERTES: Conflits parent/enfant (enfant "Finition" démarre avant fin parent "CMS")
+                // On filtre "Supprimé" et on tolère d'anciens enregistrements avec emojis via Contains("Finition")
+                var basePrs = _context.Prs.AsNoTracking().Where(p => p.Statut != "Supprimé");
+
+                var conflictsQuery =
+                    from child in basePrs
+                    join parent in basePrs on child.PrsParentId equals parent.Id
+                    where child.PrsParentId != null
+                          && (child.Equipement == "Finition" || child.Equipement.Contains("Finition"))
+                          && child.DateDebut < parent.DateFin
+                    select new { child, parent };
+
+                if (!IsManagerView)
+                {
+                    conflictsQuery = conflictsQuery.Where(x =>
+                        prsIdsAssigned.Contains(x.child.Id) || prsIdsAssigned.Contains(x.parent.Id));
+                }
+
+                ParentChildAlerts = await conflictsQuery
+                    .OrderBy(x => x.child.DateDebut)
+                    .Take(50)
+                    .Select(x => new ParentChildAlertVM
+                    {
+                        EnfantId = x.child.Id,
+                        EnfantTitre = x.child.Titre,
+                        EnfantDateDebut = x.child.DateDebut,
+                        ParentId = x.parent.Id,
+                        ParentTitre = x.parent.Titre,
+                        ParentDateFin = x.parent.DateFin
                     })
                     .ToListAsync();
 
@@ -441,6 +476,16 @@ namespace PlanifPRS.Pages
             public string Statut { get; set; }
             public string CreatedBy { get; set; }
             public DateTime DerniereModification { get; set; }
+        }
+
+        public class ParentChildAlertVM
+        {
+            public int EnfantId { get; set; }
+            public string EnfantTitre { get; set; }
+            public DateTime EnfantDateDebut { get; set; }
+            public int ParentId { get; set; }
+            public string ParentTitre { get; set; }
+            public DateTime ParentDateFin { get; set; }
         }
     }
 }

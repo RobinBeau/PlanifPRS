@@ -37,6 +37,34 @@
         <div class="alert alert-success">@Model.Flash</div>
     }
 
+    @* Alerte conflits PRS parent/enfant (Finition commence avant la fin du parent CMS) *@
+    @if (Model.ParentChildAlerts.Any())
+    {
+        <div class="alert alert-danger shadow-sm mb-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <i class="fas fa-link-slash me-2"></i>
+                    <strong>Conflits PRS parent/enfant détectés:</strong> @Model.ParentChildAlerts.Count
+                    <div class="small text-muted">Certaines PRS "Finition" démarrent avant la fin de leur PRS "CMS" parente.</div>
+                </div>
+                <a href="/Index" class="btn btn-sm btn-outline-light"><i class="fas fa-arrow-right me-1"></i>Voir le planning</a>
+            </div>
+            <ul class="mt-2 mb-0 small">
+                @foreach (var c in Model.ParentChildAlerts.Take(5))
+                {
+                    <li>
+                        Enfant #@c.EnfantId "@c.EnfantTitre" (début @c.EnfantDateDebut.ToString("dd/MM/yyyy HH:mm"))
+                        avant fin parent #@c.ParentId "@c.ParentTitre" (@c.ParentDateFin.ToString("dd/MM/yyyy HH:mm"))
+                    </li>
+                }
+            </ul>
+            @if (Model.ParentChildAlerts.Count > 5)
+            {
+                <div class="small text-muted mt-1">… et @(Model.ParentChildAlerts.Count - 5) autres</div>
+            }
+        </div>
+    }
+
     <!-- Cartes de synthèse -->
     <div class="row g-3 mb-4">
         <div class="col-12 col-sm-6 col-lg-3">
