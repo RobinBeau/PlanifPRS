@@ -21,6 +21,15 @@
             background-color: #f8f9fa;
         }
 
+        /* Fix superposition modal vs backdrop */
+        .modal {
+            z-index: 200000;
+        }
+
+        .modal-backdrop {
+            z-index: 199900;
+        }
+
             .week-selector .week-navigation {
                 display: flex;
                 align-items: center;
@@ -980,16 +989,61 @@
                             </div>
                         </div>
                         <div id="prsSearchResults" class="prs-search-results" style="display:none;"></div>
+                        <!-- Remplace tout le bloc checklistEditor par ceci -->
                         <div id="checklistEditor" class="checklist-editor" style="display:none;">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-edit me-1"></i>
+                                    Éléments de la checklist (<span id="checklistItemCount" class="badge-checklist">0</span> éléments)
+                                </h6>
+                                <!-- ID attendu par checklist-manager.js -->
+                                <button type="button" class="btn btn-sm btn-checklist" id="addChecklistItem">
+                                    <i class="fas fa-plus-circle me-1"></i>Ajouter un élément
+                                </button>
+                            </div>
+                            <!-- ID attendu par checklist-manager.js -->
+                            <div id="checklistItems" class="checklist-items-container"></div>
+                        </div><div id="checklistEditor" class="checklist-editor" style="display:none;">
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h6 class="mb-0"><i class="fas fa-edit me-1"></i>Éléments de la checklist (<span id="checklistItemCount" class="badge-checklist">0</span> éléments)</h6>
                                 <button type="button" class="btn btn-sm btn-checklist" id="btnAddChecklistItem">
                                     <i class="fas fa-plus-circle me-1"></i>Ajouter un élément
                                 </button>
                             </div>
-                            <div id="checklistItemsContainer"></div>
+                            <div id="checklistAffectationItemsContainer"></div>
                         </div>
                         <input type="hidden" id="checklistData" name="ChecklistData" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- AJOUT: modal de pré-sélection des éléments du modèle -->
+            <div class="modal fade" id="checklistModeleModal" tabindex="-1" aria-labelledby="checklistModeleModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="checklistModeleModalLabel">Sélectionner les éléments à importer</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="d-flex gap-3 align-items-center mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="modeleSelectAll" checked>
+                                    <label class="form-check-label" for="modeleSelectAll">Tout cocher</label>
+                                </div>
+                                <div class="ms-auto" style="min-width:280px;">
+                                    <input type="text" id="modeleFilter" class="form-control form-control-sm" placeholder="Filtrer (texte, catégorie, sous-catégorie)">
+                                </div>
+                            </div>
+
+                            <div id="modeleItemsContainer" class="list-group border" style="max-height: 50vh; overflow:auto;"></div>
+                            <div id="modeleEmptyState" class="alert alert-warning d-none mt-3 mb-0">Aucun élément disponible pour ce modèle.</div>
+                        </div>
+                        <div class="modal-footer">
+                            <div class="text-muted me-auto small" id="modeleCountInfo"></div>
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                            <button type="button" class="btn btn-primary" id="confirmChecklistModele">Importer les éléments sélectionnés</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1085,6 +1139,318 @@
     <script src="~/js/checklist-manager.js" asp-append-version="true"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+
+        $(function() {
+  try { $('#checklistModele').off('change'); } catch {}
+});
+
+        // ====== AJOUT: gestion de la popup "Modèle" et synchro editor/hidden ======
+        (function() {
+          const typeSel = document.getElementById('checklistTypeSelector');
+          const modeleSel = document.getElementById('checklistModele');
+          const checklistEditor = document.getElementById('checklistEditor');
+          const editorContainer = document.querySelector('#checklistEditor #checklistItemsContainer');
+          const hiddenChecklistData = document.getElementById('checklistData');
+
+          // Modal refs
+          const modalEl = document.getElementById('checklistModeleModal');
+          let bsModal = null;
+          let currentModeleId = null;
+          let currentItems = []; // { id, libelle, tache, categorie, sousCategorie, priorite, delaiDefautJours, obligatoire }
+
+          const listContainer = document.getElementById('modeleItemsContainer');
+          const emptyState = document.getElementById('modeleEmptyState');
+          const selectAll = document.getElementById('modeleSelectAll');
+          const filterInput = document.getElementById('modeleFilter');
+          const countInfo = document.getElementById('modeleCountInfo');
+          const confirmBtn = document.getElementById('confirmChecklistModele');
+
+                  function ensureModal() {
+          if (!modalEl) return;
+          // Déplace le modal à la racine du body pour éviter tout problème de stacking context/z-index
+          if (modalEl.parentElement !== document.body) {
+            document.body.appendChild(modalEl);
+          }
+          if (!bsModal && window.bootstrap) {
+            bsModal = new bootstrap.Modal(modalEl, {
+              backdrop: true,
+              focus: true
+            });
+          }
+        }
+
+          function updateCountInfo() {
+            const all = listContainer.querySelectorAll('input[type="checkbox"]');
+            const checked = listContainer.querySelectorAll('input[type="checkbox"]:checked');
+            if (countInfo) countInfo.textContent = `${checked.length} sélectionné(s) sur ${all.length}`;
+          }
+
+          function renderModeleItems(items) {
+            listContainer.innerHTML = '';
+            emptyState.classList.toggle('d-none', items.length > 0);
+            items.forEach(it => {
+              const row = document.createElement('label');
+              row.className = 'list-group-item d-flex align-items-start gap-2';
+              row.dataset.libelle = (it.libelle || it.tache || '').toLowerCase();
+              row.dataset.categorie = (it.categorie || '').toLowerCase();
+              row.dataset.souscategorie = (it.sousCategorie || '').toLowerCase();
+
+              const cb = document.createElement('input');
+              cb.type = 'checkbox';
+              cb.className = 'form-check-input mt-1';
+              cb.checked = true;
+              cb.value = String(it.id);
+
+              const body = document.createElement('div');
+              const title = document.createElement('div');
+              title.className = 'fw-semibold';
+              title.textContent = it.libelle || it.tache || '(sans libellé)';
+
+              const meta = document.createElement('div');
+              meta.className = 'small text-muted';
+              const parts = [];
+              if (it.categorie) parts.push(it.categorie);
+              if (it.sousCategorie) parts.push(it.sousCategorie);
+              if (it.obligatoire) parts.push('Obligatoire');
+              if (it.priorite) parts.push(`P${it.priorite}`);
+              meta.textContent = parts.join(' • ');
+
+              body.appendChild(title);
+              body.appendChild(meta);
+
+              row.appendChild(cb);
+              row.appendChild(body);
+              listContainer.appendChild(row);
+            });
+            updateCountInfo();
+          }
+
+          function applyFilter() {
+            const q = (filterInput.value || '').trim().toLowerCase();
+            Array.from(listContainer.children).forEach(row => {
+              if (!(row instanceof HTMLElement)) return;
+              if (!q) { row.style.display = ''; return; }
+              const haystack = [row.dataset.libelle, row.dataset.categorie, row.dataset.souscategorie].join(' ');
+              row.style.display = haystack.includes(q) ? '' : 'none';
+            });
+          }
+
+          function collectSelectedItems() {
+            const mapById = new Map(currentItems.map(x => [String(x.id), x]));
+            const selected = [];
+            listContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+              if (cb.checked) {
+                const it = mapById.get(String(cb.value));
+                if (it) selected.push(it);
+              }
+            });
+            return selected;
+          }
+
+          function clearEditor() {
+            if (editorContainer) editorContainer.innerHTML = '';
+          }
+
+          function renderEditorFromSelected(items) {
+            if (!checklistEditor || !editorContainer) return;
+            checklistEditor.style.display = '';
+            clearEditor();
+            items.forEach((it, idx) => {
+              const row = document.createElement('div');
+              row.className = 'checklist-item-row border rounded p-2 mb-2';
+              row.dataset.index = String(idx);
+              row.innerHTML = `
+                <div class="row g-2 align-items-center">
+                  <div class="col-md-3">
+                    <label class="form-label mb-1 small">Catégorie</label>
+                    <input type="text" class="form-control form-control-sm ci-categorie" value="${(it.categorie || '').replace(/"/g,'&quot;')}">
+                  </div>
+                  <div class="col-md-3">
+                    <label class="form-label mb-1 small">Sous-catégorie</label>
+                    <input type="text" class="form-control form-control-sm ci-souscategorie" value="${(it.sousCategorie || '').replace(/"/g,'&quot;')}">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label mb-1 small">Libellé</label>
+                    <input type="text" class="form-control form-control-sm ci-libelle" value="${(it.libelle || it.tache || '').replace(/"/g,'&quot;')}">
+                  </div>
+                  <div class="col-md-1">
+                    <label class="form-label mb-1 small">Prio</label>
+                    <input type="number" class="form-control form-control-sm ci-priorite" min="1" max="5" value="${it.priorite > 0 ? it.priorite : 3}">
+                  </div>
+                  <div class="col-md-1">
+                    <label class="form-label mb-1 small">Obl.</label>
+                    <input type="checkbox" class="form-check-input ci-obligatoire" ${it.obligatoire ? 'checked' : ''} style="margin-top: 10px;">
+                  </div>
+                </div>
+              `;
+              editorContainer.appendChild(row);
+            });
+            const counter = document.getElementById('checklistItemCount');
+            if (counter) counter.textContent = String(items.length);
+          }
+
+          function syncHiddenFromEditor() {
+            if (!hiddenChecklistData) return;
+            const rows = Array.from(document.querySelectorAll('#checklistEditor #checklistItemsContainer .checklist-item-row'));
+            const elements = rows.map(r => ({
+              categorie: r.querySelector('.ci-categorie')?.value || null,
+              sousCategorie: r.querySelector('.ci-souscategorie')?.value || null,
+              libelle: r.querySelector('.ci-libelle')?.value || null,
+              priorite: parseInt(r.querySelector('.ci-priorite')?.value || '3') || 3,
+              delaiDefautJours: 1,
+              obligatoire: !!r.querySelector('.ci-obligatoire')?.checked,
+              assignedUsers: [],
+              assignedGroups: []
+            }));
+            const payload = { type: 'modele', sourceId: currentModeleId, elements };
+            hiddenChecklistData.value = JSON.stringify(payload);
+          }
+
+          async function loadModeleItems(modeleId) {
+            const baseUrl = '@Url.Page("./Create", "ChecklistModeleItems")'; // => /Prs/Create?handler=ChecklistModeleItems
+            const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'id=' + encodeURIComponent(modeleId);
+            const resp = await fetch(url, { headers: { 'Accept': 'application/json' }});
+            if (!resp.ok) throw new Error('Erreur de chargement');
+            const json = await resp.json();
+            if (!json || !Array.isArray(json.items)) return [];
+            return json.items.map(x => ({
+              id: x.id,
+              libelle: x.libelle,
+              tache: x.tache,
+              categorie: x.categorie,
+              sousCategorie: x.sousCategorie,
+              priorite: x.priorite > 0 ? x.priorite : 3,
+              delaiDefautJours: x.delaiDefautJours > 0 ? x.delaiDefautJours : 1,
+              obligatoire: !!x.obligatoire
+            }));
+          }
+
+          async function onModeleSelected() {
+            if (!typeSel || typeSel.value !== 'modele') return;
+            const id = parseInt(modeleSel?.value || '0', 10);
+            if (!id) return;
+            try {
+              currentModeleId = id;
+              currentItems = await loadModeleItems(id);
+              renderModeleItems(currentItems);
+              filterInput.value = '';
+              if (selectAll) { selectAll.checked = true; }
+              updateCountInfo();
+              ensureModal();
+              bsModal?.show();
+            } catch (e) {
+              console.error('[CREATE] Chargement modèle échoué', e);
+              alert('Impossible de charger les éléments du modèle.');
+            }
+          }
+
+          // Afficher/cacher les sélecteurs selon le type
+          if (typeSel) {
+            typeSel.addEventListener('change', () => {
+              const ms = document.getElementById('modeleSelector');
+              const ps = document.getElementById('prsSelector');
+              if (typeSel.value === 'modele') {
+                if (ms) ms.style.display = '';
+                if (ps) ps.style.display = 'none';
+              } else if (typeSel.value === 'copy') {
+                if (ms) ms.style.display = 'none';
+                if (ps) ps.style.display = '';
+              } else {
+                if (ms) ms.style.display = 'none';
+                if (ps) ps.style.display = 'none';
+                // reset
+                if (editorContainer) editorContainer.innerHTML = '';
+                if (hiddenChecklistData) hiddenChecklistData.value = '';
+                const counter = document.getElementById('checklistItemCount');
+                if (counter) counter.textContent = '0';
+                document.getElementById('checklistEditor').style.display = 'none';
+              }
+            });
+          }
+
+                    if (modeleSel) {
+            // Phase capture pour passer AVANT jQuery et bloquer checklist-manager
+            modeleSel.addEventListener('change', function(e) {
+              if (!typeSel || typeSel.value !== 'modele') return;
+              // Empêche tout autre handler "change" (dont checklist-manager) de s'exécuter
+              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+              e.stopPropagation();
+              // Pas besoin de preventDefault ici, on garde la sélection
+              onModeleSelected();
+            }, true); // <= capture = true
+          }
+          if (selectAll) selectAll.addEventListener('change', function() {
+            listContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = selectAll.checked);
+            updateCountInfo();
+          });
+          if (filterInput) filterInput.addEventListener('input', applyFilter);
+          if (listContainer) listContainer.addEventListener('change', e => {
+            if ((e.target)?.tagName === 'INPUT') updateCountInfo();
+          });
+
+                  if (confirmBtn) confirmBtn.addEventListener('click', function() {
+          const selected = collectSelectedItems();
+          if (selected.length === 0) {
+            alert('Aucun élément sélectionné.');
+            return;
+          }
+
+          try {
+            if (window.checklistManager) {
+              const mgr = window.checklistManager;
+
+              // Mapper les éléments sélectionnés au format attendu par le manager
+              const mapped = selected.map(el => ({
+                id: ++mgr.elementIdCounter,
+                categorie: el.categorie || '',
+                sousCategorie: el.sousCategorie || '',
+                libelle: el.libelle || el.tache || '',
+                priorite: el.priorite > 0 ? el.priorite : 3,
+                delaiDefautJours: el.delaiDefautJours > 0 ? el.delaiDefautJours : 1,
+                obligatoire: !!el.obligatoire,
+                assignedUsers: [],
+                assignedGroups: []
+              }));
+
+              // Injecter dans l’état du manager et rendre via l’éditeur standard
+              mgr.currentChecklist = {
+                type: 'modele',
+                sourceId: currentModeleId,
+                elements: mapped
+              };
+
+              mgr.showChecklistEditor();
+              mgr.renderChecklistItems();
+              mgr.updateChecklistData();
+
+              // Optionnel: scroll vers l’éditeur
+              document.getElementById('checklistEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+              // Fallback minimal si le manager n’est pas disponible
+              document.getElementById('checklistEditor').style.display = '';
+              document.getElementById('checklistData').value = JSON.stringify({
+                type: 'modele',
+                sourceId: currentModeleId,
+                elements: selected
+              });
+            }
+          } catch (e) {
+            console.error('Erreur import checklist:', e);
+            alert('Erreur lors de l\'import des éléments sélectionnés.');
+            return;
+          }
+
+          bsModal?.hide();
+        });
+
+          // Si l’utilisateur modifie ensuite l’éditeur, on resynchronise le hidden
+          document.addEventListener('input', function(e) {
+            if ((e.target).closest && (e.target).closest('#checklistEditor')) {
+              syncHiddenFromEditor();
+            }
+          });
+        })();
+
         // Variables globales
         const dateDebutInput = document.querySelector("#Prs_DateDebut");
         const dateFinInput = document.querySelector("#Prs_DateFin");
@@ -2308,7 +2674,8 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
         }
 
         function generateChecklistAffectationUI(checklistItems) {
-            const container = document.getElementById('checklistItemsContainer');
+                          const container = document.querySelector('#checklistAffectationSection #checklistAffectationItemsContainer');
+
             container.innerHTML = '';
 
             if (!checklistItems || checklistItems.length === 0) {

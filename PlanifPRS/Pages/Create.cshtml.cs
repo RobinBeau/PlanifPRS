@@ -33,6 +33,41 @@ namespace PlanifPRS.Pages.Prs
             _notificationService = notificationService; // AJOUT
         }
 
+        // Remplace entièrement ton handler par celui-ci
+        public async Task<IActionResult> OnGetChecklistModeleItemsAsync(int id)
+        {
+            try
+            {
+                var items = await _context.ChecklistElementModeles
+                    .AsNoTracking()
+                    .Where(e => e.ChecklistModeleId == id) // <- ChecklistModeleId (pas ModeleId)
+                                                           // Pas de e.Ordre sur le modèle => on trie par priorité puis catégorie
+                    .OrderBy(e => e.Priorite)
+                    .ThenBy(e => e.DelaiDefautJours)
+                    .ThenBy(e => e.Categorie)
+                    .ThenBy(e => e.SousCategorie)
+                    .Select(e => new
+                    {
+                        id = e.Id,
+                        libelle = e.Libelle,
+                        tache = e.Libelle,           // compat éventuelle
+                        categorie = e.Categorie,
+                        sousCategorie = e.SousCategorie,
+                        priorite = e.Priorite,
+                        delaiDefautJours = e.DelaiDefautJours,
+                        obligatoire = e.Obligatoire
+                    })
+                    .ToListAsync();
+
+                return new JsonResult(new { items });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[CREATE] OnGetChecklistModeleItemsAsync échec pour ModeleId={Id}", id);
+                return new JsonResult(new { items = Array.Empty<object>() });
+            }
+        }
+
         [BindProperty]
         public string? AffectationsData { get; set; }
 
@@ -495,19 +530,48 @@ namespace PlanifPRS.Pages.Prs
                     switch (checklistForm.type)
                     {
                         case "modele":
-                            if (checklistForm.sourceId.HasValue)
+                            // Si l'utilisateur a sélectionné des éléments => créer une checklist custom avec cette sélection
+                            if (checklistForm.elements?.Any() == true)
+                            {
+                                var elements = checklistForm.elements.Select(e => new PrsChecklist
+                                {
+                                    Categorie = e.categorie,
+                                    SousCategorie = e.sousCategorie,
+                                    Libelle = e.libelle,
+                                    Tache = e.libelle, // compat
+                                    Priorite = e.priorite > 0 ? e.priorite : 3,
+                                    DelaiDefautJours = e.delaiDefautJours > 0 ? e.delaiDefautJours : 1,
+                                    Obligatoire = e.obligatoire,
+                                    EstCoche = false,
+                                    Statut = null
+                                }).ToList();
+
+                                var success = await _checklistService.CreateCustomChecklistAsync(Prs.Id, elements, userLogin);
+                                if (success)
+                                {
+                                    checklistIds = await GetChecklistIdsForPrs(Prs.Id);
+                                    _logger.LogInformation($"Checklist (modele/selection) créée pour PRS {Prs.Id} avec {elements.Count} éléments");
+                                    Flash += " Checklist créée à partir du modèle (sélection).";
+                                }
+                                else
+                                {
+                                    _logger.LogWarning($"Échec création checklist (modele/selection) pour PRS {Prs.Id}");
+                                    ErrorMessage += " Erreur lors de la création de la checklist à partir de la sélection.";
+                                }
+                            }
+                            // Sinon: appliquer le modèle complet
+                            else if (checklistForm.sourceId.HasValue)
                             {
                                 var success = await _checklistService.ApplyChecklistModeleAsync(Prs.Id, checklistForm.sourceId.Value, userLogin);
                                 if (success)
                                 {
-                                    // Récupérer les IDs des checklists créées
                                     checklistIds = await GetChecklistIdsForPrs(Prs.Id);
-                                    _logger.LogInformation($"Modèle de checklist {checklistForm.sourceId.Value} appliqué avec succès au PRS {Prs.Id}");
-                                    Flash += " Checklist créée à partir du modèle.";
+                                    _logger.LogInformation($"Modèle de checklist {checklistForm.sourceId.Value} appliqué (complet) au PRS {Prs.Id}");
+                                    Flash += " Checklist créée à partir du modèle (complet).";
                                 }
                                 else
                                 {
-                                    _logger.LogWarning($"Échec de l'application du modèle de checklist {checklistForm.sourceId.Value}");
+                                    _logger.LogWarning($"Échec application modèle {checklistForm.sourceId.Value}");
                                     ErrorMessage += " Erreur lors de l'application du modèle de checklist.";
                                 }
                             }
