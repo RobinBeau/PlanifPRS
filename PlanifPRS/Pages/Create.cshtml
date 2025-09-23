@@ -893,7 +893,11 @@
                                     <option value="">Sélectionner un utilisateur...</option>
                                     @foreach (var user in Model.Utilisateurs.OrderBy(u => u.Nom).ThenBy(u => u.Prenom))
                                     {
-                                        <option value="@user.Id" data-type="Utilisateur" data-name="@user.Prenom @user.Nom" data-service="@user.Service">
+                                        <option value="@user.Id"
+                                                data-type="Utilisateur"
+                                                data-name="@user.Prenom @user.Nom"
+                                                data-service="@user.Service"
+                                                data-email="@user.Mail">
                                             @user.Nom @user.Prenom (@user.Service)
                                         </option>
                                     }
@@ -943,6 +947,7 @@
 
     <!-- Champ caché pour les données -->
     <input type="hidden" name="AffectationsData" id="affectationsData" />
+
 </div>
 
             <!-- 🔽 SECTION CHECKLIST À INSÉRER AVANT LES FICHIERS/DOSSIERS 🔽 -->
@@ -2583,47 +2588,92 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
                 // Mettre à jour le champ caché
                 affectationsData.value = JSON.stringify(selectedAffectations);
 
-                // Ajouter les événements de suppression
-                document.querySelectorAll('.remove-affectation').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const index = parseInt(this.dataset.index);
-                        selectedAffectations.splice(index, 1);
-                        updateAffectationsList();
-                        showRobiaNotification('Affectation supprimée', 'info');
-                    });
-                });
+                        // Ajouter les événements de suppression
+        document.querySelectorAll('.remove-affectation').forEach(btn => {
+          btn.addEventListener('click', function () {
+            const index = parseInt(this.dataset.index, 10);
+
+            // Récupérer l'élément supprimé pour connaître son email/id
+            const removed = selectedAffectations.splice(index, 1)[0];
+
+            updateAffectationsList();
+            showRobiaNotification('Affectation supprimée', 'info');
+
+            // 1) Mettre à jour le hidden et émettre 'change'
+            const hidden = document.getElementById('affectationsData');
+            if (hidden) {
+              hidden.value = JSON.stringify(selectedAffectations);
+              hidden.dispatchEvent(new Event('change', { bubbles: true }));
             }
 
-            // Ajouter un utilisateur
-            addUserBtn.addEventListener('click', function() {
-                const selectedOption = userSelect.options[userSelect.selectedIndex];
-                if (!selectedOption.value) {
-                    showRobiaNotification('Veuillez sélectionner un utilisateur', 'warning');
-                    return;
-                }
+            // 2) Event custom (optionnel)
+            document.dispatchEvent(new CustomEvent('affectations:changed', {
+              detail: { action: 'remove', id: removed?.id, email: (removed?.email || '').trim() }
+            }));
 
-                const userId = parseInt(selectedOption.value);
-                const userName = selectedOption.dataset.name;
-                const userService = selectedOption.dataset.service;
+            // 3) Hook direct si exposé par _CalendarBlock
+            if (typeof window.__prsRefreshAbsences === 'function') {
+              window.__prsRefreshAbsences();
+            }
+          });
+        });
+            }
 
-                // Vérifier si déjà ajouté
-                const exists = selectedAffectations.some(a => a.type === 'Utilisateur' && a.id === userId);
-                if (exists) {
-                    showRobiaNotification('Cet utilisateur est déjà affecté', 'warning');
-                    return;
-                }
+                   // Ajouter un utilisateur
+        addUserBtn.addEventListener('click', function () {
+            const selectedOption = userSelect.options[userSelect.selectedIndex];
+            if (!selectedOption || !selectedOption.value) {
+                showRobiaNotification('Veuillez sélectionner un utilisateur', 'warning');
+                return;
+            }
 
-                selectedAffectations.push({
-                    id: userId,
-                    type: 'Utilisateur',
-                    name: userName,
-                    info: userService
-                });
+            const userId = parseInt(selectedOption.value, 10);
+            const userName = selectedOption.dataset.name || selectedOption.textContent.trim();
+            const userService = selectedOption.dataset.service || '';
+            const userEmail = (selectedOption.dataset.email || selectedOption.getAttribute('data-email') || '').trim();
 
-                updateAffectationsList();
-                userSelect.selectedIndex = 0;
-                showRobiaNotification('Utilisateur ajouté', 'success');
+            // Vérifier si déjà ajouté (par id ou par email si dispo)
+            const exists = selectedAffectations.some(a =>
+                a.type === 'Utilisateur' && (a.id === userId || (userEmail && a.email === userEmail))
+            );
+            if (exists) {
+                showRobiaNotification('Cet utilisateur est déjà affecté', 'warning');
+                return;
+            }
+
+            selectedAffectations.push({
+                id: userId,
+                type: 'Utilisateur',
+                name: userName,
+                info: userService,
+                email: userEmail // <-- essentiel pour les absences
             });
+
+            updateAffectationsList();
+            userSelect.selectedIndex = 0;
+            showRobiaNotification('Utilisateur ajouté', 'success');
+
+            // Déclencher le rafraîchissement du calendrier (absences)
+            // Laisse updateAffectationsList terminer avant d’émettre les événements
+            setTimeout(() => {
+                const hidden = document.getElementById('affectationsData');
+                if (hidden) {
+                    // Si updateAffectationsList ne met pas à jour ce champ, décommente la ligne suivante:
+                    // hidden.value = JSON.stringify(selectedAffectations);
+                    hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                // Event custom lu par _CalendarBlock (sécurité)
+                document.dispatchEvent(new CustomEvent('affectations:changed', {
+                    detail: { action: 'add', id: userId, email: userEmail }
+                }));
+
+                // Hook direct si exposé par _CalendarBlock
+                if (typeof window.__prsRefreshAbsences === 'function') {
+                    window.__prsRefreshAbsences();
+                }
+            }, 0);
+        });
 
             // Ajouter un groupe
             addGroupBtn.addEventListener('click', function() {

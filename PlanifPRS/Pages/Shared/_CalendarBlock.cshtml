@@ -300,6 +300,190 @@
         }
     }
 
+    // ========= AJOUT: ABSENCES =========
+
+    // Extraction d'emails depuis diverses structures JSON
+    function extractEmailsFromObject(obj, outSet, preferUserOnly = true) {
+        if (!obj) return;
+        if (Array.isArray(obj)) {
+            for (const item of obj) extractEmailsFromObject(item, outSet, preferUserOnly);
+            return;
+        }
+        if (typeof obj === 'object') {
+            const type = (obj.type || obj.Type || '').toString().toLowerCase();
+            const isUser = type === 'utilisateur' || type === 'user' || !type;
+
+            const possibleEmails = [
+                obj.email, obj.Email, obj.mail, obj.Mail,
+                obj.utilisateur?.email, obj.Utilisateur?.Email,
+                obj.user?.email, obj.User?.Email,
+                obj.person?.email, obj.Person?.Email
+            ].filter(Boolean);
+
+            for (const em of possibleEmails) {
+                const s = String(em).trim().toLowerCase();
+                if (s && (!preferUserOnly || isUser)) outSet.add(s);
+            }
+
+            const containers = [
+                obj.affectations, obj.Affectations,
+                obj.assignments, obj.Assignments,
+                obj.elements, obj.Elements,
+                obj.items, obj.Items,
+                obj.members, obj.Members,
+                obj.utilisateurs, obj.Users
+            ].filter(Boolean);
+            for (const c of containers) extractEmailsFromObject(c, outSet, preferUserOnly);
+
+            for (const v of Object.values(obj)) {
+                if (v && typeof v === 'object') extractEmailsFromObject(v, outSet, preferUserOnly);
+            }
+        }
+    }
+
+    function getAssignedEmails() {
+        const emails = new Set();
+
+        // a) champ caché historique
+        const hidden = document.getElementById('affectationsData');
+        if (hidden && hidden.value) {
+            try {
+                const parsed = JSON.parse(hidden.value);
+                extractEmailsFromObject(parsed, emails, true);
+            } catch {}
+        }
+
+        // b) Checklist manager: id possible alternatif
+        const chkHidden = document.getElementById('ChecklistAffectationsData') || document.getElementById('checklistAffectationsData');
+        if (chkHidden && chkHidden.value) {
+            try {
+                const parsed = JSON.parse(chkHidden.value);
+                extractEmailsFromObject(parsed, emails, true);
+            } catch {}
+        }
+
+        // c) côté serveur "email1;email2;..."
+        const serverHidden = document.getElementById('assignedEmailsFromServer');
+        if (serverHidden && serverHidden.value) {
+            serverHidden.value.split(/[;,]\s*/).forEach(e => {
+                const s = String(e || '').trim().toLowerCase();
+                if (s) emails.add(s);
+            });
+        }
+
+        return Array.from(emails);
+    }
+
+    async function fetchLatestAbsences() {
+        const resp = await fetch('/api/absences/latest', { headers: { 'Accept': 'application/json' }});
+        if (!resp.ok) throw new Error('absences fetch failed: ' + resp.status);
+        return await resp.json();
+    }
+
+        function buildAbsenceEvents(absencesJson, assignedEmails) {
+        const byEmail = new Map((absencesJson || []).map(x => [String(x.Email || '').toLowerCase(), x]));
+        const events = [];
+
+        for (const email of assignedEmails) {
+            const person = byEmail.get(email);
+            if (!person || !Array.isArray(person.Events)) continue;
+
+            const label = String(email).split(String.fromCharCode(64))[0].replace(/\./g, ' ');
+            for (const e of person.Events) {
+                if (!e || !e.Start || !e.End) continue;
+
+                events.push({
+                    id: `abs-${email}-${e.Start}-${e.End}`,
+                    title: `Absence: ${label}`,
+                    start: shiftBySimpleOffset(e.Start), // <- ajouté
+                    end: shiftBySimpleOffset(e.End),     // <- ajouté
+                    allDay: false,
+                    display: 'background',
+                    backgroundColor: '#f8d7da',
+                    borderColor: '#dc3545',
+                    extendedProps: {
+                        type: 'Absence',
+                        email: person.Email,
+                        subject: e.Subject || 'OOF',
+                        isOutOfOffice: !!e.IsOutOfOffice,
+                        source: e.Source || 'absence'
+                    }
+                });
+            }
+        }
+        return events;
+    }
+
+        // Ajoute simplement des heures selon l'offset de fin de chaîne (+02:00 -> +2h, +01:00 -> +1h)
+    function shiftBySimpleOffset(iso) {
+        if (typeof iso !== 'string') return iso;
+        const m = iso.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})([+-])(\d{2}):(\d{2})$/);
+        if (!m) return iso; // ne touche pas si format différent
+        const base = m[1];
+        const sign = m[2];
+        const offH = parseInt(m[3], 10);
+
+        let addH = 0;
+        if (sign === '+') {
+            if (offH === 2) addH = 2;
+            else if (offH === 1) addH = 1;
+        } else if (sign === '-') {
+            // au cas où, on gère le signe "-" (non demandé, mais inoffensif)
+            if (offH === 2) addH = -2;
+            else if (offH === 1) addH = -1;
+        }
+
+        // Parse local sans fuseau, ajoute addH, et renvoie "YYYY-MM-DDTHH:mm:ss"
+        const dt = new Date(base);
+        dt.setHours(dt.getHours() + addH);
+
+        const pad = n => String(n).padStart(2, '0');
+        const y = dt.getFullYear();
+        const mo = pad(dt.getMonth() + 1);
+        const d = pad(dt.getDate());
+        const h = pad(dt.getHours());
+        const mi = pad(dt.getMinutes());
+        const s = pad(dt.getSeconds());
+        return `${y}-${mo}-${d}T${h}:${mi}:${s}`;
+    }
+        // Anti-concurrence pour le rechargement des absences
+    let __absencesLoadToken = 0;
+
+           async function addAbsencesToCalendar(calendarInstance) {
+        // Token "dernier appel gagne"
+        const token = ++__absencesLoadToken;
+
+        // Toujours retirer TOUTES les anciennes sources d’abord
+        calendarInstance.getEventSources()
+            .filter(src => src.id === 'absences-assignees')
+            .forEach(src => src.remove());
+
+        // Récupère les emails assignés
+        const assigned = getAssignedEmails();
+        if (!assigned.length) return; // rien à réajouter
+
+        // Charger les absences
+        let absencesJson;
+        try {
+            absencesJson = await fetchLatestAbsences();
+        } catch (e) {
+            console.error('[Absences] Erreur de chargement:', e);
+            return;
+        }
+
+        // Si un nouvel appel a commencé entre-temps, on abandonne celui-ci
+        if (token !== __absencesLoadToken) return;
+
+        const absenceEvents = buildAbsenceEvents(absencesJson, assigned);
+        if (!absenceEvents.length) return;
+
+        // Encore un check avant d’ajouter (en cas de nouvelle course)
+        if (token !== __absencesLoadToken) return;
+
+        calendarInstance.addEventSource({ id: 'absences-assignees', events: absenceEvents });
+    }
+    // ========= FIN AJOUT: ABSENCES =========
+
     document.addEventListener('DOMContentLoaded', function () {
         const calendarEl = document.getElementById('calendar');
         const loader = document.getElementById('loader');
@@ -721,6 +905,48 @@
 
         calendar.render();
 
+        // ===== Rafraîchissement des absences =====
+        async function refreshAbsences() {
+            try {
+                await addAbsencesToCalendar(calendar);
+                filterEvents();
+            } catch (e) {
+                console.error('Absences refresh error:', e);
+            }
+        }
+        // Hook global utilisable ailleurs
+        window.__prsRefreshAbsences = () => { setTimeout(refreshAbsences, 0); };
+
+        // Injection initiale
+        (async () => {
+            try {
+                await addAbsencesToCalendar(calendar);
+                filterEvents();
+            } catch (e) {
+                console.error('Absences loading error:', e);
+            }
+        })();
+
+        // Écoute les changements des champs cachés
+        const affectationsHidden = document.getElementById('affectationsData');
+        const checklistAffectationsHidden = document.getElementById('ChecklistAffectationsData') || document.getElementById('checklistAffectationsData');
+
+        if (affectationsHidden) affectationsHidden.addEventListener('change', refreshAbsences);
+        if (checklistAffectationsHidden) checklistAffectationsHidden.addEventListener('change', refreshAbsences);
+
+        // Poll de secours (si des scripts modifient .value sans émettre 'change')
+        let lastAffectVal = affectationsHidden ? affectationsHidden.value : '';
+        let lastChecklistVal = checklistAffectationsHidden ? checklistAffectationsHidden.value : '';
+        setInterval(() => {
+            if (affectationsHidden && affectationsHidden.value !== lastAffectVal) {
+                lastAffectVal = affectationsHidden.value; refreshAbsences();
+            }
+            if (checklistAffectationsHidden && checklistAffectationsHidden.value !== lastChecklistVal) {
+                lastChecklistVal = checklistAffectationsHidden.value; refreshAbsences();
+            }
+        }, 1000);
+        // ===== Fin absences =====
+
         const filterChecks = document.querySelectorAll(".filter-check");
 
         function filterEvents() {
@@ -741,7 +967,8 @@
                 if (statut === "En attente" || statut === "À re-valider") {
                     matchType = showPending;
                 }
-                const matchSector = (selectedSector === "Tous" || ev.extendedProps.secteur === selectedSector);
+                // Absences: ne pas filtrer par secteur
+                const matchSector = (selectedSector === "Tous" || ev.extendedProps.type === 'Absence' || ev.extendedProps.secteur === selectedSector);
                 const isVisible = matchType && matchSector;
 
                 ev.setProp('display', isVisible ? 'auto' : 'none');

@@ -551,7 +551,11 @@
                                     <option value="">Sélectionner un utilisateur...</option>
                                     @foreach (var user in Model.Utilisateurs.OrderBy(u => u.Nom).ThenBy(u => u.Prenom))
                                     {
-                                        <option value="@user.Id" data-type="Utilisateur" data-name="@user.Prenom @user.Nom" data-service="@user.Service">
+                                        <option value="@user.Id"
+                                                data-type="Utilisateur"
+                                                data-name="@user.Prenom @user.Nom"
+                                                data-service="@user.Service"
+                                                data-email="@user.Mail">
                                             @user.Nom @user.Prenom (@user.Service)
                                         </option>
                                     }
@@ -1041,6 +1045,17 @@
                 if (dateFin <= dateDebut) { e.preventDefault(); alert('La date de début doit être antérieure à la date de fin.'); return false; }
             }
             if (ligneSelect && !ligneSelect.value) { e.preventDefault(); alert('Veuillez sélectionner une ligne.'); ligneSelect.focus(); return false; }
+                    // Forcer le hidden à ne contenir QUE les nouvelles affectations avant envoi
+                // Forcer le hidden à ne contenir QUE les nouvelles affectations avant envoi
+        try {
+            const dataField = document.getElementById('affectationsData');
+            if (dataField) {
+                dataField.value = JSON.stringify(
+                    (window.__edit_pending__ || []).map(p => ({ id: p.id, type: p.type, name: p.name, info: p.info }))
+                );
+            }
+        } catch {}
+
             console.log('[EDIT] Soumission du formulaire');
         });
 
@@ -1117,11 +1132,102 @@
             const delField = document.getElementById('affectationsToDelete');
             let pending = [];
 
-            function syncPending() {
-                if (!dataField) return;
-                dataField.value = JSON.stringify(pending.map(p => ({ id: p.id, type: p.type, name: p.name, info: p.info })));
-                console.log('[EDIT] Affectations (pending sync) =>', dataField.value);
+                    function syncPending() {
+            if (!dataField) return;
+            // Ne mets dans le hidden que les NOUVELLES affectations (pour la soumission)
+            dataField.value = JSON.stringify(
+                pending.map(p => ({ id: p.id, type: p.type, name: p.name, info: p.info, email: p.email || '' }))
+            );
+            console.log('[EDIT] Affectations (pending sync) =>', dataField.value);
+        }
+
+                // Maintient le modèle “complet” pour le calendrier
+        let assignedExisting = [];
+
+        // Ecrit l’union (existantes + nouvelles) dans le hidden
+        function renderAffectationsForCalendar() {
+            const union = [...assignedExisting, ...pending];
+            if (dataField) {
+                dataField.value = JSON.stringify(union);
+                // Déclenche les rafraîchissements du calendrier
+                dataField.dispatchEvent(new Event('change', { bubbles: true }));
             }
+            document.dispatchEvent(new CustomEvent('affectations:changed', {
+                detail: { action: 'sync', emails: union.filter(x => x.type === 'Utilisateur').map(x => (x.email || '').trim()).filter(Boolean) }
+            }));
+            if (typeof window.__prsRefreshAbsences === 'function') window.__prsRefreshAbsences();
+        }
+
+                        (function seedAssignedFromExisting() {
+            // Normalisation pour matcher "Prenom Nom" vs "Nom Prenom", accents, espaces, etc.
+            const norm = (s) => (s || '')
+                .normalize('NFD')
+                .replace(/\p{Diacritic}/gu, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLowerCase();
+
+            const reverseMatch = (src, tgt) => {
+                const parts = tgt.split(' ');
+                if (parts.length < 2) return false;
+                const rev = (parts[1] + ' ' + parts[0]).trim();
+                return src === rev || src.includes(rev);
+            };
+
+            const lis = document.querySelectorAll('#affectationsList li[data-existing="true"]');
+            assignedExisting = [];
+
+            const userOptions = Array.from(document.querySelectorAll('#userSelect option[value]'));
+
+            lis.forEach(li => {
+                const type = li.dataset.type || 'Utilisateur';
+                const nameText = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
+                const infoText = (li.querySelector('span.me-auto .text-muted')?.textContent || '').replace(/[()]/g, '').trim();
+
+                let email = (li.dataset.email || '').trim();
+                let id = 0;
+
+                if (type === 'Utilisateur') {
+                    if (!email) {
+                        const target = norm(nameText);
+                        const opt = userOptions.find(o => {
+                            const dn = norm(o.dataset.name || '');
+                            const tt = norm(o.textContent || '');
+                            return (
+                                dn === target ||
+                                tt.includes(target) ||
+                                reverseMatch(dn, target) ||
+                                reverseMatch(tt, target)
+                            );
+                        });
+                        if (opt) {
+                            email = (opt.getAttribute('data-email') || '').trim();
+                            id = parseInt(opt.value || '0', 10) || 0;
+                        }
+                    }
+                }
+
+                assignedExisting.push({ id, type, name: nameText, info: infoText, email });
+            });
+
+            // 1) Première synchro immédiate
+            renderAffectationsForCalendar();
+
+            // 2) Retry court après init du _CalendarBlock (si listeners pas encore prêts)
+            let tries = 0;
+            const maxTries = 50; // ~5s
+            const timer = setInterval(() => {
+                const ready = typeof window.__prsRefreshAbsences === 'function';
+                if (ready) {
+                    renderAffectationsForCalendar();
+                    clearInterval(timer);
+                    return;
+                }
+                if (++tries >= maxTries) {
+                    clearInterval(timer);
+                }
+            }, 100);
+        })();
 
             function addListItem(item) {
                 const list = getList();
@@ -1132,6 +1238,7 @@
                 const li = document.createElement('li');
                 li.className = 'list-group-item d-flex align-items-center';
                 li.dataset.type = item.type;
+                if (item.type === 'Utilisateur' && item.email) li.dataset.email = item.email;
 
                 const icon = document.createElement('i');
                 icon.className = 'fas ' + (item.type === 'Utilisateur' ? 'fa-user' : 'fa-users') + ' me-2';
@@ -1160,17 +1267,34 @@
                 list.appendChild(li);
             }
 
-            document.getElementById('addUserBtn')?.addEventListener('click', () => {
-                const sel = document.getElementById('userSelect');
-                const val = parseInt(sel?.value || '0', 10);
-                if (!val) return;
-                const opt = sel.selectedOptions[0];
-                const name = opt?.getAttribute('data-name') || opt?.textContent || '';
-                const info = opt?.getAttribute('data-service') || '';
-                const item = { id: val, type: 'Utilisateur', name, info };
-                if (!pending.some(x => x.id === item.id && x.type === item.type)) pending.push(item);
-                addListItem(item); syncPending(); sel.value = '';
-            });
+                    document.getElementById('addUserBtn')?.addEventListener('click', () => {
+            const sel = document.getElementById('userSelect');
+            const val = parseInt(sel?.value || '0', 10);
+            if (!val) return;
+
+            const opt = sel.selectedOptions[0];
+            const name = opt?.getAttribute('data-name') || opt?.textContent?.trim() || '';
+            const info = opt?.getAttribute('data-service') || '';
+            const email = (opt?.getAttribute('data-email') || '').trim();
+
+            // Anti-doublon par id OU email sur (existantes + nouvelles)
+            const exists = [...assignedExisting, ...pending].some(x =>
+                x.type === 'Utilisateur' && (x.id === val || (email && x.email === email))
+            );
+            if (exists) {
+                alert('Cet utilisateur est déjà affecté');
+                return;
+            }
+
+            const item = { id: val, type: 'Utilisateur', name, info, email };
+            pending.push(item);
+            addListItem(item);
+            syncPending();                  // met à jour la valeur pour la soumission (nouvelles)
+            sel.value = '';
+
+            // Met à jour la valeur “calendrier” (existantes + nouvelles) et rafraîchit
+            renderAffectationsForCalendar();
+        });
 
             document.getElementById('addGroupBtn')?.addEventListener('click', () => {
                 const sel = document.getElementById('groupSelect');
@@ -1185,28 +1309,42 @@
                 addListItem(item); syncPending(); sel.value = '';
             });
 
-            document.addEventListener('click', (e) => {
-                const btn = e.target.closest('.btn-remove-aff');
-                if (!btn) return;
-                const li = btn.closest('li');
-                if (!li) return;
+                    document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-remove-aff');
+            if (!btn) return;
+            const li = btn.closest('li');
+            if (!li) return;
 
-                if (li.dataset.existing === 'true') {
-                    const affId = li.dataset.affectationId;
-                    if (affId && delField) {
-                        const arr = delField.value ? JSON.parse(delField.value) : [];
-                        const num = parseInt(affId, 10);
-                        if (!arr.includes(num)) arr.push(num);
-                        delField.value = JSON.stringify(arr);
-                    }
-                } else {
-                    const nameText = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
-                    const type = li.dataset.type || 'Utilisateur';
-                    pending = pending.filter(x => !(x.name === nameText && x.type === type));
-                    syncPending();
+            const liType = li.dataset.type || 'Utilisateur';
+            const liEmail = (li.dataset.email || '').trim();
+            const nameText = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
+
+            if (li.dataset.existing === 'true') {
+                // Marquer pour suppression côté serveur
+                const affId = li.dataset.affectationId;
+                if (affId && delField) {
+                    const arr = delField.value ? JSON.parse(delField.value) : [];
+                    const num = parseInt(affId, 10);
+                    if (!arr.includes(num)) arr.push(num);
+                    delField.value = JSON.stringify(arr);
                 }
-                li.remove();
-            });
+                // ET retirer de la liste “existantes” pour le calendrier
+                assignedExisting = assignedExisting.filter(x => {
+                    if ((x.type || 'Utilisateur') !== liType) return true;
+                    if (liEmail && x.email) return x.email.trim().toLowerCase() !== liEmail.toLowerCase();
+                    return x.name !== nameText; // fallback par nom
+                });
+            } else {
+                // Retirer des “nouvelles” (pending) pour soumission
+                pending = pending.filter(x => !(x && x.name === nameText && x.type === liType));
+                syncPending();
+            }
+
+            li.remove();
+
+            // Rafraîchir le calendrier (existantes + nouvelles)
+            renderAffectationsForCalendar();
+        });
         });
 
                 // AJOUTER ce script dans Clone.cshtml ET Edit.cshtml
