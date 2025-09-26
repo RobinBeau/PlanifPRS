@@ -1047,14 +1047,7 @@
             if (ligneSelect && !ligneSelect.value) { e.preventDefault(); alert('Veuillez sélectionner une ligne.'); ligneSelect.focus(); return false; }
                     // Forcer le hidden à ne contenir QUE les nouvelles affectations avant envoi
                 // Forcer le hidden à ne contenir QUE les nouvelles affectations avant envoi
-        try {
-            const dataField = document.getElementById('affectationsData');
-            if (dataField) {
-                dataField.value = JSON.stringify(
-                    (window.__edit_pending__ || []).map(p => ({ id: p.id, type: p.type, name: p.name, info: p.info }))
-                );
-            }
-        } catch {}
+     
 
             console.log('[EDIT] Soumission du formulaire');
         });

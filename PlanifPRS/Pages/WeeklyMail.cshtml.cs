@@ -5,34 +5,30 @@ namespace PlanifPRS.Pages
 {
     public class WeeklyMailModel : PageModel
     {
-        public string CurrentWeek { get; set; }
+        public string CurrentWeek { get; set; } = "";
         public int WeekNumber { get; set; }
-        public string NextWeek { get; set; }
+        public string NextWeek { get; set; } = "";
         public int NextWeekNumber { get; set; }
-        public List<PrsData> SamplePrsData { get; set; }
+        public List<PrsData> SamplePrsData { get; set; } = new();
 
         public void OnGet()
         {
-            // ✅ UTILISER LA DATE RÉELLE DU SERVEUR
             var today = DateTime.Now;
 
-            // ✅ DEBUG - FORCER LA DATE À JUILLET 2025 POUR TESTER
-            // Décommente cette ligne si tu veux tester avec la vraie date actuelle
-            // today = new DateTime(2025, 7, 2); // 2 juillet 2025
+            // DEBUG (option) :
+            // today = new DateTime(2025, 7, 2);
 
-            // ✅ CALCUL CORRECT DE LA SEMAINE ACTUELLE (ISO 8601)
             WeekNumber = ISOWeek.GetWeekOfYear(today);
             CurrentWeek = GetISOWeek(today);
 
-            // ✅ CALCUL DE LA SEMAINE PROCHAINE
             var nextWeekDate = today.AddDays(7);
             NextWeekNumber = ISOWeek.GetWeekOfYear(nextWeekDate);
             NextWeek = GetISOWeek(nextWeekDate);
 
-            // Données d'exemple pour le développement
+            // Petites données d’exemple
             SamplePrsData = new List<PrsData>
             {
-                new PrsData
+                new()
                 {
                     DateDebut = DateTime.Now.AddDays(1),
                     Description = "PRS RENAULT SLAVE PCBA - Préparation programme de vernissage",
@@ -40,7 +36,7 @@ namespace PlanifPRS.Pages
                     Commentaires = "pas d'ACI + vernissage 2 flans",
                     PresenceClient = "Client absent"
                 },
-                new PrsData
+                new()
                 {
                     DateDebut = DateTime.Now.AddDays(2),
                     Description = "PRS EMOTORS M3 unitaire",
@@ -48,7 +44,7 @@ namespace PlanifPRS.Pages
                     Commentaires = "WARNING : 10 plateaux, se limiter à 50 pièces",
                     PresenceClient = "Client absent"
                 },
-                new PrsData
+                new()
                 {
                     DateDebut = DateTime.Now.AddDays(3),
                     Description = "PRS BONTAZ STLA BO74731136",
@@ -61,9 +57,9 @@ namespace PlanifPRS.Pages
 
         private string GetISOWeek(DateTime date)
         {
-            var year = ISOWeek.GetYear(date);  // ✅ UTILISER GetYear pour l'année ISO
+            // Année ISO potentiellement différente de date.Year
+            var year = ISOWeek.GetYear(date);
             var week = ISOWeek.GetWeekOfYear(date);
-
             return $"{year}-W{week:D2}";
         }
     }
@@ -71,9 +67,9 @@ namespace PlanifPRS.Pages
     public class PrsData
     {
         public DateTime DateDebut { get; set; }
-        public string Description { get; set; }
-        public string Ligne { get; set; }
-        public string Commentaires { get; set; }
-        public string PresenceClient { get; set; }
+        public string Description { get; set; } = "";
+        public string Ligne { get; set; } = "";
+        public string Commentaires { get; set; } = "";
+        public string PresenceClient { get; set; } = "";
     }
 }

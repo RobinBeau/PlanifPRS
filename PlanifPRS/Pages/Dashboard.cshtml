@@ -37,7 +37,6 @@
         <div class="alert alert-success">@Model.Flash</div>
     }
 
-    @* Alerte conflits PRS parent/enfant (Finition commence avant la fin du parent CMS) *@
     @if (Model.ParentChildAlerts.Any())
     {
         <div class="alert alert-danger shadow-sm mb-3">
@@ -65,7 +64,44 @@
         </div>
     }
 
-    <!-- Cartes de synthèse -->
+    @if (Model.PrsAbsenceAlerts != null && Model.PrsAbsenceAlerts.Any())
+    {
+        <div class="alert alert-warning shadow-sm mb-3">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <i class="fas fa-user-slash me-2"></i>
+                    <strong>PRS avec intervenants absents :</strong> @Model.PrsAbsenceAlerts.Count
+                    <div class="small text-muted">
+                        Ressources (Out Of Office) détectées sur l’horizon.
+                    </div>
+                </div>
+                <a href="/Index" class="btn btn-sm btn-outline-dark">
+                    <i class="fas fa-arrow-right me-1"></i>Planning
+                </a>
+            </div>
+            <ul class="mt-2 mb-0 small">
+                @foreach (var a in Model.PrsAbsenceAlerts.Take(8))
+                {
+                    <li>
+                        #@a.PrsId "@a.Titre"
+                        (@a.DateDebut.ToString("dd/MM HH:mm") → @a.DateFin.ToString("dd/MM HH:mm"))
+                        : <span class="text-danger fw-semibold">@string.Join(", ", a.AbsentLogins)</span>
+                    </li>
+                }
+            </ul>
+            @if (Model.PrsAbsenceAlerts.Count > 8)
+            {
+                <div class="small text-muted mt-1">… et @(Model.PrsAbsenceAlerts.Count - 8) autres</div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-secondary small py-2 mb-3">
+            <i class="fas fa-user-check me-1"></i>Aucune absence détectée sur les PRS en cours ou dans les 30 jours.
+        </div>
+    }
+
     <div class="row g-3 mb-4">
         <div class="col-12 col-sm-6 col-lg-3">
             <div class="card kpi-card shadow-sm">
@@ -320,8 +356,21 @@
                                 <tbody>
                                     @foreach (var p in Model.UpcomingPrs)
                                     {
+                                        var absenceAlert = Model.PrsAbsenceAlerts?.FirstOrDefault(a => a.PrsId == p.Id);
+                                        var absenceTitle = absenceAlert != null
+                                        ? "Absents: " + string.Join(", ", absenceAlert.AbsentLogins ?? new List<string>())
+                                        : string.Empty;
+
                                         <tr>
-                                            <td>@p.Titre</td>
+                                            <td>
+                                                @p.Titre
+                                                @if (absenceAlert != null)
+                                                {
+                                                    <span class="badge bg-warning text-dark ms-1" title="@absenceTitle">
+                                                        <i class="fas fa-user-slash"></i>
+                                                    </span>
+                                                }
+                                            </td>
                                             <td>
                                                 @if (p.Statut == "Validé")
                                                 {
@@ -392,7 +441,7 @@
 
 @section Scripts {
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const slider = document.getElementById('dueSoonSlider');
             const value = document.getElementById('dueSoonValue');
             const soonList = document.getElementById('soonList');
@@ -412,7 +461,7 @@
                 });
                 if (soonCount) soonCount.innerText = count;
                 if (kpiSoonValue) kpiSoonValue.innerText = count;
-                try { localStorage.setItem('dashboard.dueSoonDays', maxDays.toString()); } catch {}
+                try { localStorage.setItem('dashboard.dueSoonDays', maxDays.toString()); } catch { }
             }
 
             slider.addEventListener('input', applySoonFilter);
@@ -423,7 +472,7 @@
                     slider.value = saved;
                     value.innerText = saved;
                 }
-            } catch {}
+            } catch { }
 
             applySoonFilter();
         });

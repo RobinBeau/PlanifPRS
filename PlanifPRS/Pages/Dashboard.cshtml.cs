@@ -1,12 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using PlanifPRS.Data;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using PlanifPRS.Infrastructure.Graph;
+using System.Text.Json;
+using IOFile = System.IO.File;          // Alias pour éviter le conflit avec PageModel.File
 
 namespace PlanifPRS.Pages
 {
@@ -14,11 +12,15 @@ namespace PlanifPRS.Pages
     {
         private readonly PlanifPrsDbContext _context;
         private readonly ILogger<DashboardModel> _logger;
+        private readonly IWebHostEnvironment _env;
 
-        public DashboardModel(PlanifPrsDbContext context, ILogger<DashboardModel> logger)
+        public DashboardModel(PlanifPrsDbContext context,
+                              ILogger<DashboardModel> logger,
+                              IWebHostEnvironment env)
         {
             _context = context;
             _logger = logger;
+            _env = env;
         }
 
         [TempData] public string Flash { get; set; }
@@ -36,9 +38,9 @@ namespace PlanifPRS.Pages
         public List<ChecklistItemVM> DueSoonItems { get; private set; } = new();
         public List<PrsCardVM> UpcomingPrs { get; private set; } = new();
         public List<ActivityVM> RecentPrs { get; private set; } = new();
-
-        // Alerts: PRS enfant (Finition) commence avant la fin de la PRS parente (CMS)
         public List<ParentChildAlertVM> ParentChildAlerts { get; private set; } = new();
+
+        public List<PrsAbsenceAlertVM> PrsAbsenceAlerts { get; private set; } = new();
 
         private int _userId;
         private List<int> _myGroupIds = new();
@@ -47,7 +49,6 @@ namespace PlanifPRS.Pages
         {
             try
             {
-                // Contexte utilisateur
                 CurrentUserLogin = GetCurrentUserLogin();
                 var user = await _context.Utilisateurs
                     .AsNoTracking()
@@ -63,7 +64,6 @@ namespace PlanifPRS.Pages
                 CurrentUserRole = string.IsNullOrWhiteSpace(user.Droits) ? "-" : user.Droits;
                 IsManagerView = IsManager(user.Droits);
 
-                // Groupes dont je suis membre (via Membres)
                 _myGroupIds = await _context.GroupesUtilisateurs
                     .AsNoTracking()
                     .Where(g => g.Actif && g.Membres.Any(m => m.UtilisateurId == _userId))
@@ -73,7 +73,6 @@ namespace PlanifPRS.Pages
 
                 var today = DateTime.Today;
 
-                // Pré-calcul des IDs des éléments et PRS affectés (pour éviter sous-requêtes Any => CTE)
                 List<int> myChecklistIds = new();
                 List<int> prsIdsAssigned = new();
 
@@ -98,8 +97,6 @@ namespace PlanifPRS.Pages
                         .ToListAsync();
                 }
 
-                // Base checklist (permissions) - filtrage par liste d'IDs
-                // EXCLUSION des PRS "Supprimé"
                 var baseChecklist = IsManagerView
                     ? (from c in _context.PrsChecklists.AsNoTracking()
                        join p in _context.Prs.AsNoTracking().Where(p => p.Statut != "Supprimé") on c.PRSId equals p.Id
@@ -121,7 +118,7 @@ namespace PlanifPRS.Pages
                 {
                     var delai = r.c.DelaiDefautJours > 0 ? r.c.DelaiDefautJours : 1;
                     var due = r.c.DateEcheance.HasValue ? r.c.DateEcheance.Value.Date : r.p.DateDebut.Date.AddDays(delai);
-                    var daysLeft = (int)Math.Floor((due - today).TotalDays);
+                    var daysLeft = (int)Math.Floor((due - DateTime.Today).TotalDays);
                     return new ChecklistItemVM
                     {
                         Id = r.c.Id,
@@ -141,9 +138,8 @@ namespace PlanifPRS.Pages
                     };
                 }).ToList();
 
-                // Synthèse perso
                 var open = items.Where(i => !i.IsValidated).ToList();
-                var late = open.Where(i => i.DueDate < today).ToList();
+                var late = open.Where(i => i.DueDate < DateTime.Today).ToList();
                 var todayList = open.Where(i => i.DaysLeft == 0).ToList();
                 var soon = open.Where(i => i.DaysLeft > 0 && i.DaysLeft <= DefaultDueSoonDays).ToList();
 
@@ -167,19 +163,16 @@ namespace PlanifPRS.Pages
                     .Take(10)
                     .ToList();
 
-                // PRS à venir (exclure Supprimé)
                 var prsQuery = _context.Prs.AsNoTracking()
-                    .Where(p => p.DateDebut >= today && p.Statut != "Supprimé");
+                    .Where(p => p.DateDebut >= DateTime.Today && p.Statut != "Supprimé");
 
                 if (!IsManagerView)
-                {
                     prsQuery = prsQuery.Where(p => prsIdsAssigned.Contains(p.Id));
-                }
 
                 UpcomingPrs = await prsQuery
                     .OrderBy(p => p.DateDebut)
                     .ThenBy(p => p.Titre)
-                    .Take(8)
+                    .Take(12)
                     .Select(p => new PrsCardVM
                     {
                         Id = p.Id,
@@ -190,13 +183,10 @@ namespace PlanifPRS.Pages
                     })
                     .ToListAsync();
 
-                // Activité récente PRS (exclure Supprimé)
                 var recentQuery = _context.Prs.AsNoTracking()
                     .Where(p => p.Statut != "Supprimé");
                 if (!IsManagerView)
-                {
                     recentQuery = recentQuery.Where(p => prsIdsAssigned.Contains(p.Id));
-                }
 
                 RecentPrs = await recentQuery
                     .OrderByDescending(p => p.DerniereModification)
@@ -211,10 +201,7 @@ namespace PlanifPRS.Pages
                     })
                     .ToListAsync();
 
-                // ALERTES: Conflits parent/enfant (enfant "Finition" démarre avant fin parent "CMS")
-                // On filtre "Supprimé" et on tolère d'anciens enregistrements avec emojis via Contains("Finition")
                 var basePrs = _context.Prs.AsNoTracking().Where(p => p.Statut != "Supprimé");
-
                 var conflictsQuery =
                     from child in basePrs
                     join parent in basePrs on child.PrsParentId equals parent.Id
@@ -224,10 +211,8 @@ namespace PlanifPRS.Pages
                     select new { child, parent };
 
                 if (!IsManagerView)
-                {
                     conflictsQuery = conflictsQuery.Where(x =>
                         prsIdsAssigned.Contains(x.child.Id) || prsIdsAssigned.Contains(x.parent.Id));
-                }
 
                 ParentChildAlerts = await conflictsQuery
                     .OrderBy(x => x.child.DateDebut)
@@ -243,12 +228,10 @@ namespace PlanifPRS.Pages
                     })
                     .ToListAsync();
 
-                // Vue manager (exclure Supprimé dans toutes les métriques)
                 if (IsManagerView)
                 {
-                    var allPrs = _context.Prs
-                        .AsNoTracking()
-                        .Where(p => p.Statut != "Supprimé"); // EXCLUSION
+                    var allPrs = _context.Prs.AsNoTracking()
+                        .Where(p => p.Statut != "Supprimé");
 
                     var enAttenteCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "En attente");
                     var aReValiderCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "À re-valider");
@@ -273,7 +256,7 @@ namespace PlanifPRS.Pages
 
                     AdminSummary = new AdminSummaryVM
                     {
-                        TotalPrs = await allPrs.CountAsync(), // déjà sans Supprimé
+                        TotalPrs = await allPrs.CountAsync(),
                         PrsEnAttente = enAttenteCount,
                         PrsAReValider = aReValiderCount,
                         PrsValidees = valideesCount,
@@ -282,6 +265,8 @@ namespace PlanifPRS.Pages
                         PrsEnAttenteList = pendingList
                     };
                 }
+
+                await BuildAbsenceAlertsFromJsonAsync(DateTime.Today, IsManagerView ? null : prsIdsAssigned);
             }
             catch (Exception ex)
             {
@@ -292,7 +277,273 @@ namespace PlanifPRS.Pages
             return Page();
         }
 
-        // Validation depuis le dashboard
+        private async Task BuildAbsenceAlertsFromJsonAsync(DateTime today, List<int>? limitedPrsIds)
+        {
+            // Active ou désactive les logs de debug détaillés
+            const bool DEBUG_ABSENCES = false;
+
+            try
+            {
+                var aggregates = await LoadLatestAbsenceSnapshotAsync();
+                if (aggregates.Count == 0)
+                {
+                    if (DEBUG_ABSENCES) _logger.LogInformation("[ABS] Pas de snapshot d'absences.");
+                    return;
+                }
+
+                const int HORIZON_DAYS = 30;
+                var horizon = today.AddDays(HORIZON_DAYS);
+
+                // Inclure PRS en cours OU à venir : DateFin >= today && DateDebut <= horizon
+                var prsQuery = _context.Prs.AsNoTracking()
+                    .Where(p => p.Statut != "Supprimé" &&
+                                p.DateFin >= today &&
+                                p.DateDebut <= horizon);
+
+                if (limitedPrsIds != null)
+                    prsQuery = prsQuery.Where(p => limitedPrsIds.Contains(p.Id));
+
+                var prsList = await prsQuery
+                    .Select(p => new { p.Id, p.Titre, p.DateDebut, p.DateFin })
+                    .ToListAsync();
+                if (prsList.Count == 0)
+                {
+                    if (DEBUG_ABSENCES) _logger.LogInformation("[ABS] Aucune PRS à couvrir dans la fenêtre.");
+                    return;
+                }
+
+                var prsIds = prsList.Select(p => p.Id).ToList();
+
+                var direct = await _context.PrsAffectations.AsNoTracking()
+                    .Where(a => prsIds.Contains(a.PrsId) &&
+                                a.UtilisateurId.HasValue &&
+                                a.TypeAffectation == "Utilisateur")
+                    .Select(a => new { a.PrsId, UserId = a.UtilisateurId!.Value })
+                    .ToListAsync();
+
+                var groupLinks = await _context.PrsAffectations.AsNoTracking()
+                    .Where(a => prsIds.Contains(a.PrsId) &&
+                                a.GroupeId.HasValue &&
+                                a.TypeAffectation == "Groupe")
+                    .Select(a => new { a.PrsId, a.GroupeId })
+                    .ToListAsync();
+
+                var expanded = new List<(int PrsId, int UserId)>();
+                if (groupLinks.Any())
+                {
+                    var groupIds = groupLinks.Select(g => g.GroupeId!.Value).Distinct().ToList();
+                    var members = await _context.GroupeUtilisateurs
+                        .AsNoTracking()
+                        .Where(m => groupIds.Contains(m.GroupeId))
+                        .Select(m => new { m.GroupeId, m.UtilisateurId })
+                        .ToListAsync();
+
+                    var map = members
+                        .GroupBy(m => m.GroupeId)
+                        .ToDictionary(g => g.Key, g => g.Select(x => x.UtilisateurId).Distinct().ToList());
+
+                    foreach (var gl in groupLinks)
+                    {
+                        if (gl.GroupeId.HasValue && map.TryGetValue(gl.GroupeId.Value, out var users))
+                            foreach (var u in users)
+                                expanded.Add((gl.PrsId, u));
+                    }
+                }
+
+                var allPairs = direct
+                    .Select(d => (d.PrsId, d.UserId))
+                    .Concat(expanded)
+                    .Distinct()
+                    .ToList();
+                if (allPairs.Count == 0)
+                {
+                    if (DEBUG_ABSENCES) _logger.LogInformation("[ABS] Aucune affectation utilisateur trouvée.");
+                    return;
+                }
+
+                var userIds = allPairs.Select(p => p.UserId).Distinct().ToList();
+
+                var utilisateurs = await _context.Utilisateurs.AsNoTracking()
+                    .Where(u => userIds.Contains(u.Id) && u.DateDeleted == null)
+                    .Select(u => new { u.Id, u.Mail, u.LoginWindows })
+                    .ToListAsync();
+                if (utilisateurs.Count == 0)
+                {
+                    if (DEBUG_ABSENCES) _logger.LogInformation("[ABS] Liste userIds vide dans la base.");
+                    return;
+                }
+
+                string FallbackMail(string mail, string login)
+                    => string.IsNullOrWhiteSpace(mail)
+                        ? (!string.IsNullOrWhiteSpace(login) ? login.Trim().ToLowerInvariant() + "@local" : null)
+                        : mail.Trim();
+
+                var mailByUserId = utilisateurs.ToDictionary(
+                    u => u.Id,
+                    u => FallbackMail(u.Mail ?? "", u.LoginWindows ?? "") ?? $"u{u.Id}@local");
+
+                var labelByUserId = utilisateurs.ToDictionary(
+                    u => u.Id,
+                    u => string.IsNullOrWhiteSpace(u.LoginWindows) ? (u.Mail ?? $"User#{u.Id}") : u.LoginWindows);
+
+                var eventsByEmail = aggregates
+                    .SelectMany(a => a.Events.Select(ev => new
+                    {
+                        Email = (a.Email ?? "").Trim().ToLowerInvariant(),
+                        ev
+                    }))
+                    .GroupBy(x => x.Email)
+                    .ToDictionary(g => g.Key, g => g.Select(x => x.ev).ToList());
+
+                if (DEBUG_ABSENCES)
+                    _logger.LogInformation("[ABS DEBUG] Agg={Agg} PRS={PRS} Direct={Dir} GroupLinks={Grp} Expanded={Exp} Users={Usr} EventsIdx={Evt}",
+                        aggregates.Count, prsList.Count, direct.Count, groupLinks.Count, expanded.Count, utilisateurs.Count, eventsByEmail.Count);
+
+                var alerts = new List<PrsAbsenceAlertVM>();
+
+                foreach (var prs in prsList)
+                {
+                    var participants = allPairs
+                        .Where(p => p.PrsId == prs.Id)
+                        .Select(p => p.UserId)
+                        .Distinct()
+                        .ToList();
+
+                    if (participants.Count == 0) continue;
+
+                    var absents = new List<string>();
+
+                    foreach (var uid in participants)
+                    {
+                        if (!mailByUserId.TryGetValue(uid, out var emailRaw) || string.IsNullOrWhiteSpace(emailRaw))
+                            continue;
+
+                        var key = emailRaw.Trim().ToLowerInvariant();
+                        if (!eventsByEmail.TryGetValue(key, out var evts) || evts.Count == 0)
+                            continue;
+
+                        // OPTION UTC si nécessaire:
+                        // var prsStartUtc = DateTime.SpecifyKind(prs.DateDebut, DateTimeKind.Local).ToUniversalTime();
+                        // var prsEndUtc   = DateTime.SpecifyKind(prs.DateFin, DateTimeKind.Local).ToUniversalTime();
+
+                        bool overlap = evts.Any(e =>
+                            e.IsOutOfOffice &&
+                            e.End >= prs.DateDebut &&   // >= pour inclure fin collée
+                            e.Start <= prs.DateFin);    // <= pour inclure début collé
+
+                        if (overlap)
+                        {
+                            absents.Add(labelByUserId[uid]);
+                            if (DEBUG_ABSENCES)
+                            {
+                                var firstEvt = evts.First(e => e.IsOutOfOffice &&
+                                                               e.End >= prs.DateDebut &&
+                                                               e.Start <= prs.DateFin);
+                                _logger.LogInformation("[ABS DEBUG] PRS {Id} absent {User} (Evt {S:o}->{E:o})",
+                                    prs.Id, labelByUserId[uid], firstEvt.Start, firstEvt.End);
+                            }
+                        }
+                    }
+
+                    if (absents.Count > 0)
+                    {
+                        alerts.Add(new PrsAbsenceAlertVM
+                        {
+                            PrsId = prs.Id,
+                            Titre = prs.Titre,
+                            DateDebut = prs.DateDebut,
+                            DateFin = prs.DateFin,
+                            AbsentLogins = absents.OrderBy(a => a).ToList()
+                        });
+                    }
+                }
+
+                PrsAbsenceAlerts = alerts
+                    .OrderBy(a => a.DateDebut)
+                    .Take(60)
+                    .ToList();
+
+                if (DEBUG_ABSENCES)
+                    _logger.LogInformation("[ABS RESULT] Alerts={Count}", PrsAbsenceAlerts.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[DASHBOARD] Erreur BuildAbsenceAlertsFromJsonAsync");
+            }
+        }
+
+        private async Task<List<UserAbsenceAggregate>> LoadLatestAbsenceSnapshotAsync()
+        {
+            var list = new List<UserAbsenceAggregate>();
+            try
+            {
+                var dir = Path.Combine(_env.ContentRootPath, "Data", "Absences");
+                if (!Directory.Exists(dir))
+                {
+                    _logger.LogInformation("[ABSENCES] Dossier inexistant: {Dir}", dir);
+                    return list;
+                }
+
+                var files = Directory.GetFiles(dir, "absences-*.json", SearchOption.TopDirectoryOnly);
+                if (files.Length == 0)
+                {
+                    _logger.LogInformation("[ABSENCES] Aucun fichier absences-*.json");
+                    return list;
+                }
+
+                string? latest = null;
+                DateTime maxDate = DateTime.MinValue;
+
+                foreach (var f in files)
+                {
+                    var name = Path.GetFileNameWithoutExtension(f);
+                    var parts = name.Split('-', 2);
+                    if (parts.Length == 2 && DateTime.TryParseExact(parts[1], "yyyyMMdd",
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None,
+                            out var d))
+                    {
+                        if (d > maxDate) { maxDate = d; latest = f; }
+                    }
+                }
+
+                latest ??= files
+                    .OrderByDescending(f => IOFile.GetLastWriteTimeUtc(f))
+                    .First();
+
+                var json = await IOFile.ReadAllTextAsync(latest);
+                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+
+                var arr = JsonSerializer.Deserialize<List<UserAbsenceAggregate>>(json, opts);
+                if (arr != null)
+                {
+                    list = arr;
+                }
+                else
+                {
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                    {
+                        if (doc.RootElement.TryGetProperty("aggregates", out var agEl) && agEl.ValueKind == JsonValueKind.Array)
+                        {
+                            var ag2 = JsonSerializer.Deserialize<List<UserAbsenceAggregate>>(agEl.GetRawText(), opts);
+                            if (ag2 != null) list = ag2;
+                        }
+                        else if (doc.RootElement.TryGetProperty("users", out var usersEl) && usersEl.ValueKind == JsonValueKind.Array)
+                        {
+                            var ag3 = JsonSerializer.Deserialize<List<UserAbsenceAggregate>>(usersEl.GetRawText(), opts);
+                            if (ag3 != null) list = ag3;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[ABSENCES] Impossible de charger le snapshot JSON");
+            }
+            return list;
+        }
+
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> OnPostValidateChecklistAsync(int checklistId)
         {
@@ -303,7 +554,6 @@ namespace PlanifPRS.Pages
                 if (user == null) { ErrorMessage = "Utilisateur inconnu."; return RedirectToPage(); }
 
                 var isManager = IsManager(user.Droits);
-
                 var item = await _context.PrsChecklists.FirstOrDefaultAsync(c => c.Id == checklistId);
                 if (item == null) { ErrorMessage = "Élément introuvable."; return RedirectToPage(); }
 
@@ -355,7 +605,6 @@ namespace PlanifPRS.Pages
                 if (user == null) { ErrorMessage = "Utilisateur inconnu."; return RedirectToPage(); }
 
                 var isManager = IsManager(user.Droits);
-
                 var item = await _context.PrsChecklists.FirstOrDefaultAsync(c => c.Id == checklistId);
                 if (item == null) { ErrorMessage = "Élément introuvable."; return RedirectToPage(); }
 
@@ -411,7 +660,7 @@ namespace PlanifPRS.Pages
             return d == "admin" || d == "cdp" || d == "validateur";
         }
 
-        // VMs
+        // ----- VM Classes -----
         public class SummaryVM
         {
             public int TotalOpenItems { get; set; }
@@ -486,6 +735,15 @@ namespace PlanifPRS.Pages
             public int ParentId { get; set; }
             public string ParentTitre { get; set; }
             public DateTime ParentDateFin { get; set; }
+        }
+
+        public class PrsAbsenceAlertVM
+        {
+            public int PrsId { get; set; }
+            public string Titre { get; set; }
+            public DateTime DateDebut { get; set; }
+            public DateTime DateFin { get; set; }
+            public List<string> AbsentLogins { get; set; } = new();
         }
     }
 }

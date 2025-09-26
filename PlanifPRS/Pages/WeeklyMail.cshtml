@@ -25,24 +25,42 @@
             </div>
             <div class="card-body" style="background:#f8f9fa;padding:30px;">
 
-                <!-- Sélection semaine -->
+                <!-- Sélection semaines -->
                 <div class="row mb-4">
-                    <div class="col-md-6">
+                    <div class="col-lg-7">
                         <div class="card border-0 shadow-sm" style="background:linear-gradient(135deg,#3498db,#2980b9);border-radius:15px;">
                             <div class="card-body text-white">
                                 <label class="form-label fw-bold">
-                                    <i class="fas fa-calendar-week me-1"></i>Sélectionner la semaine
+                                    <i class="fas fa-calendar-week me-1"></i>Sélectionner la semaine (ou 2 semaines)
                                 </label>
-                                <div class="input-group">
+
+                                <div class="input-group mb-2">
                                     <input type="week" id="selectedWeek" class="form-control border-0 shadow-sm" value="@Model.CurrentWeek" style="border-radius:10px;">
                                     <button class="btn btn-light border-0 shadow-sm ms-2" type="button" onclick="loadWeekData()" style="border-radius:10px;">
                                         <i class="fas fa-sync-alt me-1"></i>Charger
                                     </button>
                                 </div>
+
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="dualWeekMode" onchange="toggleSecondWeek()">
+                                    <label class="form-check-label" for="dualWeekMode">Sélection 2 semaines</label>
+                                </div>
+
+                                <div id="secondWeekWrapper" class="mb-2" style="display:none;">
+                                    <div class="input-group">
+                                        <input type="week" id="selectedWeek2" class="form-control border-0 shadow-sm">
+                                        <button class="btn btn-light border-0 shadow-sm ms-2" type="button" onclick="loadWeekData()" style="border-radius:10px;">
+                                            <i class="fas fa-sync-alt me-1"></i>Recharger 2 sem.
+                                        </button>
+                                    </div>
+                                    <small class="opacity-75">Les deux semaines seront fusionnées.</small>
+                                </div>
+
                                 <small class="opacity-75">
                                     Semaine actuelle : S@(Model.WeekNumber) | Semaine prochaine : S@(Model.NextWeekNumber)
                                 </small>
-                                <div class="mt-2">
+
+                                <div class="mt-3">
                                     <button type="button" class="btn btn-outline-light btn-sm me-2" onclick="selectCurrentWeek()" style="border-radius:10px;">
                                         <i class="fas fa-calendar-day me-1"></i>Semaine actuelle (S@(Model.WeekNumber))
                                     </button>
@@ -53,19 +71,25 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="card border-0 shadow-sm" style="background:linear-gradient(135deg,#27ae60,#229954);border-radius:15px;">
+
+                    <!-- Options -->
+                    <div class="col-lg-5 mt-3 mt-lg-0">
+                        <div class="card border-0 shadow-sm h-100" style="background:linear-gradient(135deg,#27ae60,#229954);border-radius:15px;">
                             <div class="card-body text-white">
                                 <label class="form-label fw-bold">
                                     <i class="fas fa-cog me-1"></i>Options
                                 </label>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="includeWarnings" checked>
-                                    <label class="form-check-label" for="includeWarnings">Inclure les avertissements/notes</label>
+                                    <label class="form-check-label" for="includeWarnings">Inclure les avertissements / notes</label>
                                 </div>
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="groupBySection" checked>
                                     <label class="form-check-label" for="groupBySection">Grouper par secteur</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="autoReplaceEmails" checked>
+                                    <label class="form-check-label" for="autoReplaceEmails">Toujours remplacer les destinataires</label>
                                 </div>
                             </div>
                         </div>
@@ -215,7 +239,7 @@
                             <div class="card border-0 shadow-sm text-white"
                                  style="background:linear-gradient(135deg,#27ae60,#229954);border-radius:15px;">
                                 <div class="card-body">
-                                    <h4 id="totalDays">0</h4><small>Jours avec PRS</small>
+                                    <h4 id="totalDays">0</h4><small>Jours distincts</small>
                                 </div>
                             </div>
                         </div>
@@ -245,28 +269,187 @@ const nextWeek = '@Model.NextWeek';
 const currentWeekNumber = @Model.WeekNumber;
 const nextWeekNumber = @Model.NextWeekNumber;
 const MAILTO_LIMIT = 4500;
+const ALWAYS_INCLUDE_EMAILS = ["direction@entreprise.com","qualite@entreprise.com"];
 
 let availableSecteurs = [];
-let weeklyUsers = { AllEmails: [], EmailsFormatted: '', TotalUsers: 0, UsersByService: [] };
+let weeklyUsers = { TotalUsers:0, AllEmails:[], EmailsFormatted:'', UsersByService:[] };
 
-/* Regex adaptées à Razor (pas de suivi de [) via \u0040 */
-const EMAIL_REGEX_STRICT   = /^[A-Z0-9._%+-]+\u0040[A-Z0-9.-]+\.[A-Z]{2,}$/i; // domaine avec point
-const EMAIL_REGEX_INTERNAL = /^[A-Z0-9._%+-]+\u0040[A-Z0-9.-]+$/i;            // accepte domaine sans point
-const EMAIL_TOKEN_FINDER   = /[A-Z0-9._%+-]+\u0040[A-Z0-9.-]+\.[A-Z]{1,}/ig;
+/* Regex Email */
+        const EMAIL_REGEX_STRICT   = /^[A-Z0-9._%+-]+@@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+        const EMAIL_REGEX_INTERNAL = /^[A-Z0-9._%+-]+@@[A-Z0-9.-]+$/i;
+        const EMAIL_TOKEN_FINDER   = /[A-Z0-9._%+-]+@@[A-Z0-9.-]+\.[A-Z]{1,}/ig;
 
-/* ====================== HELPERS UTILISATEURS ====================== */
-function ensureWeeklyUsersShape() {
-    if (!weeklyUsers || typeof weeklyUsers !== 'object')
-        weeklyUsers = { AllEmails: [], EmailsFormatted: '', TotalUsers: 0, UsersByService: [] };
-    if (!Array.isArray(weeklyUsers.AllEmails)) weeklyUsers.AllEmails = [];
-    if (!Array.isArray(weeklyUsers.UsersByService)) weeklyUsers.UsersByService = [];
-    weeklyUsers.EmailsFormatted ||= '';
-    weeklyUsers.TotalUsers ||= 0;
+/* ====================== UTIL SEMAINES ====================== */
+function parseWeekString(weekStr){
+    if(!weekStr || !/^\d{4}-W\d{2}$/.test(weekStr)) return null;
+    const [y,w] = weekStr.split('-W');
+    return {year: parseInt(y,10), week: parseInt(w,10)};
 }
-function extractEmailsFromFormatted(formatted) {
-    if (!formatted) return [];
+function getMondayOfISOWeek(year, week){
+    const jan4 = new Date(Date.UTC(year,0,4));
+    const dayOfWeek = jan4.getUTCDay() || 7;
+    const isoWeek1Monday = new Date(jan4.getTime() - (dayOfWeek - 1)*86400000);
+    return new Date(isoWeek1Monday.getTime() + (week - 1)*7*86400000);
+}
+function endOfWeekFromMonday(mon){ return new Date(mon.getTime() + 6*86400000); }
+function formatDateFR(d){ return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'}); }
+
+function buildWeeksArray(){
+    const w1 = document.getElementById('selectedWeek')?.value;
+    const dual = document.getElementById('dualWeekMode')?.checked;
+    if(!dual) return w1 ? [w1] : [];
+    const w2 = document.getElementById('selectedWeek2')?.value;
+    if(!w1) return [];
+    if(!w2) return [w1];
+    return [w1,w2].sort();
+}
+function computeGlobalWeekRange(weeksArr){
+    if(!weeksArr.length) return null;
+    let minMon=null, maxSun=null;
+    let labels=[];
+    weeksArr.forEach(ws=>{
+        const p=parseWeekString(ws);
+        if(!p) return;
+        const mon=getMondayOfISOWeek(p.year,p.week);
+        const sun=endOfWeekFromMonday(mon);
+        if(!minMon || mon < minMon) minMon = mon;
+        if(!maxSun || sun > maxSun) maxSun = sun;
+        labels.push(p);
+    });
+    labels.sort((a,b)=>(a.year-b.year)||(a.week-b.week));
+    return {monday:minMon,sunday:maxSun,labelWeeks:labels};
+}
+function buildWeeksLabelForHeader(weeksArr){
+    const parsed=weeksArr.map(parseWeekString).filter(Boolean)
+        .sort((a,b)=>(a.year-b.year)||(a.week-b.week));
+    if(!parsed.length) return '';
+    if(parsed.length===1) {
+        const p=parsed[0];
+        return `S${p.week} • ${getWeekDateRange(p.year,p.week)}`;
+    }
+    const first=parsed[0], last=parsed[parsed.length-1];
+    if(first.year===last.year) return `S${first.week}–S${last.week} ${first.year}`;
+    return `S${first.week}/${first.year}–S${last.week}/${last.year}`;
+}
+function buildSubjectDateRangeLabel(weeksArr){
+    const r = computeGlobalWeekRange(weeksArr);
+    if(!r) return '';
+    return `${formatDateFR(r.monday)} au ${formatDateFR(r.sunday)}`;
+}
+function buildSubjectFromWeeks(weeksArr){
+    if(!weeksArr.length) return 'Planning PRS';
+    const r = computeGlobalWeekRange(weeksArr);
+    if(!r) return 'Planning PRS';
+    const first = r.labelWeeks[0];
+    const last  = r.labelWeeks[r.labelWeeks.length-1];
+    let wkLabel;
+    if(first.year===last.year) wkLabel = (first.week===last.week) ? `S${first.week}` : `S${first.week}–S${last.week}`;
+    else wkLabel = `S${first.week}/${first.year}–S${last.week}/${last.year}`;
+    return `Planning PRS ${wkLabel} - Semaine du ${formatDateFR(r.monday)} au ${formatDateFR(r.sunday)}`;
+}
+function toggleSecondWeek(){
+    const dual=document.getElementById('dualWeekMode').checked;
+    const wrap=document.getElementById('secondWeekWrapper');
+    wrap.style.display = dual ? '' : 'none';
+    if(dual && !document.getElementById('selectedWeek2').value){
+        const w1=document.getElementById('selectedWeek').value;
+        const p=parseWeekString(w1);
+        if(p){
+            let nextW=p.week+1;
+            let nextY=p.year;
+            if(nextW>53){ nextW=1; nextY++; }
+            document.getElementById('selectedWeek2').value = `${nextY}-W${String(nextW).padStart(2,'0')}`;
+        }
+    }
+    updateWeekInfo();
+    loadWeekData();
+}
+
+/* ====================== UTILISATEURS / NORMALISATION ====================== */
+function normalizeSingleUsers(raw){
+    if(!raw || typeof raw!=='object') return {
+        TotalUsers:0, AllEmails:[], EmailsFormatted:'', UsersByService:[]
+    };
+    const out = {
+        TotalUsers:  raw.TotalUsers ?? raw.totalUsers ?? 0,
+        AllEmails:   raw.AllEmails ?? raw.allEmails ?? [],
+        EmailsFormatted: raw.EmailsFormatted ?? raw.emailsFormatted ?? '',
+        UsersByService: raw.UsersByService ?? raw.usersByService ?? raw.services ?? []
+    };
+    if(Array.isArray(out.UsersByService)){
+        out.UsersByService = out.UsersByService.map(s=>{
+            const serviceName = s.Service || s.service || s.Nom || s.nom || 'Inconnu';
+            let users = s.Utilisateurs || s.utilisateurs || s.users || s.Users || [];
+            if(!Array.isArray(users) && typeof users==='object') users=Object.values(users);
+            users = users.map(u=>({
+                Prenom: u.Prenom || u.prenom || u.FirstName || u.firstName || '',
+                Nom:    u.Nom || u.nom || u.LastName || u.lastName || '',
+                Email:  u.Email || u.email || u.mail || ''
+            }));
+            return { Service: serviceName, Utilisateurs: users };
+        });
+    } else {
+        out.UsersByService=[];
+    }
+    if(!out.AllEmails.length && out.UsersByService.length){
+        const tmp=[];
+        out.UsersByService.forEach(s=>s.Utilisateurs.forEach(u=>{
+            if(u.Email && !tmp.includes(u.Email)) tmp.push(u.Email);
+        }));
+        out.AllEmails = tmp;
+    }
+    if(!out.TotalUsers){
+        out.TotalUsers = out.UsersByService.reduce((a,s)=>a + s.Utilisateurs.length, 0);
+    }
+    return out;
+}
+function mergeUsers(normalizedArray){
+    const merged = {
+        TotalUsers:0,
+        AllEmails:[],
+        EmailsFormatted:'',
+        UsersByService:[]
+    };
+    const emailSet = new Set();
+    const serviceMap = new Map();
+    normalizedArray.forEach(n=>{
+        if(!n) return;
+        (n.AllEmails||[]).forEach(e=>{ if(e) emailSet.add(e.toLowerCase()); });
+        (n.UsersByService||[]).forEach(s=>{
+            if(!serviceMap.has(s.Service))
+                serviceMap.set(s.Service, { Service:s.Service, Utilisateurs:[], _lower:new Set() });
+            const entry=serviceMap.get(s.Service);
+            s.Utilisateurs.forEach(u=>{
+                const em = u.Email?.toLowerCase();
+                if(em && !entry._lower.has(em)){
+                    entry._lower.add(em);
+                    entry.Utilisateurs.push(u);
+                }
+            });
+        });
+    });
+    merged.AllEmails = Array.from(emailSet);
+    merged.UsersByService = Array.from(serviceMap.values()).map(v=>({ Service:v.Service, Utilisateurs:v.Utilisateurs }));
+    merged.TotalUsers = merged.UsersByService.reduce((a,s)=>a + s.Utilisateurs.length, 0);
+    merged.EmailsFormatted = merged.UsersByService
+        .flatMap(s=>s.Utilisateurs.map(u=>`${u.Prenom} ${u.Nom} <${u.Email}>`))
+        .join('; ');
+    return merged;
+}
+function ensureWeeklyUsersShape(){
+    if(!weeklyUsers || typeof weeklyUsers!=='object')
+        weeklyUsers = { TotalUsers:0, AllEmails:[], EmailsFormatted:'', UsersByService:[] };
+    if(!Array.isArray(weeklyUsers.AllEmails)) weeklyUsers.AllEmails=[];
+    if(!Array.isArray(weeklyUsers.UsersByService)) weeklyUsers.UsersByService=[];
+    weeklyUsers.TotalUsers ||= 0;
+    weeklyUsers.EmailsFormatted ||= '';
+}
+
+/* ====================== EXTRACTION EMAILS ====================== */
+function extractEmailsFromFormatted(formatted){
+    if(!formatted) return [];
     const angled = formatted.match(/<([^>]+)>/g);
-    if (angled) {
+    if(angled){
         return angled.map(m=>m.replace(/[<>]/g,'').trim())
                      .filter(e=>EMAIL_REGEX_STRICT.test(e)||EMAIL_REGEX_INTERNAL.test(e));
     }
@@ -274,73 +457,47 @@ function extractEmailsFromFormatted(formatted) {
         .map(e=>e.trim())
         .filter(e=>EMAIL_REGEX_STRICT.test(e)||EMAIL_REGEX_INTERNAL.test(e));
 }
-function reconstructEmailsFromUsersByService(list) {
-    if (!Array.isArray(list)) return [];
+function reconstructEmailsFromUsersByService(list){
+    if(!Array.isArray(list)) return [];
     const acc=[];
-    list.forEach(s => (s.Utilisateurs||[]).forEach(u=>{
-        const e = u?.Email || u?.email;
-        if (e && (EMAIL_REGEX_STRICT.test(e)||EMAIL_REGEX_INTERNAL.test(e)) && !acc.includes(e))
+    list.forEach(s=> (s.Utilisateurs||[]).forEach(u=>{
+        const e=u.Email;
+        if(e && (EMAIL_REGEX_STRICT.test(e)||EMAIL_REGEX_INTERNAL.test(e)) && !acc.includes(e))
             acc.push(e);
     }));
     return acc;
 }
-
-// Destinataires fixes (front uniquement)
-const ALWAYS_INCLUDE_EMAILS = [
-  "direction@entreprise.com",
-  "qualite@entreprise.com"
-];
-
-function collectAllEmails() {
+function collectAllEmails(){
     ensureWeeklyUsersShape();
     let raw = [];
-
-    if (Array.isArray(weeklyUsers.AllEmails) && weeklyUsers.AllEmails.length) {
-        weeklyUsers.AllEmails.forEach(e=>{
-            if(typeof e==='string') raw.push(e);
-            else if (e && typeof e==='object') {
-                if (e.Email) raw.push(e.Email);
-                if (e.email) raw.push(e.email);
-            }
-        });
-    }
-    if (!raw.length && weeklyUsers.EmailsFormatted) {
+    if(weeklyUsers.AllEmails.length){
+        raw.push(...weeklyUsers.AllEmails);
+    } else if(weeklyUsers.EmailsFormatted){
         raw.push(...extractEmailsFromFormatted(weeklyUsers.EmailsFormatted));
-    }
-    if (!raw.length && weeklyUsers.UsersByService.length) {
+    } else if(weeklyUsers.UsersByService.length){
         raw.push(...reconstructEmailsFromUsersByService(weeklyUsers.UsersByService));
-    }
-    if (!raw.length) { // fallback extraction brute
+    } else {
         try {
             const matches = JSON.stringify(weeklyUsers).match(EMAIL_TOKEN_FINDER);
-            if (matches) raw.push(...matches);
+            if(matches) raw.push(...matches);
         } catch {}
     }
-
     raw = raw
         .map(x=>x && x.toString().trim())
         .filter(Boolean)
         .flatMap(x=>x.split(/[;,]+/))
         .map(x=>x.trim())
         .filter(Boolean);
-
     const dedup=[];
     raw.forEach(r=>{ if(!dedup.includes(r)) dedup.push(r); });
-
     let strictValid = dedup.filter(e=>EMAIL_REGEX_STRICT.test(e));
-    const internal   = dedup.filter(e=>!EMAIL_REGEX_STRICT.test(e) && EMAIL_REGEX_INTERNAL.test(e));
-
-    if (!strictValid.length && internal.length) strictValid = internal;
-    if (!strictValid.length && dedup.length) {
-        console.warn('[collectAllEmails] fallback permissif');
-        strictValid = dedup;
-    }
-    console.log('[collectAllEmails] =>', strictValid);
-            ALWAYS_INCLUDE_EMAILS.forEach(f => {
-            if (f && !strictValid.some(e => e.toLowerCase() === f.toLowerCase())) {
-                strictValid.push(f);
-            }
-        });
+    const internal = dedup.filter(e=>!EMAIL_REGEX_STRICT.test(e) && EMAIL_REGEX_INTERNAL.test(e));
+    if(!strictValid.length && internal.length) strictValid = internal;
+    if(!strictValid.length && dedup.length) strictValid = dedup;
+    ALWAYS_INCLUDE_EMAILS.forEach(f=>{
+        if(!strictValid.some(e=>e.toLowerCase()===f.toLowerCase()))
+            strictValid.push(f);
+    });
     return strictValid;
 }
 
@@ -349,103 +506,134 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('selectedWeek').value = currentWeek;
     updateWeekInfo();
     loadSecteurs().then(loadWeekData);
-    document.getElementById('selectedWeek').addEventListener('change', () => {
-        updateWeekInfo();
-        loadWeekData();
-    });
+    document.getElementById('selectedWeek').addEventListener('change', ()=>{ updateWeekInfo(); loadWeekData(); });
+    const w2 = document.getElementById('selectedWeek2');
+    if(w2) w2.addEventListener('change', ()=>{ updateWeekInfo(); loadWeekData(); });
 });
 
-/* ====================== CHARGEMENTS ====================== */
-async function loadSecteurs() {
+/* ====================== APPELS API ====================== */
+async function fetchWeekUsersSingle(weekStr){
+    const r = await fetch(`/api/events/week-users?week=${encodeURIComponent(weekStr)}`);
+    if(!r.ok) throw new Error('week-users '+weekStr+' HTTP '+r.status);
+    return await r.json();
+}
+async function fetchWeekPrsSingle(weekStr){
+    const r = await fetch(`/api/events/week?week=${encodeURIComponent(weekStr)}`);
+    if(!r.ok) throw new Error('week '+weekStr+' HTTP '+r.status);
+    return await r.json();
+}
+async function loadSecteurs(){
     try {
-        const r = await fetch('/api/events/secteurs');
-        if (!r.ok) throw 0;
+        const r=await fetch('/api/events/secteurs');
+        if(!r.ok) throw 0;
         availableSecteurs = await r.json();
     } catch {
         availableSecteurs = [{nom:'CMS'},{nom:'FINITION'},{nom:'AUTRES'}];
     }
 }
-
-async function loadWeekUsers() {
-    const w = document.getElementById('selectedWeek').value;
-    if (!w) return;
-    const r = await fetch(`/api/events/week-users?week=${w}`);
-    if (!r.ok) throw new Error('HTTP '+r.status);
-    weeklyUsers = await r.json();
-    ensureWeeklyUsersShape();
-    console.log('[loadWeekUsers] weeklyUsers=', weeklyUsers);
-    populateEmailFields();
-}
-
-async function loadWeekData() {
-    const w = document.getElementById('selectedWeek').value;
-    if (!w) return;
-    showToast('Chargement...', 'info');
+async function loadWeekData(){
+    const weeksArr = buildWeeksArray();
+    if(!weeksArr.length) return;
+    showToast(`Chargement ${weeksArr.length} semaine(s)...`,'info');
     try {
-        await loadWeekUsers(); // attendre les utilisateurs AVANT
-        const prs = await fetch(`/api/events/week?week=${w}`).then(r=>r.json());
-        window.weeklyPrsData = prs;
-        showToast(`${prs.length} PRS trouvées`, 'success');
-        populateEmailFields(); // re-sécurise après PRS
-    } catch (e) {
-        console.error(e);
-        showToast('Erreur chargement PRS','error');
+        const usersRawList = await Promise.all(weeksArr.map(w=>fetchWeekUsersSingle(w).catch(()=>null)));
+        const normalizedList = usersRawList.map(n=>normalizeSingleUsers(n));
+        weeklyUsers = mergeUsers(normalizedList);
+
+        const prsLists = await Promise.all(weeksArr.map(w=>fetchWeekPrsSingle(w).catch(()=>[])));
+        let allPrs=[];
+        prsLists.forEach(a=>{ if(Array.isArray(a)) allPrs = allPrs.concat(a); });
+
+        const seen = new Set();
+        const merged=[];
+        allPrs.forEach(p=>{
+            const id = p.id ?? p.Id ?? p.PrsId ?? null;
+            if(id!=null){
+                if(seen.has(id)) return;
+                seen.add(id);
+            }
+            merged.push(p);
+        });
+        merged.sort((a,b)=> new Date(a.dateDebut || a.DateDebut) - new Date(b.dateDebut || b.DateDebut));
+        window.weeklyPrsData = merged;
+
+        updateWeekInfo();
+        populateEmailFields(true);
+        renderUsersInfoZone();
+        showToast(`${merged.length} PRS fusionnées`,'success');
+    } catch(e){
+        console.error('[loadWeekData]', e);
+        showToast('Erreur chargement data','error');
         window.weeklyPrsData = @Html.Raw(Json.Serialize(Model.SamplePrsData));
     }
 }
 
-/* ====================== SEMAINE UI ====================== */
+/* ====================== UI SEMAINE ====================== */
 function selectCurrentWeek(){ document.getElementById('selectedWeek').value=currentWeek; updateWeekInfo(); loadWeekData(); showToast(`Semaine actuelle (S${currentWeekNumber})`,'info'); }
 function selectNextWeek(){ document.getElementById('selectedWeek').value=nextWeek; updateWeekInfo(); loadWeekData(); showToast(`Semaine prochaine (S${nextWeekNumber})`,'info'); }
 function updateWeekInfo(){
-    const w=document.getElementById('selectedWeek').value; if(!w) return;
-    const [y,wn]=w.split('-W'); const n=parseInt(wn);
-    let txt=`Semaine S${n} de ${y}`;
-    if(n===currentWeekNumber) txt+=' (semaine actuelle)';
-    else if(n===nextWeekNumber) txt+=' (semaine prochaine)';
-    else if(n<currentWeekNumber) txt+=' (semaine passée)'; else txt+=' (semaine future)';
-    document.getElementById('weekInfoText').textContent=`Mail à générer pour la ${txt}`;
+    const weeksArr = buildWeeksArray();
+    if(!weeksArr.length) return;
+    const el = document.getElementById('weekInfoText');
+    if(!el) return;
+    if(weeksArr.length===1){
+        const [y,wn]=weeksArr[0].split('-W');
+        el.textContent = `Mail à générer pour la semaine S${parseInt(wn,10)} de ${y}`;
+    } else {
+        const header = buildWeeksLabelForHeader(weeksArr);
+        const range = buildSubjectDateRangeLabel(weeksArr);
+        el.textContent = `Mail multi-semaines ${header} (${range})`;
+    }
 }
 
 /* ====================== DESTINATAIRES ====================== */
-function populateEmailFields() {
+function populateEmailFields(force=false){
     const emails = collectAllEmails();
-    if (!emails.length) {
-        console.warn('[populateEmailFields] aucune adresse pour le moment.');
+    const field = document.getElementById('mailTo');
+    if(!field) return;
+    const autoReplace = document.getElementById('autoReplaceEmails')?.checked;
+    let currentRaw = field.value || '';
+    let existing = currentRaw
+        .split(/[;, \n]+/)
+        .map(e=>e.trim())
+        .filter(e=>e && (EMAIL_REGEX_STRICT.test(e)||EMAIL_REGEX_INTERNAL.test(e)));
+    if(existing.length===0){
+        field.value = emails.join(', ');
         return;
     }
-    const field=document.getElementById('mailTo');
-    if(field && (!field.value || !field.value.trim())) {
-        field.value = emails.join(', ');
+    const existingLower = existing.map(e=>e.toLowerCase());
+    const missing = emails.filter(e=>!existingLower.includes(e.toLowerCase()));
+    if(autoReplace || force){
+        const targetLower = emails.map(e=>e.toLowerCase());
+        const allIn = existingLower.every(e=>targetLower.includes(e));
+        if(allIn && (existingLower.length < targetLower.length || autoReplace)){
+            field.value = emails.join(', ');
+            return;
+        }
     }
-    showUsersInfo();
+    if(missing.length){
+        field.value = existing.concat(missing).join(', ');
+    }
 }
-function showUsersInfo(){
+function renderUsersInfoZone(){
+    const zone=document.getElementById('weekUsersZone');
+    if(!zone) return;
     ensureWeeklyUsersShape();
-    if(!weeklyUsers.TotalUsers) return;
-    let zone=document.getElementById('userInfo');
-    const row=document.getElementById('mailTo')?.closest('.row');
-    if(!zone && row){
-        zone=document.createElement('div');
-        zone.id='userInfo';
-        zone.className='alert alert-info border-0 shadow-sm mt-2';
-        zone.style.borderRadius='10px';
-        row.parentNode.insertBefore(zone,row.nextSibling);
+    if(!weeklyUsers.TotalUsers){
+        zone.innerHTML = `<div class="alert alert-secondary shadow-sm">
+            Aucune donnée utilisateur disponible pour la sélection.
+        </div>`;
+        return;
     }
-    if(zone){
-        zone.innerHTML=`
-          <div class="d-flex align-items-center">
-            <i class="fas fa-users me-2 text-primary"></i>
-            <span><strong>${weeklyUsers.TotalUsers} utilisateurs</strong> associés à cette semaine</span>
-            <button type="button" class="btn btn-outline-primary btn-sm ms-auto" onclick="showUsersDetails()">
-              <i class="fas fa-eye me-1"></i>Détails
-            </button>
-          </div>`;
-    }
+    zone.innerHTML = `<div class="alert alert-info shadow-sm" style="border-left:4px solid #0d6efd;">
+        <i class="fas fa-users me-2"></i>
+        <strong>${weeklyUsers.TotalUsers}</strong> utilisateur(s) détecté(s) pour la période.
+        <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="showUsersDetails()">Détails</button>
+    </div>`;
 }
 function showUsersDetails(){
     ensureWeeklyUsersShape();
-    if(!weeklyUsers.UsersByService.length) return;
+    const list = weeklyUsers.UsersByService || [];
     const old=document.getElementById('usersModal'); if(old) old.remove();
     let html=`<div class="modal fade" id="usersModal" tabindex="-1">
       <div class="modal-dialog modal-lg"><div class="modal-content">
@@ -454,9 +642,11 @@ function showUsersDetails(){
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">`;
-    weeklyUsers.UsersByService.forEach(s=>{
-        html+=`<div class="mb-4"><h6 class="text-primary border-bottom pb-2">🏢 ${s.Service} (${s.Utilisateurs.length})</h6><div class="row">`;
-        (s.Utilisateurs||[]).forEach(u=>{
+    list.forEach(s=>{
+        html+=`<div class="mb-4">
+          <h6 class="text-primary border-bottom pb-2">🏭 ${s.Service} (${s.Utilisateurs.length})</h6>
+          <div class="row">`;
+        s.Utilisateurs.forEach(u=>{
             html+=`<div class="col-md-6 mb-2">
               <div class="d-flex align-items-center">
                 <i class="fas fa-user me-2 text-muted"></i>
@@ -475,11 +665,11 @@ function showUsersDetails(){
         <button class="btn btn-primary" onclick="copyAllEmails()"><i class="fas fa-copy me-1"></i>Copier tous</button>
       </div>
     </div></div></div>`;
-    document.body.insertAdjacentHTML('beforeend',html);
+    document.body.insertAdjacentHTML('beforeend', html);
     new bootstrap.Modal(document.getElementById('usersModal')).show();
 }
 function copyAllEmails(){
-    let emails = collectAllEmails();
+    const emails=collectAllEmails();
     if(!emails.length) return;
     navigator.clipboard.writeText(emails.join('; '))
         .then(()=>showToast('📧 Emails copiés','success'))
@@ -488,23 +678,23 @@ function copyAllEmails(){
 
 /* ====================== GÉNÉRATION MAIL ====================== */
 function generateMail(){
-    const w=document.getElementById('selectedWeek').value;
-    if(!w) return showToast('Sélectionne une semaine','warning');
-    const prs=window.weeklyPrsData||[];
+    const weeksArr = buildWeeksArray();
+    if(!weeksArr.length) return showToast('Sélectionne une semaine','warning');
+    const prs = window.weeklyPrsData || [];
     if(!prs.length) return showToast('Aucune PRS','warning');
-    const [y,wn]=w.split('-W'); const wk=parseInt(wn);
+    const subject = buildSubjectFromWeeks(weeksArr);
     const incl=document.getElementById('includeWarnings').checked;
     const group=document.getElementById('groupBySection').checked;
-    const subject=`Planning PRS S${wk} - Semaine du ${getWeekDateRange(y,wk)}`;
-    const html=generateCleanEmailHTML(prs,wk,y,incl,group);
-    const text=generateFormattedTextEmail(prs,wk,y,incl,group);
+    const firstP = parseWeekString(weeksArr[0]) || {week:0,year:new Date().getFullYear()};
+    const html=generateCleanEmailHTML(prs, firstP.week, firstP.year, incl, group, weeksArr);
+    const text=generateFormattedTextEmail(prs, firstP.week, firstP.year, incl, group, weeksArr);
     document.getElementById('mailSubject').value=subject;
     document.getElementById('mailContent').innerHTML=html;
     document.getElementById('mailPreview').classList.remove('d-none');
     ['outlookBtn','outlookDropdown','copyBtn','emlBtn'].forEach(id=>document.getElementById(id).disabled=false);
     updateStats(prs,group);
     document.getElementById('mailStats').classList.remove('d-none');
-    populateEmailFields();
+    populateEmailFields(true);
     checkMailtoSize(text,subject);
     showToast('Mail généré','success');
 }
@@ -529,39 +719,62 @@ function checkMailtoSize(textBody,subject){
     }
 }
 function generateShortVersion(){
-    const w=document.getElementById('selectedWeek').value;
-    const [y,wn]=w.split('-W'); const wk=parseInt(wn);
+    const weeksArr = buildWeeksArray();
+    if(!weeksArr.length) return;
     const prs=window.weeklyPrsData||[];
+    const header = buildWeeksLabelForHeader(weeksArr);
+    const range  = buildSubjectDateRangeLabel(weeksArr);
     const sections={};
-    prs.forEach(p=>{ const s=determineSecteurFromPRS(p); (sections[s] ||= []).push(p); });
-    let txt=`📅 PLANNING PRS S${wk} - ${getWeekDateRange(y,wk)}\n\nBonjour,\n\nRésumé :\n\n`;
+    prs.forEach(p=>{
+        const s=determineSecteurFromPRS(p);
+        (sections[s] ||= []).push(p);
+    });
+    let txt=`📅 PLANNING PRS ${header}
+${range}
+
+Résumé :
+
+`;
     Object.keys(sections).sort().forEach(sec=>{
         txt+=`🏭 ${sec}: ${sections[sec].length} PRS\n`;
         sections[sec].slice(0,3).forEach(p=>{
-            const d=formatPrsDate(p.dateDebut);
-            const t=new Date(p.dateDebut).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-            txt+=`• ${d} ${t} - ${p.description}\n`;
+            const d=formatPrsDate(p.dateDebut || p.DateDebut);
+            const t=new Date(p.dateDebut || p.DateDebut).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+            txt+=`• ${d} ${t} - ${p.description || p.Description}\n`;
         });
         if(sections[sec].length>3) txt+=`... et ${sections[sec].length-3} autres\n`;
         txt+='\n';
     });
-    document.getElementById('mailContent').innerHTML = `<div style="font-family:Arial">${txt.replace(/\n/g,'<br>')}</div>`;
-    checkMailtoSize(txt,`Planning PRS S${wk}`);
+    document.getElementById('mailContent').innerHTML =
+        `<div style="font-family:Arial;white-space:pre-line">${txt}</div>`;
+    checkMailtoSize(txt, `Planning PRS ${header}`);
     showToast('Version courte prête','info');
 }
 
 /* ====================== HTML / TEXTE ====================== */
-function generateCleanEmailHTML(prs,wk,year,incl,group){
-    let html=`<div style="font-family:Arial,sans-serif;line-height:1.5;color:#333;max-width:800px;margin:0 auto;">
-      <div style="background:linear-gradient(135deg,#007bff,#0056b3);color:#fff;padding:20px;text-align:center;border-radius:8px;margin-bottom:25px;">
+function generateCleanEmailHTML(prs,wk,year,incl,group,weeksArr){
+    const headerLabel = weeksArr && weeksArr.length>1
+        ? buildWeeksLabelForHeader(weeksArr)
+        : `Semaine S${wk} • ${getWeekDateRange(year,wk)}`;
+    const periodLabel = weeksArr && weeksArr.length>1
+        ? `<div style="font-size:13px;opacity:.85;">Période : ${buildSubjectDateRangeLabel(weeksArr)}</div>`
+        : '';
+    let html=`<div style="font-family:Arial,sans-serif;line-height:1.5;color:#333;max-width:850px;margin:0 auto;">
+      <div style="background:linear-gradient(135deg,#007bff,#0056b3);color:#fff;padding:22px;text-align:center;border-radius:8px;margin-bottom:25px;">
         <h1 style="margin:0;font-size:24px;">📅 Planning PRS</h1>
-        <p style="margin:8px 0 0;font-size:16px;opacity:.9;">Semaine S${wk} • ${getWeekDateRange(year,wk)}</p>
+        <p style="margin:8px 0 0;font-size:16px;opacity:.9;">${headerLabel}</p>
+        ${periodLabel}
       </div>
       <p>Bonjour,</p>
-      <p>Veuillez trouver ci-dessous le planning des <strong>PRS planifiées</strong> pour cette semaine.</p>`;
+      <p>Veuillez trouver ci-dessous le planning des <strong>PRS planifiées</strong> pour ${
+        (weeksArr && weeksArr.length>1) ? 'ces semaines.' : 'cette semaine.'
+      }</p>`;
     if(group){
         const sections={};
-        prs.forEach(p=>{ const s=determineSecteurFromPRS(p); (sections[s] ||= []).push(p); });
+        prs.forEach(p=>{
+            const s=determineSecteurFromPRS(p);
+            (sections[s] ||= []).push(p);
+        });
         Object.keys(sections).sort().forEach(s=> html+=generateCleanSectionHTML(s,sections[s],incl));
     } else {
         html+=generateCleanSectionHTML('PLANNING',prs,incl);
@@ -580,7 +793,7 @@ function generateCleanEmailHTML(prs,wk,year,incl,group){
 function generateCleanSectionHTML(name,list,incl){
     const col=getSecteurColor(name);
     let html=`<div style="margin-bottom:35px;">
-      <h2 style="background:${col.primary};color:#fff;padding:12px 15px;margin:0;border-radius:6px 6px 0 0;font-size:18px;">🏭 ${name}</h2>
+      <h2 style="background:${col.primary};color:#fff;padding:12px 15px;margin:0;border-radius:6px 6px 0 0;font-size:17px;">🏭 ${name}</h2>
       <table cellpadding="8" cellspacing="0" border="1" style="width:100%;border-collapse:collapse;border:2px solid ${col.primary};font-family:Arial;">
         <tr style="background:${col.light};">
           <th style="text-align:left;font-size:13px;">📅 Date</th>
@@ -589,26 +802,35 @@ function generateCleanSectionHTML(name,list,incl){
           <th style="text-align:center;font-size:13px;">🕒 Heure</th>
         </tr>`;
     const days={};
-    list.forEach(p=>{ const k=formatPrsDate(p.dateDebut); (days[k] ||= []).push(p); });
+    list.forEach(p=>{
+        const dt = p.dateDebut || p.DateDebut;
+        const k = formatPrsDate(dt);
+        (days[k] ||= []).push(p);
+    });
     Object.keys(days).sort().forEach((day,idx)=>{
         days[day].forEach(p=>{
+            const dt = p.dateDebut || p.DateDebut;
             const bg=idx%2===0?'#ffffff':'#f8f9fa';
             let details='';
-            if(incl && p.commentaires){
-                p.commentaires.split(' - ').forEach(c=>{
+            const commentaires = p.commentaires || p.Commentaires;
+            if(incl && commentaires){
+                commentaires.split(' - ').forEach(c=>{
                     if(!c.trim()) return;
-                    if(/warning|attention/i.test(c)) details+=`<br><span style="color:#dc3545;font-weight:bold;">⚠️ ${c}</span>`;
-                    else details+=`<br><span style="color:#6c757d;">ℹ️ ${c}</span>`;
+                    if(/warning|attention|avertissement/i.test(c))
+                        details+=`<br><span style="color:#dc3545;font-weight:bold;">⚠️ ${c}</span>`;
+                    else
+                        details+=`<br><span style="color:#6c757d;">ℹ️ ${c}</span>`;
                 });
             }
-            if(p.presenceClient==='Client présent')
+            const presence = p.presenceClient || p.PresenceClient;
+            if(presence==='Client présent')
                 details+=`<br><span style="background:#007bff;color:#fff;padding:3px 8px;border-radius:12px;font-size:11px;">👥 Client présent</span>`;
-            const t=p.dateDebut?new Date(p.dateDebut).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
+            const t=dt?new Date(dt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
             html+=`<tr style="background:${bg};">
               <td style="vertical-align:top;font-weight:bold;color:${col.primary};">${day}</td>
-              <td style="vertical-align:top;"><div style="font-weight:bold;margin-bottom:4px;">${p.description}</div>${details}</td>
+              <td style="vertical-align:top;"><div style="font-weight:bold;margin-bottom:4px;">${p.description || p.Description}</div>${details}</td>
               <td style="text-align:center;vertical-align:middle;">
-                <span style="background:${col.primary};color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;">${p.ligne}</span>
+                <span style="background:${col.primary};color:#fff;padding:4px 8px;border-radius:4px;font-size:12px;">${p.ligne || p.Ligne}</span>
               </td>
               <td style="text-align:center;vertical-align:middle;font-weight:bold;color:#6c757d;">${t}</td>
             </tr>`;
@@ -617,20 +839,31 @@ function generateCleanSectionHTML(name,list,incl){
     html+='</table></div>';
     return html;
 }
-function generateFormattedTextEmail(prs,wk,year,incl,group){
-    let txt=`📅 PLANNING PRS - SEMAINE S${wk}
-${getWeekDateRange(year,wk)}
+function generateFormattedTextEmail(prs,wk,year,incl,group,weeksArr){
+    const header = weeksArr && weeksArr.length>1
+        ? `PLANNING PRS - ${buildWeeksLabelForHeader(weeksArr)}`
+        : `PLANNING PRS - SEMAINE S${wk}`;
+    const dateRange = weeksArr && weeksArr.length>1
+        ? buildSubjectDateRangeLabel(weeksArr)
+        : getWeekDateRange(year,wk);
+    let txt=`📅 ${header}
+${dateRange}
 
 =========================================================
 
 Bonjour,
 
-Veuillez trouver ci-dessous le planning des PRS planifiées pour cette semaine.
+Veuillez trouver ci-dessous le planning des PRS planifiées pour ${
+        (weeksArr && weeksArr.length>1) ? 'ces semaines.' : 'cette semaine.'
+}
 
 `;
     if(group){
         const sections={};
-        prs.forEach(p=>{ const s=determineSecteurFromPRS(p); (sections[s] ||= []).push(p); });
+        prs.forEach(p=>{
+            const s=determineSecteurFromPRS(p);
+            (sections[s] ||= []).push(p);
+        });
         Object.keys(sections).sort().forEach(s=> txt+=generateFormattedSectionText(s,sections[s],incl));
     } else {
         txt+=generateFormattedSectionText('PLANNING',prs,incl);
@@ -653,18 +886,27 @@ function generateFormattedSectionText(name,list,incl){
 
 `;
     const days={};
-    list.forEach(p=>{ const k=formatPrsDate(p.dateDebut); (days[k] ||= []).push(p); });
+    list.forEach(p=>{
+        const dt = p.dateDebut || p.DateDebut;
+        const k=formatPrsDate(dt);
+        (days[k] ||= []).push(p);
+    });
     Object.keys(days).sort().forEach(day=>{
         out+=`📅 ${day}\n`;
         days[day].forEach(p=>{
-            const t=p.dateDebut?new Date(p.dateDebut).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
-            out+=`   • ${p.description}
-     Ligne: ${p.ligne} | Heure: ${t}
+            const dt=p.dateDebut || p.DateDebut;
+            const t= dt? new Date(dt).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}):'';
+            out+=`   • ${p.description || p.Description}
+     Ligne: ${p.ligne || p.Ligne} | Heure: ${t}
 `;
-            if(incl && p.commentaires){
-                p.commentaires.split(' - ').forEach(c=>{ if(c.trim()) out+=`     ℹ️ ${c}\n`; });
+            const commentaires = p.commentaires || p.Commentaires;
+            if(incl && commentaires){
+                commentaires.split(' - ').forEach(c=>{
+                    if(c.trim()) out+=`     ℹ️ ${c}\n`;
+                });
             }
-            if(p.presenceClient==='Client présent') out+=`     👥 Client présent requis\n`;
+            const presence = p.presenceClient || p.PresenceClient;
+            if(presence==='Client présent') out+=`     👥 Client présent requis\n`;
             out+='\n';
         });
         out+='\n';
@@ -687,13 +929,13 @@ function getWeekDateRange(year,week){
     return `${start.getDate()}/${start.getMonth()+1} au ${end.getDate()}/${end.getMonth()+1}`;
 }
 function determineSecteurFromPRS(p){
+    const ligne = (p.ligne || p.Ligne || '').toLowerCase();
     if(p.secteur && p.secteur.trim()) return p.secteur;
-    const l=p.ligne||'';
     for(const s of availableSecteurs){
-        if(l.toLowerCase().includes(s.nom.toLowerCase())) return s.nom;
+        if(ligne.includes((s.nom||'').toLowerCase())) return s.nom;
     }
-    if(/VERNI|PACK/i.test(l)) return 'FINITION';
-    if(/NXT|CMS/i.test(l)) return 'CMS';
+    if(/verni|pack/i.test(ligne)) return 'FINITION';
+    if(/nxt|cms/i.test(ligne)) return 'CMS';
     return 'AUTRES';
 }
 function getSecteurColor(n){
@@ -708,13 +950,13 @@ function getSecteurColor(n){
 }
 function updateStats(prs,group){
     document.getElementById('totalPrs').textContent=prs.length;
-    document.getElementById('totalLines').textContent=new Set(prs.map(p=>p.ligne)).size;
-    document.getElementById('totalDays').textContent=new Set(prs.map(p=>formatPrsDate(p.dateDebut))).size;
+    document.getElementById('totalLines').textContent=new Set(prs.map(p=>(p.ligne||p.Ligne))).size;
+    document.getElementById('totalDays').textContent=new Set(prs.map(p=>formatPrsDate(p.dateDebut||p.DateDebut))).size;
     document.getElementById('totalSections').textContent= group ? new Set(prs.map(p=>determineSecteurFromPRS(p))).size : 1;
 }
 
 /* ====================== ENVOI / COPIE / EML ====================== */
-function tryOpenInOutlook() {
+function tryOpenInOutlook(){
     let raw=document.getElementById('mailTo').value?.trim();
     if(!raw){
         const collected=collectAllEmails();
@@ -728,27 +970,23 @@ function tryOpenInOutlook() {
     const valid=toList.filter(e=>EMAIL_REGEX_STRICT.test(e)||EMAIL_REGEX_INTERNAL.test(e));
     const finalList=valid.length?valid:toList;
     const toHeader=finalList.join(', ');
-
     const ccRaw=document.getElementById('mailCc').value?.trim();
     const ccList=(ccRaw||'').split(/[;,]+/).map(x=>x.trim()).filter(e=>EMAIL_REGEX_STRICT.test(e)||EMAIL_REGEX_INTERNAL.test(e));
     const ccHeader=ccList.join(', ');
-
     const subject=document.getElementById('mailSubject').value;
     if(!subject){ showToast('Génère d\'abord le mail','warning'); return; }
-
-    const [year,wn]=document.getElementById('selectedWeek').value.split('-W');
-    const wk=parseInt(wn);
+    const weeksArr = buildWeeksArray();
+    const prs=window.weeklyPrsData||[];
     const incl=document.getElementById('includeWarnings').checked;
     const group=document.getElementById('groupBySection').checked;
-    const prs=window.weeklyPrsData||[];
-    const body=generateFormattedTextEmail(prs,wk,year,incl,group);
+    const firstP = parseWeekString(weeksArr[0]) || {week:0,year:new Date().getFullYear()};
+    const body=generateFormattedTextEmail(prs, firstP.week, firstP.year, incl, group, weeksArr);
     const payload=`subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     if(payload.length>MAILTO_LIMIT){ showToast('Trop volumineux (mailto)','warning'); showAlternativeOptions(); return; }
     const link=`mailto:${encodeURIComponent(toHeader)}?${ccHeader?`cc=${encodeURIComponent(ccHeader)}&`:''}${payload}`;
     const a=document.createElement('a'); a.href=link; document.body.appendChild(a); a.click(); a.remove();
     showToast('Ouverture client mail...','success');
 }
-
 function showAlternativeOptions(){
     const old=document.getElementById('alternativeAlert'); if(old) old.remove();
     const div=document.createElement('div');
@@ -766,14 +1004,13 @@ function showAlternativeOptions(){
     document.body.appendChild(div);
     setTimeout(()=>div.remove(),10000);
 }
-
 function copyTextAndShowInstructions(){
-    const [y,wn]=document.getElementById('selectedWeek').value.split('-W');
-    const wk=parseInt(wn);
+    const weeksArr = buildWeeksArray();
+    const prs=window.weeklyPrsData||[];
     const incl=document.getElementById('includeWarnings').checked;
     const group=document.getElementById('groupBySection').checked;
-    const prs=window.weeklyPrsData||[];
-    const txt=generateFormattedTextEmail(prs,wk,y,incl,group);
+    const firstP = parseWeekString(weeksArr[0]) || {week:0,year:new Date().getFullYear()};
+    const txt=generateFormattedTextEmail(prs, firstP.week, firstP.year, incl, group, weeksArr);
     navigator.clipboard.writeText(txt).then(()=>{ showToast('Texte copié','success'); showTextInstructions(); })
         .catch(()=>showToast('Erreur copie','error'));
 }
@@ -793,7 +1030,6 @@ function showTextInstructions(){
     document.body.appendChild(div);
     setTimeout(()=>div.remove(),15000);
 }
-
 function copyHTMLAndShowInstructions(){
     const html=document.getElementById('mailContent').innerHTML;
     navigator.clipboard.writeText(html).then(()=>{ showToast('HTML copié','success'); showSimpleInstructions(); })
@@ -812,43 +1048,26 @@ function showSimpleInstructions(){
     document.body.appendChild(div);
     setTimeout(()=>div.remove(),15000);
 }
-
-function downloadHTMLFile(){
-    const content=document.getElementById('mailContent').innerHTML;
-    const blob=new Blob([content],{type:'text/html;charset=utf-8'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    const wk=(document.getElementById('selectedWeek').value.split('-W')[1]||'XX');
-    a.href=url; a.download=`Planning_PRS_S${wk}.html`;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-    showToast('HTML téléchargé','success');
-}
-
-function showManualInstructions(){
-    const id='helpAlert'; const old=document.getElementById(id); if(old) old.remove();
-    const div=document.createElement('div');
-    div.id=id;
-    div.innerHTML=`<div class="alert alert-info alert-dismissible fade show position-fixed"
-        style="top:20px;left:50%;transform:translateX(-50%);z-index:9999;max-width:600px;">
-        <h6><i class="fas fa-question-circle me-2"></i>Aide</h6>
-        <div class="row">
-          <div class="col-md-6"><strong>Option Texte</strong><ol><li>Générer</li><li>Copier texte</li><li>Coller</li></ol></div>
-            <div class="col-md-6"><strong>Option HTML</strong><ol><li>Générer</li><li>Copier HTML</li><li>Coller</li></ol></div>
-        </div>
-        <button class="btn-close" onclick="this.closest('.alert').remove()"></button>
-    </div>`;
-    document.body.appendChild(div);
-    setTimeout(()=>div.remove(),20000);
-}
-
 function copyToClipboard(){
     const html=document.getElementById('mailContent').innerHTML;
     navigator.clipboard.writeText(html).then(()=>showToast('HTML copié','success'))
         .catch(()=>showToast('Erreur copie','error'));
 }
-
+function downloadHTMLFile(){
+    const content=document.getElementById('mailContent').innerHTML;
+    const blob=new Blob([content],{type:'text/html;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const weeksArr = buildWeeksArray();
+    const label = buildWeeksLabelForHeader(weeksArr).replace(/[^\w\-]+/g,'_');
+    const a=document.createElement('a');
+    a.href=url; a.download=`Planning_PRS_${label}.html`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    showToast('HTML téléchargé','success');
+}
 function downloadEMLFile(){
     ensureWeeklyUsersShape();
+    const weeksArr = buildWeeksArray();
+    if(!weeksArr.length){ showToast('Pas de semaine sélectionnée','warning'); return; }
     let toRaw=document.getElementById('mailTo').value?.trim();
     if(!toRaw){
         const collected=collectAllEmails();
@@ -859,36 +1078,29 @@ function downloadEMLFile(){
     }
     let toList=(toRaw||'').split(/[;,]+/).map(x=>x.trim()).filter(Boolean);
     let filtered=toList.filter(e=>EMAIL_REGEX_STRICT.test(e)||EMAIL_REGEX_INTERNAL.test(e));
-    if(!filtered.length && toList.length){
-        console.warn('[downloadEMLFile] fallback to raw list');
-        filtered=toList;
-    }
+    if(!filtered.length && toList.length) filtered=toList;
     if(!filtered.length){
         showToast('Aucun destinataire valide','warning');
-        console.error('[downloadEMLFile] weeklyUsers=',weeklyUsers);
         return;
     }
     const toHeader=filtered.join(', ');
     const ccRaw=document.getElementById('mailCc').value?.trim();
-    const ccList=(ccRaw||'').split(/[;,]+/).map(x=>x.trim()).filter(Boolean)
-        .filter(e=>EMAIL_REGEX_STRICT.test(e)||EMAIL_REGEX_INTERNAL.test(e));
+    const ccList=(ccRaw||'').split(/[;,]+/).map(x=>x.trim()).filter(e=>EMAIL_REGEX_STRICT.test(e)||EMAIL_REGEX_INTERNAL.test(e));
     const ccHeader=ccList.join(', ');
     const subject=document.getElementById('mailSubject').value;
     if(!subject){ showToast('Génère d\'abord le mail','warning'); return; }
-    const weekVal=document.getElementById('selectedWeek').value||'';
-    const parts=weekVal.split('-W'); const year=parts[0]||new Date().getFullYear();
-    const weekNumber=parseInt(parts[1]||'0',10);
     const incl=document.getElementById('includeWarnings').checked;
     const group=document.getElementById('groupBySection').checked;
     const prs=window.weeklyPrsData||[];
-    let body=generateFormattedTextEmail(prs,weekNumber,year,incl,group);
+    const firstP = parseWeekString(weeksArr[0]) || {week:0,year:new Date().getFullYear()};
+    let body=generateFormattedTextEmail(prs, firstP.week, firstP.year, incl, group, weeksArr);
     if(weeklyUsers.TotalUsers) body+=`\n\n📧 Destinataires auto: ${weeklyUsers.TotalUsers} utilisateurs.`;
     const eml=generateEMLContent(toHeader,ccHeader,subject,body);
     const blob=new Blob([eml],{type:'message/rfc822'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
-    const weekStr=(weekVal.split('-W')[1]||'00');
-    a.href=url; a.download=`Planning_PRS_S${weekStr}_auto_destinataires.eml`;
+    const label=buildWeeksLabelForHeader(weeksArr).replace(/[^\w\-]+/g,'_');
+    a.href=url; a.download=`Planning_PRS_${label}.eml`;
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     showToast(`.eml généré (${filtered.length} destinataires)`,'success');
 }
