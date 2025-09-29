@@ -1031,11 +1031,18 @@
                         <label class="form-label">Catégorie *</label>
                         <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Categorie" required>
                             <option value="">Sélectionner</option>
-                            <option value="Produit">Produit</option>
-                            <option value="Documentation">Documentation</option>
-                            <option value="Process">Process</option>
-                            <option value="Matière">Matière</option>
-                            <option value="Production">Production</option>
+                                <option value="Logistique interne">Logistique interne</option>
+                                <option value="Moyens Tests">Moyens Tests</option>
+                                <option value="Achat Projet">Achat Projet</option>
+                                <option value="Chef de projets">Chef de projets</option>
+                                <option value="Qualité projet">Qualité projet</option>
+                                <option value="Méthodes">Méthodes</option>
+                                <option value="Besoin opérateur">Besoin opérateur</option>
+                                <option value="Qualité client">Qualité client</option>
+                                <option value="AQFE">AQFE</option>
+                                <option value="Equipement Indus">Equipement Indus</option>
+                                <option value="ADV">ADV</option>
+                                <option value="Laboratoire">Laboratoire</option>
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -1192,12 +1199,19 @@
                                 <label class="form-label">Catégorie *</label>
                                 <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Categorie" required>
                                     <option value="">Sélectionner</option>
-                                    <option value="Produit" ${element.categorie === 'Produit' ? 'selected' : ''}>Produit</option>
-                                    <option value="Documentation" ${element.categorie === 'Documentation' ? 'selected' : ''}>Documentation</option>
-                                    <option value="Process" ${element.categorie === 'Process' ? 'selected' : ''}>Process</option>
-                                    <option value="Matière" ${element.categorie === 'Matière' ? 'selected' : ''}>Matière</option>
-                                    <option value="Production" ${element.categorie === 'Production' ? 'selected' : ''}>Production</option>
-                                </select>
+                                        <option value="Logistique interne" ${element.categorie === 'Logistique interne' ? 'selected' : ''}>Logistique interne</option>
+                                        <option value="Moyens Tests" ${element.categorie === 'Moyens Tests' ? 'selected' : ''}>Moyens Tests</option>
+                                        <option value="Achat Projet" ${element.categorie === 'Achat Projet' ? 'selected' : ''}>Achat Projet</option>
+                                        <option value="Chef de projets" ${element.categorie === 'Chef de projets' ? 'selected' : ''}>Chef de projets</option>
+                                        <option value="Qualité projet" ${element.categorie === 'Qualité projet' ? 'selected' : ''}>Qualité projet</option>
+                                        <option value="Méthodes" ${element.categorie === 'Méthodes' ? 'selected' : ''}>Méthodes</option>
+                                        <option value="Besoin opérateur" ${element.categorie === 'Besoin opérateur' ? 'selected' : ''}>Besoin opérateur</option>
+                                        <option value="Qualité client" ${element.categorie === 'Qualité client' ? 'selected' : ''}>Qualité client</option>
+                                        <option value="AQFE" ${element.categorie === 'AQFE' ? 'selected' : ''}>AQFE</option>
+                                        <option value="Equipement Indus" ${element.categorie === 'Equipement Indus' ? 'selected' : ''}>Equipement Indus</option>
+                                        <option value="ADV" ${element.categorie === 'ADV' ? 'selected' : ''}>ADV</option>
+                                        <option value="Laboratoire" ${element.categorie === 'Laboratoire' ? 'selected' : ''}>Laboratoire</option>
+                                        </select>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Sous-catégorie</label>
@@ -1285,12 +1299,19 @@
                                 <label class="form-label">Catégorie *</label>
                                 <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Categorie" required>
                                     <option value="">Sélectionner</option>
-                                    <option value="Produit" ${element.categorie === 'Produit' ? 'selected' : ''}>Produit</option>
-                                    <option value="Documentation" ${element.categorie === 'Documentation' ? 'selected' : ''}>Documentation</option>
-                                    <option value="Process" ${element.categorie === 'Process' ? 'selected' : ''}>Process</option>
-                                    <option value="Matière" ${element.categorie === 'Matière' ? 'selected' : ''}>Matière</option>
-                                    <option value="Production" ${element.categorie === 'Production' ? 'selected' : ''}>Production</option>
-                                </select>
+                                        <option value="Logistique interne" ${element.categorie === 'Logistique interne' ? 'selected' : ''}>Logistique interne</option>
+                                        <option value="Moyens Tests" ${element.categorie === 'Moyens Tests' ? 'selected' : ''}>Moyens Tests</option>
+                                        <option value="Achat Projet" ${element.categorie === 'Achat Projet' ? 'selected' : ''}>Achat Projet</option>
+                                        <option value="Chef de projets" ${element.categorie === 'Chef de projets' ? 'selected' : ''}>Chef de projets</option>
+                                        <option value="Qualité projet" ${element.categorie === 'Qualité projet' ? 'selected' : ''}>Qualité projet</option>
+                                        <option value="Méthodes" ${element.categorie === 'Méthodes' ? 'selected' : ''}>Méthodes</option>
+                                        <option value="Besoin opérateur" ${element.categorie === 'Besoin opérateur' ? 'selected' : ''}>Besoin opérateur</option>
+                                        <option value="Qualité client" ${element.categorie === 'Qualité client' ? 'selected' : ''}>Qualité client</option>
+                                        <option value="AQFE" ${element.categorie === 'AQFE' ? 'selected' : ''}>AQFE</option>
+                                        <option value="Equipement Indus" ${element.categorie === 'Equipement Indus' ? 'selected' : ''}>Equipement Indus</option>
+                                        <option value="ADV" ${element.categorie === 'ADV' ? 'selected' : ''}>ADV</option>
+                                        <option value="Laboratoire" ${element.categorie === 'Laboratoire' ? 'selected' : ''}>Laboratoire</option>
+                                    </select>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Sous-catégorie</label>
