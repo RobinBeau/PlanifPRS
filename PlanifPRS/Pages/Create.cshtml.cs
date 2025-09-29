@@ -291,6 +291,82 @@ namespace PlanifPRS.Pages.Prs
             return conflits;
         }
 
+        public async Task<IActionResult> OnPostCheckConflictsAsync()
+        {
+            try
+            {
+                var affectationsData = Request.Form["affectationsData"].ToString();
+                var dateDebutStr = Request.Form["dateDebut"].ToString();
+                var dateFinStr = Request.Form["dateFin"].ToString();
+
+                if (!DateTime.TryParse(dateDebutStr, out var dateDebut) ||
+                    !DateTime.TryParse(dateFinStr, out var dateFin))
+                {
+                    return new JsonResult(new { hasConflicts = false });
+                }
+
+                if (string.IsNullOrEmpty(affectationsData))
+                {
+                    return new JsonResult(new { hasConflicts = false });
+                }
+
+                var affectations = JsonSerializer.Deserialize<List<AffectationDto>>(affectationsData, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (affectations?.Any() != true)
+                {
+                    return new JsonResult(new { hasConflicts = false });
+                }
+
+                var conflits = new List<object>();
+                foreach (var affectation in affectations)
+                {
+                    if (affectation.type == "Utilisateur")
+                    {
+                        var utilisateurConflits = await VerifierConflitsUtilisateur(affectation.id, dateDebut, dateFin);
+                        conflits.AddRange(utilisateurConflits);
+                    }
+                    else if (affectation.type == "Groupe")
+                    {
+                        var groupeConflits = await VerifierConflitsGroupe(affectation.id, dateDebut, dateFin);
+                        conflits.AddRange(groupeConflits);
+                    }
+                }
+
+                if (conflits.Any())
+                {
+                    var conflitMessages = conflits.Select(c =>
+                    {
+                        var conflit = c as dynamic;
+                        if (conflit.type == "direct")
+                        {
+                            return $"{conflit.utilisateur} est déjà affecté(e) à la PRS #{conflit.prsId} '{conflit.prsTitre}' du {((DateTime)conflit.dateDebut):dd/MM/yyyy HH:mm} au {((DateTime)conflit.dateFin):dd/MM/yyyy HH:mm}";
+                        }
+                        else if (conflit.type == "groupe")
+                        {
+                            return $"{conflit.utilisateur} fait partie du groupe '{conflit.groupe}' qui est déjà affecté à la PRS #{conflit.prsId} '{conflit.prsTitre}' du {((DateTime)conflit.dateDebut):dd/MM/yyyy HH:mm} au {((DateTime)conflit.dateFin):dd/MM/yyyy HH:mm}";
+                        }
+                        return "Conflit détecté";
+                    }).Distinct().ToList();
+
+                    return new JsonResult(new
+                    {
+                        hasConflicts = true,
+                        conflitMessages = conflitMessages
+                    });
+                }
+
+                return new JsonResult(new { hasConflicts = false });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la vérification des conflits");
+                return new JsonResult(new { hasConflicts = false });
+            }
+        }
+
         public async Task<IActionResult> OnPostAsync()
         {
             _logger.LogInformation($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Début de OnPostAsync");
@@ -312,62 +388,7 @@ namespace PlanifPRS.Pages.Prs
                 ModelState.AddModelError("Prs.LigneId", "La sélection d'une ligne est obligatoire.");
             }
 
-            // ✅ VÉRIFICATION DE DISPONIBILITÉ AVANT CRÉATION
-            if (!string.IsNullOrEmpty(AffectationsData))
-            {
-                try
-                {
-                    var affectations = JsonSerializer.Deserialize<List<AffectationDto>>(AffectationsData, new JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    });
-
-                    if (affectations?.Any() == true)
-                    {
-                        var conflits = new List<object>();
-                        foreach (var affectation in affectations)
-                        {
-                            if (affectation.type == "Utilisateur")
-                            {
-                                var utilisateurConflits = await VerifierConflitsUtilisateur(affectation.id, Prs.DateDebut, Prs.DateFin);
-                                conflits.AddRange(utilisateurConflits);
-                            }
-                            else if (affectation.type == "Groupe")
-                            {
-                                var groupeConflits = await VerifierConflitsGroupe(affectation.id, Prs.DateDebut, Prs.DateFin);
-                                conflits.AddRange(groupeConflits);
-                            }
-                        }
-
-                        if (conflits.Any())
-                        {
-                            var messages = conflits.Select(c =>
-                            {
-                                var conflit = c as dynamic;
-                                if (conflit.type == "direct")
-                                {
-                                    return $"⚠️ {conflit.utilisateur} est déjà affecté(e) à la PRS #{conflit.prsId} '{conflit.prsTitre}' du {((DateTime)conflit.dateDebut):dd/MM/yyyy HH:mm} au {((DateTime)conflit.dateFin):dd/MM/yyyy HH:mm}";
-                                }
-                                else if (conflit.type == "groupe")
-                                {
-                                    return $"⚠️ {conflit.utilisateur} fait partie du groupe '{conflit.groupe}' qui est déjà affecté à la PRS #{conflit.prsId} '{conflit.prsTitre}' du {((DateTime)conflit.dateDebut):dd/MM/yyyy HH:mm} au {((DateTime)conflit.dateFin):dd/MM/yyyy HH:mm}";
-                                }
-                                return "Conflit détecté";
-                            }).Distinct();
-
-                            foreach (var message in messages)
-                            {
-                                ModelState.AddModelError(string.Empty, message);
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Erreur lors de la vérification des conflits d'affectation");
-                }
-            }
-
+           
             // Définir automatiquement le statut en fonction des droits de l'utilisateur
             Prs.Statut = IsAdminOrValidateur ? "Validé" : "En attente";
 

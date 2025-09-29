@@ -3118,19 +3118,96 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
         });
 
         
-        $(document).ready(function() {
-            // Variable pour suivre si l'utilisateur a confirmé
-            let confirmationDonnee = false;
+       
+
+                $(document).ready(function() {
+            // Variables pour suivre les confirmations
+            let confirmationAffectationDonnee = false;
+            let confirmationConflitDonnee = false;
+
+            // Fonction pour vérifier les conflits via AJAX
+            function verifierConflits() {
+                return new Promise((resolve) => {
+                    const affectationsValue = $('#affectationsData').val();
+                    const dateDebut = $('input[name="Prs.DateDebut"]').val();
+                    const dateFin = $('input[name="Prs.DateFin"]').val();
+
+                    // Si pas d'affectations ou pas de dates, pas de conflits
+                    if (!affectationsValue || affectationsValue === '[]' || !dateDebut || !dateFin) {
+                        resolve({ hasConflicts: false });
+                        return;
+                    }
+
+                    // Appel AJAX pour vérifier les conflits
+                    $.ajax({
+                        url: window.location.pathname + '?handler=CheckConflicts',
+                        type: 'POST',
+                        headers: {
+                            'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                        },
+                        data: {
+                            affectationsData: affectationsValue,
+                            dateDebut: dateDebut,
+                            dateFin: dateFin
+                        },
+                        success: function(response) {
+                            resolve(response);
+                        },
+                        error: function() {
+                            console.error('Erreur lors de la vérification des conflits');
+                            resolve({ hasConflicts: false });
+                        }
+                    });
+                });
+            }
 
             // Intercepter la soumission du formulaire
-            $('form').on('submit', function(e) {
-                // Vérifier si le champ affectationsData est vide et si l'utilisateur n'a pas déjà confirmé
-                const affectationsValue = $('#affectationsData').val();
-                if (!confirmationDonnee && (!affectationsValue || affectationsValue === '[]')) {
-                    // Empêcher la soumission du formulaire
-                    e.preventDefault();
+            $('form').on('submit', async function(e) {
+                // Empêcher la soumission par défaut
+                e.preventDefault();
 
-                    // Afficher la boîte de dialogue de confirmation
+                // Étape 1 : Vérifier les conflits d'abord
+                if (!confirmationConflitDonnee) {
+                    const conflictResult = await verifierConflits();
+
+                    if (conflictResult.hasConflicts) {
+                        // Construire le HTML des conflits
+                        let conflitHtml = '<ul style="text-align: left; margin: 10px 0;">';
+                        conflictResult.conflitMessages.forEach(message => {
+                            conflitHtml += `<li style="margin: 5px 0;">${message}</li>`;
+                        });
+                        conflitHtml += '</ul>';
+
+                        // Afficher le popup de conflit
+                        Swal.fire({
+                            title: 'Conflit d\'affectation détecté',
+                            html: `<p>Des utilisateurs sont déjà assignés à d'autres PRS pendant cette période :</p>${conflitHtml}<p><strong>Voulez-vous continuer malgré ces conflits ?</strong></p>`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Oui, continuer malgré les conflits',
+                            cancelButtonText: 'Non, modifier les affectations',
+                            confirmButtonColor: '#d33',
+                            cancelButtonColor: '#3085d6',
+                            allowOutsideClick: false
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                // L'utilisateur confirme malgré les conflits
+                                confirmationConflitDonnee = true;
+                                // Relancer la soumission
+                                $('form').submit();
+                            } else {
+                                // Focus sur le select d'utilisateur
+                                $('#userSelect').focus();
+                            }
+                        });
+                        return; // Arrêter ici
+                    }
+                }
+
+                // Étape 2 : Vérifier les affectations vides
+                const affectationsValue = $('#affectationsData').val();
+                if (!confirmationAffectationDonnee && (!affectationsValue || affectationsValue === '[]')) {
+                    // Afficher la boîte de dialogue de confirmation pour affectations vides
                     Swal.fire({
                         title: 'Aucune affectation',
                         html: 'Êtes-vous sûr de ne pas affecter de personne ou de groupe à cette PRS?<br><br>Le support et autres services seront peut-être mobilisés sur une autre PRS et ne pourront pas vous aider.',
@@ -3142,8 +3219,7 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
                         cancelButtonColor: '#d33'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            // Marquer que l'utilisateur a confirmé
-                            confirmationDonnee = true;
+                            confirmationAffectationDonnee = true;
 
                             // Ajouter un champ caché pour indiquer que la confirmation a été donnée
                             $('<input>').attr({
@@ -3152,14 +3228,17 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
                                 value: 'true'
                             }).appendTo('form');
 
-                            // Soumettre le formulaire
-                            $('form').submit();
+                            // Soumettre le formulaire sans intercepter
+                            $('form').off('submit').submit();
                         } else {
-                            // Focus sur le select d'utilisateur pour faciliter l'ajout
                             $('#userSelect').focus();
                         }
                     });
+                    return;
                 }
+
+                // Étape 3 : Tout est OK, soumettre normalement
+                $('form').off('submit').submit();
             });
         });
     </script>
