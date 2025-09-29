@@ -667,11 +667,18 @@
                         <label class="form-label">Catégorie</label>
                         <select class="form-select form-select-sm" name="categorie">
                             <option value="">-- Sélectionner --</option>
-                            <option value="Produit" ${element.categorie === 'Produit' ? 'selected' : ''}>📦 Produit</option>
-                            <option value="Documentation" ${element.categorie === 'Documentation' ? 'selected' : ''}>📄 Documentation</option>
-                            <option value="Process" ${element.categorie === 'Process' ? 'selected' : ''}>⚙️ Process</option>
-                            <option value="Matière" ${element.categorie === 'Matière' ? 'selected' : ''}>🧱 Matière</option>
-                            <option value="Production" ${element.categorie === 'Production' ? 'selected' : ''}>🏭 Production</option>
+                            <option value="Logistique interne" ${element.categorie === 'Logistique interne' ? 'selected' : ''}>Logistique interne</option>
+                            <option value="Moyens Tests" ${element.categorie === 'Moyens Tests' ? 'selected' : ''}>Moyens Tests</option>
+                            <option value="Achat Projet" ${element.categorie === 'Achat Projet' ? 'selected' : ''}>Achat Projet</option>
+                            <option value="Chef de projets" ${element.categorie === 'Chef de projets' ? 'selected' : ''}>Chef de projets</option>
+                            <option value="Qualité projet" ${element.categorie === 'Qualité projet' ? 'selected' : ''}>Qualité projet</option>
+                            <option value="Méthodes" ${element.categorie === 'Méthodes' ? 'selected' : ''}>Méthodes</option>
+                            <option value="Besoin opérateur" ${element.categorie === 'Besoin opérateur' ? 'selected' : ''}>Besoin opérateur</option>
+                            <option value="Qualité client" ${element.categorie === 'Qualité client' ? 'selected' : ''}>Qualité client</option>
+                            <option value="AQFE" ${element.categorie === 'AQFE' ? 'selected' : ''}>AQFE</option>
+                            <option value="Equipement Indus" ${element.categorie === 'Equipement Indus' ? 'selected' : ''}>Equipement Indus</option>
+                            <option value="ADV" ${element.categorie === 'ADV' ? 'selected' : ''}>ADV</option>
+                            <option value="Laboratoire" ${element.categorie === 'Laboratoire' ? 'selected' : ''}>Laboratoire</option>
                         </select>
                     </div>
                     <div class="col-md-2">
@@ -993,22 +1000,36 @@
 
     getCategorieColor(categorie) {
         const colors = {
-            'Produit': '#007bff',
-            'Documentation': '#28a745',
-            'Process': '#fd7e14',
-            'Matière': '#6f42c1',
-            'Production': '#dc3545'
+            'Logistique interne': '#ffc107',
+            'Moyens Tests': '#6610f2',
+            'Achat Projet': '#20c997',
+            'Chef de projets': '#e83e8c',
+            'Qualité projet': '#6c757d',
+            'Méthodes': '#00796b',
+            'Besoin opérateur': '#795548',
+            'Qualité client': '#343a40',
+            'AQFE': '#8e44ad',
+            'Equipement Indus': '#1abc9c',
+            'ADV': '#ff5722',
+            'Laboratoire': '#3f51b5'
         };
         return colors[categorie] || '#6c757d';
     }
 
     getCategorieIcon(categorie) {
         const icons = {
-            'Produit': 'fas fa-box',
-            'Documentation': 'fas fa-file-alt',
-            'Process': 'fas fa-cogs',
-            'Matière': 'fas fa-cubes',
-            'Production': 'fas fa-industry'
+            'Logistique interne': 'fas fa-truck-loading',
+            'Moyens Tests': 'fas fa-microscope',
+            'Achat Projet': 'fas fa-shopping-cart',
+            'Chef de projets': 'fas fa-user-tie',
+            'Qualité projet': 'fas fa-check-circle',
+            'Méthodes': 'fas fa-drafting-compass',
+            'Besoin opérateur': 'fas fa-user-cog',
+            'Qualité client': 'fas fa-smile',
+            'AQFE': 'fas fa-clipboard-check',
+            'Equipement Indus': 'fas fa-tools',
+            'ADV': 'fas fa-headset',
+            'Laboratoire': 'fas fa-vials'
         };
         return icons[categorie] || 'fas fa-circle';
     }
