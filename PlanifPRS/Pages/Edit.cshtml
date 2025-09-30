@@ -594,10 +594,11 @@
                         {
                             foreach (var a in Model.AffectationsExistantesDisplay)
                             {
-                                <li class="list-group-item d-flex align-items-center"
-                                    data-existing="true"
-                                    data-affectation-id="@a.Id"
-                                    data-type="@a.Type">
+                                      <li class="list-group-item d-flex align-items-center"
+                                        data-existing="true"
+                                        data-affectation-id="@a.Id"
+                                        data-type="@a.Type"
+                                        data-source-id="@a.SourceId">
                                     <i class="fas @(a.Type == "Utilisateur" ? "fa-user" : "fa-users") me-2"></i>
                                     <span class="me-auto">
                                         @a.Name
@@ -1123,38 +1124,53 @@
             console.log('[EDIT] Lien dossier supprimé', { path });
         });
 
-        document.addEventListener('DOMContentLoaded', function () {
-            function getList() { return document.getElementById('affectationsList'); }
-            const dataField = document.getElementById('affectationsData');
-            const delField = document.getElementById('affectationsToDelete');
-            let pending = [];
+            // === GESTION AFFECTATIONS (EDIT) ===
+    document.addEventListener('DOMContentLoaded', function () {
+        const listElem = document.getElementById('affectationsList');
+        const newHidden = document.getElementById('affectationsData');              // nouvelles uniquement (POST)
+        const unionHidden = document.getElementById('affectationsAllCalendar');     // union (calendrier)
+        const deleteHidden = document.getElementById('affectationsToDelete');
+        const userSelect = document.getElementById('userSelect');
+        const groupSelect = document.getElementById('groupSelect');
 
-                    function syncPending() {
-            if (!dataField) return;
-            // Ne mets dans le hidden que les NOUVELLES affectations (pour la soumission)
-            dataField.value = JSON.stringify(
-                pending.map(p => ({ id: p.id, type: p.type, name: p.name, info: p.info, email: p.email || '' }))
+        let assignedExisting = [];   // {id,type,name,info,email}
+        let pending = [];            // nouvelles
+
+        // 1. Seed existants depuis le DOM
+        (function seedExisting() {
+            assignedExisting = [];
+            document.querySelectorAll('#affectationsList li[data-existing="true"]').forEach(li => {
+                const type = li.getAttribute('data-type');
+                const id = parseInt(li.getAttribute('data-source-id') || '0', 10);
+                if (!type || !id) return;
+                const name = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
+                const info = (li.querySelector('span.me-auto .text-muted')?.textContent || '').replace(/[()]/g, '').trim();
+                const email = (li.getAttribute('data-email') || '').trim();
+                assignedExisting.push({ id, type, name, info, email });
+            });
+            syncUnion();
+            syncPending();
+        })();
+
+        function syncPending() {
+            if (!newHidden) return;
+            newHidden.value = JSON.stringify(
+                pending.map(p => ({
+                    id: p.id,
+                    type: p.type,
+                    name: p.name,
+                    info: p.info,
+                    email: p.email || ''
+                }))
             );
-            console.log('[EDIT] Affectations (pending sync) =>', dataField.value);
+            console.log('[EDIT] Hidden nouvelles =>', newHidden.value);
         }
 
-                // Maintient le modèle “complet” pour le calendrier
-        let assignedExisting = [];
-
-                // NE PLUS ÉCRIRE dans #affectationsData ici (il ne doit contenir QUE les nouvelles)
-        // Si tu veux quand même donner l’union à d’autres scripts, utilise un second hidden (ex: #affectationsAllCalendar)
-        function renderAffectationsForCalendar() {
+        function syncUnion() {
+            if (!unionHidden) return;
             const union = [...assignedExisting, ...pending];
-
-            // Optionnel : si tu as ajouté ce hidden dans le formulaire :
-            // <input type="hidden" id="affectationsAllCalendar" value="[]">
-            const calendarField = document.getElementById('affectationsAllCalendar');
-            if (calendarField) {
-                calendarField.value = JSON.stringify(union);
-                calendarField.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-
-            // Evénement pour les autres composants (calendrier, absences, etc.)
+            unionHidden.value = JSON.stringify(union);
+            unionHidden.dispatchEvent(new Event('change', { bubbles: true }));
             document.dispatchEvent(new CustomEvent('affectations:changed', {
                 detail: {
                     action: 'sync',
@@ -1164,200 +1180,146 @@
                         .filter(Boolean)
                 }
             }));
-
             if (typeof window.__prsRefreshAbsences === 'function') {
                 window.__prsRefreshAbsences();
             }
         }
 
-                        (function seedAssignedFromExisting() {
-            // Normalisation pour matcher "Prenom Nom" vs "Nom Prenom", accents, espaces, etc.
-            const norm = (s) => (s || '')
-                .normalize('NFD')
-                .replace(/\p{Diacritic}/gu, '')
-                .replace(/\s+/g, ' ')
-                .trim()
-                .toLowerCase();
-
-            const reverseMatch = (src, tgt) => {
-                const parts = tgt.split(' ');
-                if (parts.length < 2) return false;
-                const rev = (parts[1] + ' ' + parts[0]).trim();
-                return src === rev || src.includes(rev);
-            };
-
-            const lis = document.querySelectorAll('#affectationsList li[data-existing="true"]');
-            assignedExisting = [];
-
-            const userOptions = Array.from(document.querySelectorAll('#userSelect option[value]'));
-
-            lis.forEach(li => {
-                const type = li.dataset.type || 'Utilisateur';
-                const nameText = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
-                const infoText = (li.querySelector('span.me-auto .text-muted')?.textContent || '').replace(/[()]/g, '').trim();
-
-                let email = (li.dataset.email || '').trim();
-                let id = 0;
-
-                if (type === 'Utilisateur') {
-                    if (!email) {
-                        const target = norm(nameText);
-                        const opt = userOptions.find(o => {
-                            const dn = norm(o.dataset.name || '');
-                            const tt = norm(o.textContent || '');
-                            return (
-                                dn === target ||
-                                tt.includes(target) ||
-                                reverseMatch(dn, target) ||
-                                reverseMatch(tt, target)
-                            );
-                        });
-                        if (opt) {
-                            email = (opt.getAttribute('data-email') || '').trim();
-                            id = parseInt(opt.value || '0', 10) || 0;
-                        }
-                    }
-                }
-
-                assignedExisting.push({ id, type, name: nameText, info: infoText, email });
-            });
-
-            // 1) Première synchro immédiate
-            renderAffectationsForCalendar();
-
-            // 2) Retry court après init du _CalendarBlock (si listeners pas encore prêts)
-            let tries = 0;
-            const maxTries = 50; // ~5s
-            const timer = setInterval(() => {
-                const ready = typeof window.__prsRefreshAbsences === 'function';
-                if (ready) {
-                    renderAffectationsForCalendar();
-                    clearInterval(timer);
-                    return;
-                }
-                if (++tries >= maxTries) {
-                    clearInterval(timer);
-                }
-            }, 100);
-        })();
-
-            function addListItem(item) {
-                const list = getList();
-                if (!list) {
-                    alert('Zone "Personnes affectées" introuvable.');
-                    return;
-                }
-                const li = document.createElement('li');
-                li.className = 'list-group-item d-flex align-items-center';
-                li.dataset.type = item.type;
-                if (item.type === 'Utilisateur' && item.email) li.dataset.email = item.email;
-
-                const icon = document.createElement('i');
-                icon.className = 'fas ' + (item.type === 'Utilisateur' ? 'fa-user' : 'fa-users') + ' me-2';
-
-                const span = document.createElement('span');
-                span.className = 'me-auto';
-                span.textContent = item.name;
-                if (item.info) {
-                    const infoSpan = document.createElement('span');
-                    infoSpan.className = 'text-muted';
-                    infoSpan.textContent = ' (' + item.info + ')';
-                    span.appendChild(infoSpan);
-                }
-
-                const btn = document.createElement('button');
-                btn.type = 'button';
-                btn.className = 'btn btn-sm btn-outline-danger btn-remove-aff';
-                btn.title = 'Retirer';
-                const i = document.createElement('i');
-                i.className = 'fas fa-trash';
-                btn.appendChild(i);
-
-                li.appendChild(icon);
-                li.appendChild(span);
-                li.appendChild(btn);
-                list.appendChild(li);
+        function addListItem(item, existing = false) {
+            const li = document.createElement('li');
+            li.className = 'list-group-item d-flex align-items-center';
+            li.dataset.type = item.type;
+            if (existing) {
+                li.dataset.existing = 'true';
+                li.dataset.sourceId = item.id;
+            }
+            if (item.email && item.type === 'Utilisateur') {
+                li.dataset.email = item.email;
             }
 
-                    document.getElementById('addUserBtn')?.addEventListener('click', () => {
-            const sel = document.getElementById('userSelect');
-            const val = parseInt(sel?.value || '0', 10);
+            const icon = document.createElement('i');
+            icon.className = 'fas ' + (item.type === 'Utilisateur' ? 'fa-user' : 'fa-users') + ' me-2';
+
+            const span = document.createElement('span');
+            span.className = 'me-auto';
+            span.textContent = item.name;
+            if (item.info) {
+                const infoSpan = document.createElement('span');
+                infoSpan.className = 'text-muted';
+                infoSpan.textContent = ' (' + item.info + ')';
+                span.appendChild(infoSpan);
+            }
+
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn btn-sm btn-outline-danger btn-remove-aff';
+            btn.title = 'Retirer';
+            btn.innerHTML = '<i class="fas fa-trash"></i>';
+
+            li.appendChild(icon);
+            li.appendChild(span);
+            li.appendChild(btn);
+            listElem.appendChild(li);
+        }
+
+        // Bouton ajout utilisateur
+        document.getElementById('addUserBtn')?.addEventListener('click', () => {
+            if (!userSelect) return;
+            const val = parseInt(userSelect.value || '0', 10);
             if (!val) return;
 
-            const opt = sel.selectedOptions[0];
-            const name = opt?.getAttribute('data-name') || opt?.textContent?.trim() || '';
+            const opt = userSelect.selectedOptions[0];
+            const name = (opt?.getAttribute('data-name') || opt?.textContent || '').trim();
             const info = opt?.getAttribute('data-service') || '';
             const email = (opt?.getAttribute('data-email') || '').trim();
 
-            // Anti-doublon par id OU email sur (existantes + nouvelles)
-            const exists = [...assignedExisting, ...pending].some(x =>
-                x.type === 'Utilisateur' && (x.id === val || (email && x.email === email))
-            );
+            const exists = assignedExisting.some(x => x.type === 'Utilisateur' && (x.id === val || (email && x.email === email)))
+                || pending.some(x => x.type === 'Utilisateur' && (x.id === val || (email && x.email === email)));
+
             if (exists) {
-                alert('Cet utilisateur est déjà affecté');
+                alert('Cet utilisateur est déjà affecté.');
                 return;
             }
 
             const item = { id: val, type: 'Utilisateur', name, info, email };
             pending.push(item);
-            addListItem(item);
-            syncPending();                  // met à jour la valeur pour la soumission (nouvelles)
-            sel.value = '';
-
-            // Met à jour la valeur “calendrier” (existantes + nouvelles) et rafraîchit
-            renderAffectationsForCalendar();
+            addListItem(item, false);
+            syncPending();
+            syncUnion();
+            userSelect.value = '';
         });
 
-            document.getElementById('addGroupBtn')?.addEventListener('click', () => {
-                const sel = document.getElementById('groupSelect');
-                const val = parseInt(sel?.value || '0', 10);
-                if (!val) return;
-                const opt = sel.selectedOptions[0];
-                const name = opt?.getAttribute('data-name') || opt?.textContent || '';
-                const count = opt?.getAttribute('data-count') || '';
-                const info = count ? (count + ' membres') : '';
-                const item = { id: val, type: 'Groupe', name, info };
-                if (!pending.some(x => x.id === item.id && x.type === item.type)) pending.push(item);
-                addListItem(item); syncPending(); sel.value = '';
-            });
+        // Bouton ajout groupe
+        document.getElementById('addGroupBtn')?.addEventListener('click', () => {
+            if (!groupSelect) return;
+            const val = parseInt(groupSelect.value || '0', 10);
+            if (!val) return;
+            const opt = groupSelect.selectedOptions[0];
+            const name = (opt?.getAttribute('data-name') || opt?.textContent || '').trim();
+            const count = opt?.getAttribute('data-count') || '';
+            const info = count ? (count + ' membres') : '';
 
-                    document.addEventListener('click', (e) => {
+            const exists = assignedExisting.some(x => x.type === 'Groupe' && x.id === val)
+                || pending.some(x => x.type === 'Groupe' && x.id === val);
+
+            if (exists) {
+                alert('Ce groupe est déjà affecté.');
+                return;
+            }
+
+            const item = { id: val, type: 'Groupe', name, info };
+            pending.push(item);
+            addListItem(item, false);
+            syncPending();
+            syncUnion();
+            groupSelect.value = '';
+        });
+
+        // Suppression
+        document.addEventListener('click', e => {
             const btn = e.target.closest('.btn-remove-aff');
             if (!btn) return;
             const li = btn.closest('li');
             if (!li) return;
 
-            const liType = li.dataset.type || 'Utilisateur';
-            const liEmail = (li.dataset.email || '').trim();
-            const nameText = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
+            const isExisting = li.dataset.existing === 'true';
+            const type = li.dataset.type;
+            const email = (li.dataset.email || '').trim();
+            const sourceId = parseInt(li.dataset.sourceId || '0', 10);
+            const name = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
 
-            if (li.dataset.existing === 'true') {
-                // Marquer pour suppression côté serveur
-                const affId = li.dataset.affectationId;
-                if (affId && delField) {
-                    const arr = delField.value ? JSON.parse(delField.value) : [];
+            if (isExisting) {
+                // marque suppression
+                const affId = li.getAttribute('data-affectation-id');
+                if (affId && deleteHidden) {
+                    let arr = [];
+                    try { arr = deleteHidden.value ? JSON.parse(deleteHidden.value) : []; } catch { arr = []; }
                     const num = parseInt(affId, 10);
                     if (!arr.includes(num)) arr.push(num);
-                    delField.value = JSON.stringify(arr);
+                    deleteHidden.value = JSON.stringify(arr);
                 }
-                // ET retirer de la liste “existantes” pour le calendrier
+                // enlève de assignedExisting
                 assignedExisting = assignedExisting.filter(x => {
-                    if ((x.type || 'Utilisateur') !== liType) return true;
-                    if (liEmail && x.email) return x.email.trim().toLowerCase() !== liEmail.toLowerCase();
-                    return x.name !== nameText; // fallback par nom
+                    if (x.type !== type) return true;
+                    if (sourceId && x.id) return x.id !== sourceId;
+                    if (email && x.email) return x.email.toLowerCase() !== email.toLowerCase();
+                    return x.name !== name;
                 });
             } else {
-                // Retirer des “nouvelles” (pending) pour soumission
-                pending = pending.filter(x => !(x && x.name === nameText && x.type === liType));
+                // enlève des nouvelles
+                pending = pending.filter(x => {
+                    if (x.type !== type) return true;
+                    if (sourceId && x.id) return x.id !== sourceId;
+                    if (email && x.email) return x.email.toLowerCase() !== email.toLowerCase();
+                    return x.name !== name;
+                });
                 syncPending();
             }
 
             li.remove();
-
-            // Rafraîchir le calendrier (existantes + nouvelles)
-            renderAffectationsForCalendar();
+            syncUnion();
         });
-        });
+    });
 
                 // AJOUTER ce script dans Clone.cshtml ET Edit.cshtml
         document.addEventListener('DOMContentLoaded', function() {
@@ -1623,128 +1585,134 @@
                 li.remove();
             });
         });
+            $(document).ready(function () {
+        let confirmationConflitDonnee = false;
+        let confirmationAffectationDonnee = false;
+        let submitEnCours = false;
 
-                     $(document).ready(function() {
-            // Variables pour suivre les confirmations
-            let confirmationAffectationDonnee = false;
-            let confirmationConflitDonnee = false;
+        function lireExistingAffectations() {
+            const arr = [];
+            document.querySelectorAll('#affectationsList li[data-existing="true"]').forEach(li => {
+                const type = li.getAttribute('data-type');
+                const id = parseInt(li.getAttribute('data-source-id') || '0', 10);
+                if (type && id) arr.push({ id, type });
+            });
+            return arr;
+        }
 
-            // Fonction pour vérifier les conflits via AJAX
-            function verifierConflits() {
-                return new Promise((resolve) => {
-                    const affectationsValue = $('#affectationsData').val();
-                    const dateDebut = $('input[name="Prs.DateDebut"]').val() || $('#hiddenDateDebut').val();
-                    const dateFin = $('input[name="Prs.DateFin"]').val() || $('#hiddenDateFin').val();
+        function lirePendingAffectations() {
+            try {
+                const raw = document.getElementById('affectationsData')?.value || '[]';
+                return JSON.parse(raw) || [];
+            } catch { return []; }
+        }
 
-                    // Si pas d'affectations ou pas de dates, pas de conflits
-                    if (!affectationsValue || affectationsValue === '[]' || !dateDebut || !dateFin) {
-                        resolve({ hasConflicts: false });
-                        return;
-                    }
+        async function verifierConflits() {
+            // (Tu gardes ta version actuelle si déjà adaptée : important qu’elle envoie l’UNION)
+            // Ici on reconstruit l’union pour le check
+            const existing = lireExistingAffectations();
+            const pending = lirePendingAffectations();
+            const map = new Map();
+            [...existing, ...pending].forEach(a => {
+                if (!a || !a.id || !a.type) return;
+                const key = a.type + ':' + a.id;
+                if (!map.has(key)) map.set(key, { id: a.id, type: a.type });
+            });
+            const union = Array.from(map.values());
 
-                    // Appel AJAX pour vérifier les conflits
-                    $.ajax({
-                        url: window.location.pathname + '?handler=CheckConflicts',
-                        type: 'POST',
-                        headers: {
-                            'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
-                        },
-                        data: {
-                            affectationsData: affectationsValue,
-                            dateDebut: dateDebut,
-                            dateFin: dateFin,
-                            prsId: prsId  // Utilise la variable globale définie plus haut
-                        },
-                        success: function(response) {
-                            resolve(response);
-                        },
-                        error: function() {
-                            console.error('Erreur lors de la vérification des conflits');
-                            resolve({ hasConflicts: false });
-                        }
-                    });
-                });
+            const dateDebut = $('input[name="Prs.DateDebut"]').val() || $('#hiddenDateDebut').val();
+            const dateFin = $('input[name="Prs.DateFin"]').val() || $('#hiddenDateFin').val();
+            if (!dateDebut || !dateFin || union.length === 0) {
+                return { hasConflicts: false };
             }
 
-            // Intercepter la soumission du formulaire
-            $('#create-form').on('submit', async function(e) {
-                // Empêcher la soumission par défaut
-                e.preventDefault();
+            return fetch(window.location.pathname + '?handler=CheckConflicts', {
+                method: 'POST',
+                headers: {
+                    'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() || '',
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({
+                    affectationsData: JSON.stringify(union),
+                    dateDebut,
+                    dateFin,
+                    prsId: prsId.toString()
+                }).toString()
+            }).then(r => r.json()).catch(_ => ({ hasConflicts: false }));
+        }
 
-                // Étape 1 : Vérifier les conflits d'abord
-                if (!confirmationConflitDonnee) {
-                    const conflictResult = await verifierConflits();
+        $('#create-form').on('submit', async function (e) {
+            if (submitEnCours) return; // évite re-entrées sauvages
+            e.preventDefault();
 
-                    if (conflictResult.hasConflicts) {
-                        // Construire le HTML des conflits
-                        let conflitHtml = '<ul style="text-align: left; margin: 10px 0;">';
-                        conflictResult.conflitMessages.forEach(message => {
-                            conflitHtml += `<li style="margin: 5px 0;">${message}</li>`;
-                        });
-                        conflitHtml += '</ul>';
+            const existing = lireExistingAffectations();
+            const pending = lirePendingAffectations();
+            const hasAnyAffectation = existing.length > 0 || pending.length > 0;
 
-                        // Afficher le popup de conflit
-                        Swal.fire({
-                            title: 'Conflit d\'affectation détecté',
-                            html: `<p>Des utilisateurs sont déjà assignés à d'autres PRS pendant cette période :</p>${conflitHtml}<p><strong>Voulez-vous continuer malgré ces conflits ?</strong></p>`,
-                            icon: 'warning',
-                            showCancelButton: true,
-                            confirmButtonText: 'Oui, continuer malgré les conflits',
-                            cancelButtonText: 'Non, modifier les affectations',
-                            confirmButtonColor: '#d33',
-                            cancelButtonColor: '#3085d6',
-                            allowOutsideClick: false
-                        }).then((result) => {
-                            if (result.isConfirmed) {
-                                // L'utilisateur confirme malgré les conflits
-                                confirmationConflitDonnee = true;
-                                // Relancer la soumission
-                                $('#create-form').submit();
-                            } else {
-                                // Focus sur le select d'utilisateur
-                                $('#userSelect').focus();
-                            }
-                        });
-                        return; // Arrêter ici
-                    }
-                }
+            // 1. Conflits d'abord
+            if (!confirmationConflitDonnee) {
+                const conflictResult = await verifierConflits();
+                if (conflictResult.hasConflicts) {
+                    let conflitHtml = '<ul style="text-align:left;margin:10px 0;">';
+                    conflictResult.conflitMessages.forEach(msg => conflitHtml += `<li style="margin:4px 0;">${msg}</li>`);
+                    conflitHtml += '</ul>';
 
-                // Étape 2 : Vérifier les affectations vides
-                const affectationsValue = $('#affectationsData').val();
-                if (!confirmationAffectationDonnee && (!affectationsValue || affectationsValue === '[]')) {
-                    // Afficher la boîte de dialogue de confirmation pour affectations vides
                     Swal.fire({
-                        title: 'Aucune affectation',
-                        html: 'Êtes-vous sûr de ne pas affecter de personne ou de groupe à cette PRS?<br><br>Le support et autres services seront peut-être mobilisés sur une autre PRS et ne pourront pas vous aider.',
+                        title: 'Conflit d\'affectation détecté',
+                        html: `<p>Des utilisateurs / groupes sont déjà affectés ailleurs sur cette période :</p>${conflitHtml}<p><strong>Continuer malgré tout ?</strong></p>`,
                         icon: 'warning',
                         showCancelButton: true,
-                        confirmButtonText: 'Oui, continuer sans affectation',
-                        cancelButtonText: 'Non, ajouter des affectations',
-                        confirmButtonColor: '#3085d6',
-                        cancelButtonColor: '#d33'
-                    }).then((result) => {
+                        confirmButtonText: 'Oui, continuer',
+                        cancelButtonText: 'Annuler',
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        allowOutsideClick: false
+                    }).then(result => {
                         if (result.isConfirmed) {
-                            confirmationAffectationDonnee = true;
-
-                            // Ajouter un champ caché pour indiquer que la confirmation a été donnée
-                            $('<input>').attr({
-                                type: 'hidden',
-                                name: 'AffectationConfirmee',
-                                value: 'true'
-                            }).appendTo('#create-form');
-
-                            // Soumettre le formulaire sans intercepter
-                            $('#create-form').off('submit').submit();
+                            confirmationConflitDonnee = true;
+                            // S'il y avait déjà des affectations (existantes ou nouvelles) on évite le popup "Aucune affectation"
+                            if (hasAnyAffectation) confirmationAffectationDonnee = true;
+                            $('#create-form').trigger('submit'); // relancer
                         } else {
                             $('#userSelect').focus();
                         }
                     });
                     return;
+                } else {
+                    // Pas de conflits -> on peut marquer la confirmation conflits pour ne pas rechecker
+                    confirmationConflitDonnee = true;
                 }
+            }
 
-                // Étape 3 : Tout est OK, soumettre normalement
-                $('#create-form').off('submit').submit();
-            });
+            // 2. Vérifier absence totale d'affectations (existantes + nouvelles)
+            if (!confirmationAffectationDonnee && !hasAnyAffectation) {
+                Swal.fire({
+                    title: 'Aucune affectation',
+                    html: 'Aucune personne ni groupe n\'est affecté à cette PRS.<br>Continuer quand même ?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Oui, continuer',
+                    cancelButtonText: 'Ajouter',
+                    confirmButtonColor: '#3085d6',
+                    cancelButtonColor: '#d33'
+                }).then(result => {
+                    if (result.isConfirmed) {
+                        confirmationAffectationDonnee = true;
+                        $('#create-form').trigger('submit');
+                    } else {
+                        $('#userSelect').focus();
+                    }
+                });
+                return;
+            }
+
+            // 3. Soumission finale
+            submitEnCours = true;
+            // (Optionnel) re-synchronisation de sécurité des nouvelles avant post :
+            // $('#affectationsData').val(JSON.stringify(pending));
+            this.submit();
         });
+    });
+               
     </script>
 }

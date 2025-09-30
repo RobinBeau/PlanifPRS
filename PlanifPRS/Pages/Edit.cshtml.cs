@@ -709,13 +709,34 @@ namespace PlanifPRS.Pages
                 {
                     if (a.UtilisateurId.HasValue && usersById.TryGetValue(a.UtilisateurId.Value, out var u))
                     {
-                        return new AffectationDisplay { Id = a.Id, Type = "Utilisateur", Name = $"{u.Nom} {u.Prenom}", Info = u.Service };
+                        return new AffectationDisplay
+                        {
+                            Id = a.Id,
+                            Type = "Utilisateur",
+                            Name = $"{u.Nom} {u.Prenom}",
+                            Info = u.Service,
+                            SourceId = u.Id
+                        };
                     }
                     if (a.GroupeId.HasValue && groupsById.TryGetValue(a.GroupeId.Value, out var g))
                     {
-                        return new AffectationDisplay { Id = a.Id, Type = "Groupe", Name = g.NomGroupe, Info = $"{(g.Membres?.Count ?? 0)} membres" };
+                        return new AffectationDisplay
+                        {
+                            Id = a.Id,
+                            Type = "Groupe",
+                            Name = g.NomGroupe,
+                            Info = $"{(g.Membres?.Count ?? 0)} membres",
+                            SourceId = g.Id
+                        };
                     }
-                    return new AffectationDisplay { Id = a.Id, Type = "Inconnu", Name = "Inconnu", Info = "" };
+                    return new AffectationDisplay
+                    {
+                        Id = a.Id,
+                        Type = "Inconnu",
+                        Name = "Inconnu",
+                        Info = "",
+                        SourceId = 0
+                    };
                 }).ToList();
             }
             catch (Exception ex)
@@ -724,6 +745,7 @@ namespace PlanifPRS.Pages
                 AffectationsExistantesDisplay = new List<AffectationDisplay>();
             }
         }
+
 
         private async Task TraiterSuppressionsAffectationsPrsAsync()
         {
@@ -795,39 +817,85 @@ namespace PlanifPRS.Pages
             }
         }
 
+
         private async Task TraiterAffectationsPrsAsync()
         {
-            if (string.IsNullOrEmpty(AffectationsData)) return;
+            if (string.IsNullOrWhiteSpace(AffectationsData)) return;
 
             try
             {
-                var affectations = JsonSerializer.Deserialize<List<AffectationDto>>(AffectationsData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (affectations != null && affectations.Any())
+                var trimmed = AffectationsData.Trim();
+                if (trimmed == "[]" || trimmed == "\"[]\"" || trimmed.Equals("null", StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                var affectations = JsonSerializer.Deserialize<List<AffectationDto>>(AffectationsData,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (affectations == null || !affectations.Any()) return;
+
+                // Récupère déjà existants pour cette PRS
+                var existants = await _context.PrsAffectations
+                    .Where(a => a.PrsId == Prs.Id)
+                    .Select(a => new { a.TypeAffectation, a.UtilisateurId, a.GroupeId })
+                    .ToListAsync();
+
+                var existingUsers = new HashSet<int>(
+                    existants.Where(e => e.TypeAffectation == "Utilisateur" && e.UtilisateurId.HasValue)
+                             .Select(e => e.UtilisateurId!.Value));
+
+                var existingGroups = new HashSet<int>(
+                    existants.Where(e => e.TypeAffectation == "Groupe" && e.GroupeId.HasValue)
+                             .Select(e => e.GroupeId!.Value));
+
+                int created = 0, skipped = 0;
+
+                foreach (var dto in affectations)
                 {
-                    int affectationsCount = 0;
-                    foreach (var a in affectations)
+                    if (dto.type == "Utilisateur")
                     {
-                        var prsAffectation = new PrsAffectation
+                        if (existingUsers.Contains(dto.id)) { skipped++; continue; }
+                        _context.PrsAffectations.Add(new PrsAffectation
                         {
                             PrsId = Prs.Id,
-                            TypeAffectation = a.type,
+                            TypeAffectation = "Utilisateur",
                             AffectePar = CurrentUserLogin,
                             DateAffectation = DateTime.Now,
-                            UtilisateurId = a.type == "Utilisateur" ? a.id : (int?)null,
-                            GroupeId = a.type == "Groupe" ? a.id : (int?)null
-                        };
-                        _context.PrsAffectations.Add(prsAffectation);
-                        affectationsCount++;
+                            UtilisateurId = dto.id
+                        });
+                        existingUsers.Add(dto.id);
+                        created++;
                     }
-                    await _context.SaveChangesAsync();
-                    if (affectationsCount > 0)
+                    else if (dto.type == "Groupe")
                     {
-                        Flash += $" {affectationsCount} affectation(s) PRS créée(s).";
-                        _logger.LogInformation($"[EDIT] Affectations créées: {affectationsCount}");
+                        if (existingGroups.Contains(dto.id)) { skipped++; continue; }
+                        _context.PrsAffectations.Add(new PrsAffectation
+                        {
+                            PrsId = Prs.Id,
+                            TypeAffectation = "Groupe",
+                            AffectePar = CurrentUserLogin,
+                            DateAffectation = DateTime.Now,
+                            GroupeId = dto.id
+                        });
+                        existingGroups.Add(dto.id);
+                        created++;
                     }
                 }
+
+                if (created > 0)
+                {
+                    await _context.SaveChangesAsync();
+                    Flash += $" {created} affectation(s) ajoutée(s).";
+                }
+                if (skipped > 0)
+                {
+                    _logger.LogInformation("[EDIT] Affectations ignorées (doublons): {Skipped}", skipped);
+                }
             }
-            catch (Exception ex) { _logger.LogError(ex, "[EDIT] Erreur traitement affectations PRS"); ErrorMessage += " Erreur lors de la création des affectations PRS."; }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[EDIT] Erreur traitement affectations PRS");
+                ErrorMessage += " Erreur lors du traitement des affectations.";
+            }
         }
 
         private async Task TraiterChecklistsEtAffectationsAsync()
@@ -1434,7 +1502,16 @@ private async Task<List<object>> VerifierConflitsGroupeEdit(int groupeId, DateTi
             public List<int> assignedGroups { get; set; } = new();
         }
         public class AffectationDto { public int id { get; set; } public string type { get; set; } public string name { get; set; } public string info { get; set; } }
-        public class AffectationDisplay { public int Id { get; set; } public string Type { get; set; } public string Name { get; set; } public string Info { get; set; } }
+        public class AffectationDisplay
+        {
+            // Id de la ligne PrsAffectation
+            public int Id { get; set; }
+            public string Type { get; set; }           // "Utilisateur" | "Groupe"
+            public string Name { get; set; }
+            public string Info { get; set; }
+            // Nouvel identifiant logique (UtilisateurId ou GroupeId), utilisé pour conflits & JS
+            public int SourceId { get; set; }
+        }
     }
 
 }
