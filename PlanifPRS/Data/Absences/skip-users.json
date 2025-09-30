@@ -26,7 +26,7 @@
   },
   {
     "Email": "agnes.lancelot@allcircuits.com",
-    "EmptyRuns": 0,
+    "EmptyRuns": 1,
     "Skip": false
   },
   {
@@ -96,7 +96,7 @@
   },
   {
     "Email": "amelie.allebe@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
@@ -171,7 +171,7 @@
   },
   {
     "Email": "arnaud.gagneux@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
@@ -256,7 +256,7 @@
   },
   {
     "Email": "benoit.hue@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
@@ -301,7 +301,7 @@
   },
   {
     "Email": "bruno.vallee@allcircuits.com",
-    "EmptyRuns": 0,
+    "EmptyRuns": 1,
     "Skip": false
   },
   {
@@ -796,7 +796,7 @@
   },
   {
     "Email": "gregory.droulers@allcircuits.com",
-    "EmptyRuns": 0,
+    "EmptyRuns": 1,
     "Skip": false
   },
   {
@@ -856,7 +856,7 @@
   },
   {
     "Email": "ingrid.aligon@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
@@ -876,7 +876,7 @@
   },
   {
     "Email": "jean.pigat@allcircuits.com",
-    "EmptyRuns": 0,
+    "EmptyRuns": 1,
     "Skip": false
   },
   {
@@ -1201,7 +1201,7 @@
   },
   {
     "Email": "marlene.garcia@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
@@ -1606,7 +1606,7 @@
   },
   {
     "Email": "remy.janvier@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
@@ -1796,7 +1796,7 @@
   },
   {
     "Email": "stephane.vielle@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
@@ -2006,7 +2006,7 @@
   },
   {
     "Email": "yves.ciolkovitch@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   }
 ]

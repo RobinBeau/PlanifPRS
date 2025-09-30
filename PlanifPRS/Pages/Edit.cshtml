@@ -14,6 +14,10 @@
     <link rel="stylesheet" href="~/css/create-prs.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/edit-prs.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/robia.css" asp-append-version="true" />
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.3/dist/sweetalert2.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.3/dist/sweetalert2.all.min.js"></script>
+
+
     <style>
         /* Styles légers pour la liste des suggestions (uniforme avec Create) */
         #robia-suggestions .sugg-list {
@@ -1137,18 +1141,33 @@
                 // Maintient le modèle “complet” pour le calendrier
         let assignedExisting = [];
 
-        // Ecrit l’union (existantes + nouvelles) dans le hidden
+                // NE PLUS ÉCRIRE dans #affectationsData ici (il ne doit contenir QUE les nouvelles)
+        // Si tu veux quand même donner l’union à d’autres scripts, utilise un second hidden (ex: #affectationsAllCalendar)
         function renderAffectationsForCalendar() {
             const union = [...assignedExisting, ...pending];
-            if (dataField) {
-                dataField.value = JSON.stringify(union);
-                // Déclenche les rafraîchissements du calendrier
-                dataField.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // Optionnel : si tu as ajouté ce hidden dans le formulaire :
+            // <input type="hidden" id="affectationsAllCalendar" value="[]">
+            const calendarField = document.getElementById('affectationsAllCalendar');
+            if (calendarField) {
+                calendarField.value = JSON.stringify(union);
+                calendarField.dispatchEvent(new Event('change', { bubbles: true }));
             }
+
+            // Evénement pour les autres composants (calendrier, absences, etc.)
             document.dispatchEvent(new CustomEvent('affectations:changed', {
-                detail: { action: 'sync', emails: union.filter(x => x.type === 'Utilisateur').map(x => (x.email || '').trim()).filter(Boolean) }
+                detail: {
+                    action: 'sync',
+                    emails: union
+                        .filter(x => x.type === 'Utilisateur')
+                        .map(x => (x.email || '').trim())
+                        .filter(Boolean)
+                }
             }));
-            if (typeof window.__prsRefreshAbsences === 'function') window.__prsRefreshAbsences();
+
+            if (typeof window.__prsRefreshAbsences === 'function') {
+                window.__prsRefreshAbsences();
+            }
         }
 
                         (function seedAssignedFromExisting() {
@@ -1602,6 +1621,129 @@
                     syncPending();
                 }
                 li.remove();
+            });
+        });
+
+                     $(document).ready(function() {
+            // Variables pour suivre les confirmations
+            let confirmationAffectationDonnee = false;
+            let confirmationConflitDonnee = false;
+
+            // Fonction pour vérifier les conflits via AJAX
+            function verifierConflits() {
+                return new Promise((resolve) => {
+                    const affectationsValue = $('#affectationsData').val();
+                    const dateDebut = $('input[name="Prs.DateDebut"]').val() || $('#hiddenDateDebut').val();
+                    const dateFin = $('input[name="Prs.DateFin"]').val() || $('#hiddenDateFin').val();
+
+                    // Si pas d'affectations ou pas de dates, pas de conflits
+                    if (!affectationsValue || affectationsValue === '[]' || !dateDebut || !dateFin) {
+                        resolve({ hasConflicts: false });
+                        return;
+                    }
+
+                    // Appel AJAX pour vérifier les conflits
+                    $.ajax({
+                        url: window.location.pathname + '?handler=CheckConflicts',
+                        type: 'POST',
+                        headers: {
+                            'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val()
+                        },
+                        data: {
+                            affectationsData: affectationsValue,
+                            dateDebut: dateDebut,
+                            dateFin: dateFin,
+                            prsId: prsId  // Utilise la variable globale définie plus haut
+                        },
+                        success: function(response) {
+                            resolve(response);
+                        },
+                        error: function() {
+                            console.error('Erreur lors de la vérification des conflits');
+                            resolve({ hasConflicts: false });
+                        }
+                    });
+                });
+            }
+
+            // Intercepter la soumission du formulaire
+            $('#create-form').on('submit', async function(e) {
+                // Empêcher la soumission par défaut
+                e.preventDefault();
+
+                // Étape 1 : Vérifier les conflits d'abord
+                if (!confirmationConflitDonnee) {
+                    const conflictResult = await verifierConflits();
+
+                    if (conflictResult.hasConflicts) {
+                        // Construire le HTML des conflits
+                        let conflitHtml = '<ul style="text-align: left; margin: 10px 0;">';
+                        conflictResult.conflitMessages.forEach(message => {
+                            conflitHtml += `<li style="margin: 5px 0;">${message}</li>`;
+                        });
+                        conflitHtml += '</ul>';
+
+                        // Afficher le popup de conflit
+                        Swal.fire({
+                            title: 'Conflit d\'affectation détecté',
+                            html: `<p>Des utilisateurs sont déjà assignés à d'autres PRS pendant cette période :</p>${conflitHtml}<p><strong>Voulez-vous continuer malgré ces conflits ?</strong></p>`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Oui, continuer malgré les conflits',
+                            cancelButtonText: 'Non, modifier les affectations',
+                            confirmButtonColor: '#d33',
+                            cancelButtonColor: '#3085d6',
+                            allowOutsideClick: false
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                // L'utilisateur confirme malgré les conflits
+                                confirmationConflitDonnee = true;
+                                // Relancer la soumission
+                                $('#create-form').submit();
+                            } else {
+                                // Focus sur le select d'utilisateur
+                                $('#userSelect').focus();
+                            }
+                        });
+                        return; // Arrêter ici
+                    }
+                }
+
+                // Étape 2 : Vérifier les affectations vides
+                const affectationsValue = $('#affectationsData').val();
+                if (!confirmationAffectationDonnee && (!affectationsValue || affectationsValue === '[]')) {
+                    // Afficher la boîte de dialogue de confirmation pour affectations vides
+                    Swal.fire({
+                        title: 'Aucune affectation',
+                        html: 'Êtes-vous sûr de ne pas affecter de personne ou de groupe à cette PRS?<br><br>Le support et autres services seront peut-être mobilisés sur une autre PRS et ne pourront pas vous aider.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Oui, continuer sans affectation',
+                        cancelButtonText: 'Non, ajouter des affectations',
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            confirmationAffectationDonnee = true;
+
+                            // Ajouter un champ caché pour indiquer que la confirmation a été donnée
+                            $('<input>').attr({
+                                type: 'hidden',
+                                name: 'AffectationConfirmee',
+                                value: 'true'
+                            }).appendTo('#create-form');
+
+                            // Soumettre le formulaire sans intercepter
+                            $('#create-form').off('submit').submit();
+                        } else {
+                            $('#userSelect').focus();
+                        }
+                    });
+                    return;
+                }
+
+                // Étape 3 : Tout est OK, soumettre normalement
+                $('#create-form').off('submit').submit();
             });
         });
     </script>
