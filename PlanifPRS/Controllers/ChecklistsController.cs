@@ -80,26 +80,23 @@ namespace PlanifPRS.Controllers
                     createdByLogin = modele.CreatedByLogin,
                     actif = modele.Actif,
                     elements = modele.Elements
-                        .OrderBy(e => e.Priorite)
-                        .ThenBy(e => e.DelaiDefautJours)
-                        .ThenBy(e => e.Categorie)
-                        .Select(e => new
-                        {
-                            id = e.Id,
-                            categorie = e.Categorie,
-                            sousCategorie = e.SousCategorie,
-                            libelle = e.Libelle,
-                            priorite = e.Priorite,
-                            delaiDefautJours = e.DelaiDefautJours,
-                            obligatoire = e.Obligatoire,
-                            groupeId = e.GroupeId,                             // <— AJOUT
-                            groupeNom = e.Groupe != null ? e.Groupe.NomGroupe : null, // <— AJOUT
-                            // Champs "affichage" si ton modèle (ou DTO) les calcule (je préserve ceux de ta version)
-                            categorieComplete = (e as IChecklistElementModeleMeta)?.CategorieComplete ?? null,
-                            prioriteLibelle = (e as IChecklistElementModeleMeta)?.PrioriteLibelle ?? PrioriteToLabel(e.Priorite),
-                            couleurPriorite = (e as IChecklistElementModeleMeta)?.CouleurPriorite ?? PrioriteToColor(e.Priorite)
-                        })
-                        .ToList()
+    .OrderByDescending(e => e.Categorie)          // Catégorie Z -> A
+    .ThenByDescending(e => e.DelaiDefautJours)    // Délai décroissant
+    .ThenBy(e => e.Id)                            // (optionnel) stabilité
+    .Select(e => new {
+        id = e.Id,
+        categorie = e.Categorie,
+        sousCategorie = e.SousCategorie,
+        libelle = e.Libelle,
+        priorite = e.Priorite,
+        delaiDefautJours = e.DelaiDefautJours,
+        obligatoire = e.Obligatoire,
+        groupeId = e.GroupeId,
+        groupeNom = e.Groupe != null ? e.Groupe.NomGroupe : null,
+        prioriteLibelle = PrioriteToLabel(e.Priorite),
+        couleurPriorite = PrioriteToColor(e.Priorite)
+    })
+    .ToList()
                 };
 
                 return Ok(result);

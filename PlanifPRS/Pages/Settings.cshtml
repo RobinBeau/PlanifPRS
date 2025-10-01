@@ -937,7 +937,7 @@
     }
     function buildCategorieOptions(selected) {
         const cats = [
-            "Logistique interne","Moyens Tests","Achat Projet","Chef de projets","Qualité projet",
+            "Process","Logistique interne","Moyens Tests","Achat Projet","Chef de projets","Qualité projet",
             "Méthodes","Besoin opérateur","Qualité client","AQFE","Equipement Indus","ADV","Laboratoire"
         ];
         return cats.map(c => `<option value="${c}" ${c === selected ? 'selected' : ''}>${c}</option>`).join('');

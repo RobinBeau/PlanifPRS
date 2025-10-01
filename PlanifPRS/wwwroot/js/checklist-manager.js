@@ -667,6 +667,7 @@
                         <label class="form-label">Catégorie</label>
                         <select class="form-select form-select-sm" name="categorie">
                             <option value="">-- Sélectionner --</option>
+                            <option value="Process" ${element.categorie === 'Process' ? 'selected' : ''}>Process</option>
                             <option value="Logistique interne" ${element.categorie === 'Logistique interne' ? 'selected' : ''}>Logistique interne</option>
                             <option value="Moyens Tests" ${element.categorie === 'Moyens Tests' ? 'selected' : ''}>Moyens Tests</option>
                             <option value="Achat Projet" ${element.categorie === 'Achat Projet' ? 'selected' : ''}>Achat Projet</option>
@@ -1000,6 +1001,7 @@
 
     getCategorieColor(categorie) {
         const colors = {
+            'Process': '#007bff',
             'Logistique interne': '#ffc107',
             'Moyens Tests': '#6610f2',
             'Achat Projet': '#20c997',
@@ -1018,6 +1020,7 @@
 
     getCategorieIcon(categorie) {
         const icons = {
+            'Process': 'fas fa-cogs',
             'Logistique interne': 'fas fa-truck-loading',
             'Moyens Tests': 'fas fa-microscope',
             'Achat Projet': 'fas fa-shopping-cart',
