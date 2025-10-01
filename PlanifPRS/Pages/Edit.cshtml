@@ -594,11 +594,12 @@
                         {
                             foreach (var a in Model.AffectationsExistantesDisplay)
                             {
-                                      <li class="list-group-item d-flex align-items-center"
-                                        data-existing="true"
-                                        data-affectation-id="@a.Id"
-                                        data-type="@a.Type"
-                                        data-source-id="@a.SourceId">
+                                <li class="list-group-item d-flex align-items-center"
+                                    data-existing="true"
+                                    data-affectation-id="@a.Id"
+                                    data-type="@a.Type"
+                                    data-source-id="@a.SourceId"
+                                    data-email="@a.Email">
                                     <i class="fas @(a.Type == "Utilisateur" ? "fa-user" : "fa-users") me-2"></i>
                                     <span class="me-auto">
                                         @a.Name
@@ -623,6 +624,7 @@
                 </div>
                 <input type="hidden" name="AffectationsData" id="affectationsData" value="[]" />
                 <input type="hidden" name="AffectationsToDelete" id="affectationsToDelete" value="[]" />
+                <input type="hidden" name="affectationsAllCalendar" id="affectationsAllCalendar" value="[]" />
             </div>
 
             <!-- Checklist PRS -->
@@ -1124,202 +1126,219 @@
             console.log('[EDIT] Lien dossier supprimé', { path });
         });
 
-            // === GESTION AFFECTATIONS (EDIT) ===
-    document.addEventListener('DOMContentLoaded', function () {
-        const listElem = document.getElementById('affectationsList');
-        const newHidden = document.getElementById('affectationsData');              // nouvelles uniquement (POST)
-        const unionHidden = document.getElementById('affectationsAllCalendar');     // union (calendrier)
-        const deleteHidden = document.getElementById('affectationsToDelete');
-        const userSelect = document.getElementById('userSelect');
-        const groupSelect = document.getElementById('groupSelect');
+                    // === GESTION AFFECTATIONS (EDIT) ===
+        document.addEventListener('DOMContentLoaded', function () {
+            const listElem      = document.getElementById('affectationsList');
+            const dataHidden    = document.getElementById('affectationsData');      // DOIT contenir l’union pour le calendrier
+            const deleteHidden  = document.getElementById('affectationsToDelete');
+            const userSelect    = document.getElementById('userSelect');
+            const groupSelect   = document.getElementById('groupSelect');
 
-        let assignedExisting = [];   // {id,type,name,info,email}
-        let pending = [];            // nouvelles
+            let assignedExisting = [];   // Affectations déjà en base
+            let pending          = [];   // Nouvelles (ajoutées pendant l'édition)
 
-        // 1. Seed existants depuis le DOM
-        (function seedExisting() {
-            assignedExisting = [];
-            document.querySelectorAll('#affectationsList li[data-existing="true"]').forEach(li => {
-                const type = li.getAttribute('data-type');
-                const id = parseInt(li.getAttribute('data-source-id') || '0', 10);
-                if (!type || !id) return;
-                const name = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
-                const info = (li.querySelector('span.me-auto .text-muted')?.textContent || '').replace(/[()]/g, '').trim();
-                const email = (li.getAttribute('data-email') || '').trim();
-                assignedExisting.push({ id, type, name, info, email });
+            // --- OUTILS ---
+
+            function log(...args) { console.log('[EDIT][AFF]', ...args); }
+
+            function ensureEmailForUserId(userId) {
+                const opt = userSelect?.querySelector(`option[value="${userId}"]`);
+                return (opt?.getAttribute('data-email') || '').trim();
+            }
+
+            function buildUnion() {
+                return [...assignedExisting, ...pending];
+            }
+
+            function writeUnionToHidden(trigger = true) {
+                if (!dataHidden) return;
+                const union = buildUnion();
+
+                // IMPORTANT : on ne garde que les champs utiles (id,type,email)
+                const minimized = union.map(a => ({
+                    id: a.id,
+                    type: a.type,
+                    email: a.type === 'Utilisateur' ? (a.email || ensureEmailForUserId(a.id) || '') : ''
+                }));
+
+                dataHidden.value = JSON.stringify(minimized);
+                if (trigger) {
+                    dataHidden.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                const emails = minimized
+                    .filter(a => a.type === 'Utilisateur' && a.email)
+                    .map(a => a.email.trim());
+
+                document.dispatchEvent(new CustomEvent('affectations:changed', {
+                    detail: { action: 'sync', emails }
+                }));
+
+                if (typeof window.__prsRefreshAbsences === 'function') {
+                    window.__prsRefreshAbsences();
+                }
+
+                log('Union écrite dans #affectationsData =>', minimized, 'emails=', emails);
+            }
+
+            function whenCalendarReady(cb) {
+                if (typeof window.__prsRefreshAbsences === 'function') {
+                    cb();
+                    return;
+                }
+                let tries = 0;
+                const max = 60; // 6 secondes
+                const it = setInterval(() => {
+                    if (typeof window.__prsRefreshAbsences === 'function') {
+                        clearInterval(it);
+                        cb();
+                    } else if (++tries >= max) {
+                        clearInterval(it);
+                        console.warn('[EDIT][AFF] Calendrier non prêt après attente.');
+                    }
+                }, 100);
+            }
+
+            function addListItem(item, existing = false) {
+                if (!listElem) return;
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex align-items-center';
+                li.dataset.type = item.type;
+                if (existing) {
+                    li.dataset.existing = 'true';
+                    li.dataset.sourceId = item.id;
+                }
+                if (item.email && item.type === 'Utilisateur') {
+                    li.dataset.email = item.email;
+                }
+                li.innerHTML = `
+                    <i class="fas ${item.type === 'Utilisateur' ? 'fa-user' : 'fa-users'} me-2"></i>
+                    <span class="me-auto">${item.name}${item.info ? ` <span class="text-muted">(${item.info})</span>` : ''}</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger btn-remove-aff" title="Retirer">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                `;
+                listElem.appendChild(li);
+            }
+
+            // --- INITIALISATION ---
+
+            (function seedExisting() {
+                assignedExisting = [];
+                document.querySelectorAll('#affectationsList li[data-existing="true"]').forEach(li => {
+                    const type = li.getAttribute('data-type');
+                    const id = parseInt(li.getAttribute('data-source-id') || '0', 10);
+                    if (!type || !id) return;
+                    const name = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
+                    const info = (li.querySelector('span.me-auto .text-muted')?.textContent || '').replace(/[()]/g, '').trim();
+                    let email = (li.getAttribute('data-email') || '').trim();
+                    if (type === 'Utilisateur' && !email) {
+                        email = ensureEmailForUserId(id);
+                        if (email) li.setAttribute('data-email', email);
+                    }
+                    assignedExisting.push({ id, type, name, info, email });
+                });
+
+                log('Affectations existantes chargées:', assignedExisting);
+
+                // Écriture différée quand le calendrier est prêt
+                whenCalendarReady(() => {
+                    writeUnionToHidden(true);
+                    // Sécurité : second passage si le calendrier a rechargé son state
+                    setTimeout(() => writeUnionToHidden(true), 800);
+                    setTimeout(() => writeUnionToHidden(true), 2000);
+                });
+            })();
+
+            // --- AJOUT UTILISATEUR ---
+            document.getElementById('addUserBtn')?.addEventListener('click', () => {
+                if (!userSelect) return;
+                const val = parseInt(userSelect.value || '0', 10);
+                if (!val) return;
+                const opt = userSelect.selectedOptions[0];
+                const name = (opt?.getAttribute('data-name') || opt?.textContent || '').trim();
+                const info = opt?.getAttribute('data-service') || '';
+                const email = (opt?.getAttribute('data-email') || '').trim();
+
+                const duplicate = [...assignedExisting, ...pending].some(x =>
+                    x.type === 'Utilisateur' && (x.id === val || (email && x.email && x.email.toLowerCase() === email.toLowerCase()))
+                );
+                if (duplicate) {
+                    alert('Cet utilisateur est déjà affecté.');
+                    return;
+                }
+
+                const item = { id: val, type: 'Utilisateur', name, info, email };
+                pending.push(item);
+                addListItem(item, false);
+                writeUnionToHidden(true);
+                userSelect.value = '';
             });
-            syncUnion();
-            syncPending();
-        })();
 
-        function syncPending() {
-            if (!newHidden) return;
-            newHidden.value = JSON.stringify(
-                pending.map(p => ({
-                    id: p.id,
-                    type: p.type,
-                    name: p.name,
-                    info: p.info,
-                    email: p.email || ''
-                }))
-            );
-            console.log('[EDIT] Hidden nouvelles =>', newHidden.value);
-        }
+            // --- AJOUT GROUPE ---
+            document.getElementById('addGroupBtn')?.addEventListener('click', () => {
+                if (!groupSelect) return;
+                const val = parseInt(groupSelect.value || '0', 10);
+                if (!val) return;
+                const opt = groupSelect.selectedOptions[0];
+                const name = (opt?.getAttribute('data-name') || opt?.textContent || '').trim();
+                const count = opt?.getAttribute('data-count') || '';
+                const info = count ? `${count} membres` : '';
 
-        function syncUnion() {
-            if (!unionHidden) return;
-            const union = [...assignedExisting, ...pending];
-            unionHidden.value = JSON.stringify(union);
-            unionHidden.dispatchEvent(new Event('change', { bubbles: true }));
-            document.dispatchEvent(new CustomEvent('affectations:changed', {
-                detail: {
-                    action: 'sync',
-                    emails: union
-                        .filter(x => x.type === 'Utilisateur')
-                        .map(x => (x.email || '').trim())
-                        .filter(Boolean)
+                const duplicate = [...assignedExisting, ...pending].some(x => x.type === 'Groupe' && x.id === val);
+                if (duplicate) {
+                    alert('Ce groupe est déjà affecté.');
+                    return;
                 }
-            }));
-            if (typeof window.__prsRefreshAbsences === 'function') {
-                window.__prsRefreshAbsences();
-            }
-        }
 
-        function addListItem(item, existing = false) {
-            const li = document.createElement('li');
-            li.className = 'list-group-item d-flex align-items-center';
-            li.dataset.type = item.type;
-            if (existing) {
-                li.dataset.existing = 'true';
-                li.dataset.sourceId = item.id;
-            }
-            if (item.email && item.type === 'Utilisateur') {
-                li.dataset.email = item.email;
-            }
+                const item = { id: val, type: 'Groupe', name, info };
+                pending.push(item);
+                addListItem(item, false);
+                writeUnionToHidden(true);
+                groupSelect.value = '';
+            });
 
-            const icon = document.createElement('i');
-            icon.className = 'fas ' + (item.type === 'Utilisateur' ? 'fa-user' : 'fa-users') + ' me-2';
+            // --- SUPPRESSION ---
+            document.addEventListener('click', e => {
+                const btn = e.target.closest('.btn-remove-aff');
+                if (!btn) return;
+                const li = btn.closest('li');
+                if (!li) return;
 
-            const span = document.createElement('span');
-            span.className = 'me-auto';
-            span.textContent = item.name;
-            if (item.info) {
-                const infoSpan = document.createElement('span');
-                infoSpan.className = 'text-muted';
-                infoSpan.textContent = ' (' + item.info + ')';
-                span.appendChild(infoSpan);
-            }
+                const isExisting = li.dataset.existing === 'true';
+                const type = li.dataset.type;
+                const email = (li.dataset.email || '').trim();
+                const sourceId = parseInt(li.dataset.sourceId || '0', 10);
+                const name = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
 
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'btn btn-sm btn-outline-danger btn-remove-aff';
-            btn.title = 'Retirer';
-            btn.innerHTML = '<i class="fas fa-trash"></i>';
-
-            li.appendChild(icon);
-            li.appendChild(span);
-            li.appendChild(btn);
-            listElem.appendChild(li);
-        }
-
-        // Bouton ajout utilisateur
-        document.getElementById('addUserBtn')?.addEventListener('click', () => {
-            if (!userSelect) return;
-            const val = parseInt(userSelect.value || '0', 10);
-            if (!val) return;
-
-            const opt = userSelect.selectedOptions[0];
-            const name = (opt?.getAttribute('data-name') || opt?.textContent || '').trim();
-            const info = opt?.getAttribute('data-service') || '';
-            const email = (opt?.getAttribute('data-email') || '').trim();
-
-            const exists = assignedExisting.some(x => x.type === 'Utilisateur' && (x.id === val || (email && x.email === email)))
-                || pending.some(x => x.type === 'Utilisateur' && (x.id === val || (email && x.email === email)));
-
-            if (exists) {
-                alert('Cet utilisateur est déjà affecté.');
-                return;
-            }
-
-            const item = { id: val, type: 'Utilisateur', name, info, email };
-            pending.push(item);
-            addListItem(item, false);
-            syncPending();
-            syncUnion();
-            userSelect.value = '';
-        });
-
-        // Bouton ajout groupe
-        document.getElementById('addGroupBtn')?.addEventListener('click', () => {
-            if (!groupSelect) return;
-            const val = parseInt(groupSelect.value || '0', 10);
-            if (!val) return;
-            const opt = groupSelect.selectedOptions[0];
-            const name = (opt?.getAttribute('data-name') || opt?.textContent || '').trim();
-            const count = opt?.getAttribute('data-count') || '';
-            const info = count ? (count + ' membres') : '';
-
-            const exists = assignedExisting.some(x => x.type === 'Groupe' && x.id === val)
-                || pending.some(x => x.type === 'Groupe' && x.id === val);
-
-            if (exists) {
-                alert('Ce groupe est déjà affecté.');
-                return;
-            }
-
-            const item = { id: val, type: 'Groupe', name, info };
-            pending.push(item);
-            addListItem(item, false);
-            syncPending();
-            syncUnion();
-            groupSelect.value = '';
-        });
-
-        // Suppression
-        document.addEventListener('click', e => {
-            const btn = e.target.closest('.btn-remove-aff');
-            if (!btn) return;
-            const li = btn.closest('li');
-            if (!li) return;
-
-            const isExisting = li.dataset.existing === 'true';
-            const type = li.dataset.type;
-            const email = (li.dataset.email || '').trim();
-            const sourceId = parseInt(li.dataset.sourceId || '0', 10);
-            const name = (li.querySelector('span.me-auto')?.childNodes[0]?.nodeValue || '').trim();
-
-            if (isExisting) {
-                // marque suppression
-                const affId = li.getAttribute('data-affectation-id');
-                if (affId && deleteHidden) {
-                    let arr = [];
-                    try { arr = deleteHidden.value ? JSON.parse(deleteHidden.value) : []; } catch { arr = []; }
-                    const num = parseInt(affId, 10);
-                    if (!arr.includes(num)) arr.push(num);
-                    deleteHidden.value = JSON.stringify(arr);
+                if (isExisting) {
+                    const affId = li.getAttribute('data-affectation-id');
+                    if (affId && deleteHidden) {
+                        let arr = [];
+                        try { arr = deleteHidden.value ? JSON.parse(deleteHidden.value) : []; } catch { arr = []; }
+                        const num = parseInt(affId, 10);
+                        if (!arr.includes(num)) arr.push(num);
+                        deleteHidden.value = JSON.stringify(arr);
+                    }
+                    assignedExisting = assignedExisting.filter(x => {
+                        if (x.type !== type) return true;
+                        if (sourceId && x.id) return x.id !== sourceId;
+                        if (email && x.email) return x.email.toLowerCase() !== email.toLowerCase();
+                        return x.name !== name;
+                    });
+                } else {
+                    pending = pending.filter(x => {
+                        if (x.type !== type) return true;
+                        if (sourceId && x.id) return x.id !== sourceId;
+                        if (email && x.email) return x.email.toLowerCase() !== email.toLowerCase();
+                        return x.name !== name;
+                    });
                 }
-                // enlève de assignedExisting
-                assignedExisting = assignedExisting.filter(x => {
-                    if (x.type !== type) return true;
-                    if (sourceId && x.id) return x.id !== sourceId;
-                    if (email && x.email) return x.email.toLowerCase() !== email.toLowerCase();
-                    return x.name !== name;
-                });
-            } else {
-                // enlève des nouvelles
-                pending = pending.filter(x => {
-                    if (x.type !== type) return true;
-                    if (sourceId && x.id) return x.id !== sourceId;
-                    if (email && x.email) return x.email.toLowerCase() !== email.toLowerCase();
-                    return x.name !== name;
-                });
-                syncPending();
-            }
 
-            li.remove();
-            syncUnion();
+                li.remove();
+                writeUnionToHidden(true);
+            });
         });
-    });
 
                 // AJOUTER ce script dans Clone.cshtml ET Edit.cshtml
         document.addEventListener('DOMContentLoaded', function() {

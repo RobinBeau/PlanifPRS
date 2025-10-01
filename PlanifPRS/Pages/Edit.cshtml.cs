@@ -715,7 +715,8 @@ namespace PlanifPRS.Pages
                             Type = "Utilisateur",
                             Name = $"{u.Nom} {u.Prenom}",
                             Info = u.Service,
-                            SourceId = u.Id
+                            SourceId = u.Id,
+                            Email = u.Mail  // AJOUT de l'email
                         };
                     }
                     if (a.GroupeId.HasValue && groupsById.TryGetValue(a.GroupeId.Value, out var g))
@@ -726,7 +727,8 @@ namespace PlanifPRS.Pages
                             Type = "Groupe",
                             Name = g.NomGroupe,
                             Info = $"{(g.Membres?.Count ?? 0)} membres",
-                            SourceId = g.Id
+                            SourceId = g.Id,
+                            Email = null  // Pas d'email pour les groupes
                         };
                     }
                     return new AffectationDisplay
@@ -735,7 +737,8 @@ namespace PlanifPRS.Pages
                         Type = "Inconnu",
                         Name = "Inconnu",
                         Info = "",
-                        SourceId = 0
+                        SourceId = 0,
+                        Email = null 
                     };
                 }).ToList();
             }
@@ -1511,6 +1514,8 @@ private async Task<List<object>> VerifierConflitsGroupeEdit(int groupeId, DateTi
             public string Info { get; set; }
             // Nouvel identifiant logique (UtilisateurId ou GroupeId), utilisé pour conflits & JS
             public int SourceId { get; set; }
+
+            public string Email { get; set; }  // AJOUT pour les emails
         }
     }
 
