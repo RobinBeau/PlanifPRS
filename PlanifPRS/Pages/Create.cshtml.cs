@@ -40,17 +40,18 @@ namespace PlanifPRS.Pages.Prs
             {
                 var items = await _context.ChecklistElementModeles
                     .AsNoTracking()
-                    .Where(e => e.ChecklistModeleId == id) // <- ChecklistModeleId (pas ModeleId)
-                                                           // Pas de e.Ordre sur le modèle => on trie par priorité puis catégorie
-                    .OrderBy(e => e.Priorite)
-                    .ThenBy(e => e.DelaiDefautJours)
-                    .ThenBy(e => e.Categorie)
+                    .Where(e => e.ChecklistModeleId == id)
+                    // Tri demandé : Catégorie DESC, Délai DESC, puis Priorité ASC, puis SousCategorie ASC, puis Libellé ASC
+                    .OrderByDescending(e => e.Categorie)
+                    .ThenByDescending(e => e.DelaiDefautJours)
+                    .ThenBy(e => e.Priorite)
                     .ThenBy(e => e.SousCategorie)
+                    .ThenBy(e => e.Libelle)
                     .Select(e => new
                     {
                         id = e.Id,
                         libelle = e.Libelle,
-                        tache = e.Libelle,           // compat éventuelle
+                        tache = e.Libelle,
                         categorie = e.Categorie,
                         sousCategorie = e.SousCategorie,
                         priorite = e.Priorite,
