@@ -45,6 +45,7 @@ namespace PlanifPRS.Models
     {
         public int Id { get; set; }
 
+
         public int ChecklistModeleId { get; set; }
 
         [Required, MaxLength(100)]
@@ -63,6 +64,9 @@ namespace PlanifPRS.Models
 
         // Délai par défaut en jours depuis le début de la PRS
         public int DelaiDefautJours { get; set; } = 1;
+
+        public int? GroupeId { get; set; }               // Nullable = aucun groupe
+        public GroupeUtilisateurs Groupe { get; set; }   // Navigation (optionnelle)
 
         [ValidateNever]
         public virtual ChecklistModele ChecklistModele { get; set; }

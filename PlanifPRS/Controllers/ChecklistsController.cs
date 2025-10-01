@@ -4,6 +4,9 @@ using PlanifPRS.Models;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using PlanifPRS.Data;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace PlanifPRS.Controllers
 {
@@ -20,12 +23,14 @@ namespace PlanifPRS.Controllers
             _context = context;
         }
 
+        // Liste des modèles (on peut laisser tel quel, j'ajoute juste un compteur des éléments avec GroupeId si utile)
         [HttpGet("modeles")]
         public async Task<IActionResult> GetChecklistModeles()
         {
             try
             {
                 var modeles = await _checklistService.GetChecklistModelesAsync();
+
                 var result = modeles.Select(m => new
                 {
                     m.Id,
@@ -36,7 +41,8 @@ namespace PlanifPRS.Controllers
                     m.CreatedByLogin,
                     m.NombreElements,
                     m.NombreElementsObligatoires,
-                    FamilleAffichage = m.FamilleAffichage
+                    FamilleAffichage = m.FamilleAffichage,
+                    AssignedGroupElements = m.Elements.Count(e => e.GroupeId.HasValue) // nouveau indicateur
                 });
 
                 return Ok(result);
@@ -47,37 +53,53 @@ namespace PlanifPRS.Controllers
             }
         }
 
+        // Détail d'un modèle avec éléments + groupeId/groupeNom
+        // IMPORTANT : renvoyer "elements" (minuscule) pour coller au JS
         [HttpGet("modeles/{id}")]
         public async Task<IActionResult> GetChecklistModele(int id)
         {
             try
             {
-                var modele = await _checklistService.GetChecklistModeleByIdAsync(id);
+                // On ne passe pas par le service pour garantir le Include sur Groupe
+                var modele = await _context.ChecklistModeles
+                    .AsNoTracking()
+                    .Include(cm => cm.Elements)
+                        .ThenInclude(e => e.Groupe)
+                    .FirstOrDefaultAsync(cm => cm.Id == id);
+
                 if (modele == null)
                     return NotFound(new { message = "Modèle de checklist non trouvé" });
 
                 var result = new
                 {
-                    modele.Id,
-                    modele.Nom,
-                    modele.Description,
-                    modele.FamilleEquipement,
-                    modele.DateCreation,
-                    modele.CreatedByLogin,
-                    modele.Actif,
-                    Elements = modele.Elements.OrderBy(e => e.Priorite).ThenBy(e => e.DelaiDefautJours).Select(e => new
-                    {
-                        e.Id,
-                        e.Categorie,
-                        e.SousCategorie,
-                        e.Libelle,
-                        e.Priorite,
-                        e.DelaiDefautJours,
-                        e.Obligatoire,
-                        CategorieComplete = e.CategorieComplete,
-                        PrioriteLibelle = e.PrioriteLibelle,
-                        CouleurPriorite = e.CouleurPriorite
-                    }).ToList()
+                    id = modele.Id,
+                    nom = modele.Nom,
+                    description = modele.Description,
+                    familleEquipement = modele.FamilleEquipement,
+                    dateCreation = modele.DateCreation,
+                    createdByLogin = modele.CreatedByLogin,
+                    actif = modele.Actif,
+                    elements = modele.Elements
+                        .OrderBy(e => e.Priorite)
+                        .ThenBy(e => e.DelaiDefautJours)
+                        .ThenBy(e => e.Categorie)
+                        .Select(e => new
+                        {
+                            id = e.Id,
+                            categorie = e.Categorie,
+                            sousCategorie = e.SousCategorie,
+                            libelle = e.Libelle,
+                            priorite = e.Priorite,
+                            delaiDefautJours = e.DelaiDefautJours,
+                            obligatoire = e.Obligatoire,
+                            groupeId = e.GroupeId,                             // <— AJOUT
+                            groupeNom = e.Groupe != null ? e.Groupe.NomGroupe : null, // <— AJOUT
+                            // Champs "affichage" si ton modèle (ou DTO) les calcule (je préserve ceux de ta version)
+                            categorieComplete = (e as IChecklistElementModeleMeta)?.CategorieComplete ?? null,
+                            prioriteLibelle = (e as IChecklistElementModeleMeta)?.PrioriteLibelle ?? PrioriteToLabel(e.Priorite),
+                            couleurPriorite = (e as IChecklistElementModeleMeta)?.CouleurPriorite ?? PrioriteToColor(e.Priorite)
+                        })
+                        .ToList()
                 };
 
                 return Ok(result);
@@ -88,15 +110,17 @@ namespace PlanifPRS.Controllers
             }
         }
 
+        // Checklist d'une PRS
         [HttpGet("prs/{prsId}")]
         public async Task<IActionResult> GetPrsChecklist(int prsId)
         {
             try
             {
                 var checklist = await _checklistService.GetPrsChecklistAsync(prsId);
+
                 var result = new
                 {
-                    prsId = prsId,
+                    prsId,
                     checklist = checklist.Select(c => new
                     {
                         c.Id,
@@ -116,7 +140,6 @@ namespace PlanifPRS.Controllers
                         StatutAffichage = c.StatutAffichage,
                         CssClass = c.CssClass,
                         PrioriteLibelle = c.PrioriteLibelle,
-                        // AJOUT: renvoyer les IDs d'affectations pour que le front puisse les afficher
                         assignedUsers = c.Affectations
                             .Where(a => a.TypeAffectation == "Utilisateur" && a.UtilisateurId.HasValue)
                             .Select(a => a.UtilisateurId!.Value)
@@ -167,7 +190,6 @@ namespace PlanifPRS.Controllers
                         LibelleAffichage = c.LibelleAffichage,
                         StatutAffichage = c.StatutAffichage,
                         CssClass = c.CssClass,
-                        // AJOUT: renvoyer les IDs d'affectations
                         assignedUsers = c.Affectations
                             .Where(a => a.TypeAffectation == "Utilisateur" && a.UtilisateurId.HasValue)
                             .Select(a => a.UtilisateurId!.Value)
@@ -186,7 +208,7 @@ namespace PlanifPRS.Controllers
         }
 
         [HttpPost("prs/{prsId}/custom")]
-        public async Task<IActionResult> CreateCustomChecklist(int prsId, [FromBody] List<PrsChecklistCreateDto> elements)
+        public async Task<IActionResult> CreateCustomChecklist(int prsId, [FromBody] System.Collections.Generic.List<PrsChecklistCreateDto> elements)
         {
             try
             {
@@ -197,7 +219,7 @@ namespace PlanifPRS.Controllers
                     Categorie = e.Categorie,
                     SousCategorie = e.SousCategorie,
                     Libelle = e.Libelle,
-                    Tache = e.Libelle, // Compatibilité
+                    Tache = e.Libelle,
                     Priorite = e.Priorite > 0 ? e.Priorite : 3,
                     DelaiDefautJours = e.DelaiDefautJours > 0 ? e.DelaiDefautJours : 1,
                     Obligatoire = e.Obligatoire
@@ -228,7 +250,6 @@ namespace PlanifPRS.Controllers
                         LibelleAffichage = c.LibelleAffichage,
                         StatutAffichage = c.StatutAffichage,
                         CssClass = c.CssClass,
-                        // Par cohérence on renvoie aussi les affectations
                         assignedUsers = c.Affectations
                             .Where(a => a.TypeAffectation == "Utilisateur" && a.UtilisateurId.HasValue)
                             .Select(a => a.UtilisateurId!.Value)
@@ -252,31 +273,30 @@ namespace PlanifPRS.Controllers
             try
             {
                 var prsWithChecklist = await _context.Prs
-                    .Where(p => p.Checklist.Any()) // Utiliser "Checklist" au lieu de "PrsChecklists"
+                    .Where(p => p.Checklist.Any())
                     .Select(p => new
                     {
                         id = p.Id,
                         titre = p.Titre,
                         equipement = p.Equipement ?? "N/A",
-                        dateCreation = p.DateCreation, // Garder DateTime pour le tri
+                        dateCreation = p.DateCreation,
                         nombreElements = p.Checklist.Count(),
                         pourcentageCompletion = p.Checklist.Any()
                             ? (int)Math.Round((double)p.Checklist.Count(pc => pc.EstCoche) / p.Checklist.Count() * 100)
                             : 0
                     })
-                    .OrderByDescending(p => p.dateCreation) // Trier par DateTime directement
+                    .OrderByDescending(p => p.dateCreation)
                     .ToListAsync();
 
-                // Formater les dates côté client après récupération
                 var result = prsWithChecklist.Select(p => new
                 {
                     p.id,
                     p.titre,
                     p.equipement,
-                    dateCreation = p.dateCreation.ToString("dd/MM/yyyy"), // Formater ici
+                    dateCreation = p.dateCreation.ToString("dd/MM/yyyy"),
                     p.nombreElements,
                     p.pourcentageCompletion
-                }).ToList();
+                });
 
                 return Ok(result);
             }
@@ -292,7 +312,7 @@ namespace PlanifPRS.Controllers
             try
             {
                 var utilisateurs = await _context.Utilisateurs
-                    .Where(u => u.DateDeleted == null) // Utilisateurs non supprimés
+                    .Where(u => u.DateDeleted == null)
                     .Select(u => new { u.Id, u.Nom, u.Prenom })
                     .OrderBy(u => u.Nom)
                     .ThenBy(u => u.Prenom)
@@ -304,11 +324,7 @@ namespace PlanifPRS.Controllers
                     .OrderBy(g => g.NomGroupe)
                     .ToListAsync();
 
-                return Ok(new
-                {
-                    utilisateurs = utilisateurs,
-                    groupes = groupes
-                });
+                return Ok(new { utilisateurs, groupes });
             }
             catch (Exception ex)
             {
@@ -317,9 +333,27 @@ namespace PlanifPRS.Controllers
         }
 
         private string GetCurrentUserLogin()
+            => User?.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown";
+
+        // Helpers fallback pour Priorite (si pas déjà calculé dans meta)
+        private static string PrioriteToLabel(int p) => p switch
         {
-            return User?.FindFirst(ClaimTypes.Name)?.Value ?? "Unknown";
-        }
+            1 => "Critique",
+            2 => "Important",
+            3 => "Moyen",
+            4 => "Faible",
+            5 => "Optionnel",
+            _ => "Moyen"
+        };
+        private static string PrioriteToColor(int p) => p switch
+        {
+            1 => "#dc3545",
+            2 => "#fd7e14",
+            3 => "#0d6efd",
+            4 => "#198754",
+            5 => "#6c757d",
+            _ => "#0d6efd"
+        };
     }
 
     public class PrsChecklistCreateDto
@@ -330,5 +364,13 @@ namespace PlanifPRS.Controllers
         public int Priorite { get; set; } = 3;
         public int DelaiDefautJours { get; set; } = 1;
         public bool Obligatoire { get; set; }
+    }
+
+    // Interface facultative si tu avais des propriétés calculées (sinon ignore)
+    public interface IChecklistElementModeleMeta
+    {
+        string CategorieComplete { get; }
+        string PrioriteLibelle { get; }
+        string CouleurPriorite { get; }
     }
 }

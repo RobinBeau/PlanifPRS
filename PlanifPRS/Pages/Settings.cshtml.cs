@@ -34,16 +34,19 @@ namespace PlanifPRS.Pages
         {
             FamillesPRS = await _context.PrsFamilles.OrderBy(f => f.Libelle).ToListAsync();
             GroupesUtilisateurs = await _context.GroupesUtilisateurs
+                .Include(g => g.Membres)
                 .OrderBy(g => g.NomGroupe)
                 .ToListAsync();
+
             Utilisateurs = await _context.Utilisateurs
                 .Where(u => u.DateDeleted == null)
                 .OrderBy(u => u.Nom)
                 .ThenBy(u => u.Prenom)
                 .ToListAsync();
+
             GroupeUtilisateurs = await _context.GroupeUtilisateurs.ToListAsync();
 
-            // Chargement des modèles de checklist
+            // Charger modèles + éléments (inclure GroupeId si déjà mappé dans l'entité)
             ChecklistModeles = await _context.ChecklistModeles
                 .Include(cm => cm.Elements)
                 .Where(cm => cm.Actif)
@@ -51,11 +54,9 @@ namespace PlanifPRS.Pages
                 .ToListAsync();
         }
 
-        // Méthodes helper pour les équipes
-        public int GetTeamMembersCount(int teamId)
-        {
-            return GroupeUtilisateurs.Count(gu => gu.GroupeId == teamId);
-        }
+        // Helper équipes
+        public int GetTeamMembersCount(int teamId) =>
+            GroupeUtilisateurs.Count(gu => gu.GroupeId == teamId);
 
         public IEnumerable<Utilisateur> GetTeamMembers(int teamId)
         {
@@ -67,7 +68,7 @@ namespace PlanifPRS.Pages
             return Utilisateurs.Where(u => memberIds.Contains(u.Id));
         }
 
-        // Gestion des familles PRS (PRG)
+        // Familles PRS
         public async Task<IActionResult> OnPostSaveFamilyAsync(int familyId, string familyName, string familyColor)
         {
             if (string.IsNullOrWhiteSpace(familyName) || string.IsNullOrWhiteSpace(familyColor))
@@ -80,12 +81,11 @@ namespace PlanifPRS.Pages
             {
                 if (familyId == 0)
                 {
-                    var famille = new PrsFamille
+                    _context.PrsFamilles.Add(new PrsFamille
                     {
                         Libelle = familyName.Trim(),
                         CouleurHex = familyColor.Trim()
-                    };
-                    _context.PrsFamilles.Add(famille);
+                    });
                     TempData["Message"] = "Famille ajoutée avec succès.";
                 }
                 else
@@ -97,19 +97,14 @@ namespace PlanifPRS.Pages
                         famille.CouleurHex = familyColor.Trim();
                         TempData["Message"] = "Famille modifiée avec succès.";
                     }
-                    else
-                    {
-                        TempData["Error"] = "Famille introuvable.";
-                    }
+                    else TempData["Error"] = "Famille introuvable.";
                 }
-
                 await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
                 TempData["Error"] = "Erreur lors de l'enregistrement : " + ex.Message;
             }
-
             return RedirectToPage(new { tab = "families" });
         }
 
@@ -124,20 +119,16 @@ namespace PlanifPRS.Pages
                     await _context.SaveChangesAsync();
                     TempData["Message"] = "Famille supprimée avec succès.";
                 }
-                else
-                {
-                    TempData["Error"] = "Famille introuvable.";
-                }
+                else TempData["Error"] = "Famille introuvable.";
             }
             catch (Exception ex)
             {
                 TempData["Error"] = "Erreur lors de la suppression : " + ex.Message;
             }
-
             return RedirectToPage(new { tab = "families" });
         }
 
-        // Gestion des équipes (PRG)
+        // Équipes
         public async Task<IActionResult> OnPostSaveTeamAsync(int teamId, string teamName, string teamDescription)
         {
             if (string.IsNullOrWhiteSpace(teamName))
@@ -149,18 +140,16 @@ namespace PlanifPRS.Pages
             try
             {
                 var currentUser = User?.Identity?.Name ?? "System";
-
                 if (teamId == 0)
                 {
-                    var groupe = new GroupeUtilisateurs
+                    _context.GroupesUtilisateurs.Add(new GroupeUtilisateurs
                     {
                         NomGroupe = teamName.Trim(),
                         Description = teamDescription?.Trim() ?? "",
                         DateCreation = DateTime.Now,
                         CreePar = currentUser,
                         Actif = true
-                    };
-                    _context.GroupesUtilisateurs.Add(groupe);
+                    });
                     TempData["Message"] = "Équipe créée avec succès.";
                 }
                 else
@@ -172,19 +161,14 @@ namespace PlanifPRS.Pages
                         groupe.Description = teamDescription?.Trim() ?? "";
                         TempData["Message"] = "Équipe modifiée avec succès.";
                     }
-                    else
-                    {
-                        TempData["Error"] = "Équipe introuvable.";
-                    }
+                    else TempData["Error"] = "Équipe introuvable.";
                 }
-
                 await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
                 TempData["Error"] = "Erreur lors de l'enregistrement : " + ex.Message;
             }
-
             return RedirectToPage(new { tab = "teams" });
         }
 
@@ -197,21 +181,16 @@ namespace PlanifPRS.Pages
                 {
                     var membres = _context.GroupeUtilisateurs.Where(gu => gu.GroupeId == teamId);
                     _context.GroupeUtilisateurs.RemoveRange(membres);
-
                     _context.GroupesUtilisateurs.Remove(groupe);
                     await _context.SaveChangesAsync();
                     TempData["Message"] = "Équipe supprimée avec succès.";
                 }
-                else
-                {
-                    TempData["Error"] = "Équipe introuvable.";
-                }
+                else TempData["Error"] = "Équipe introuvable.";
             }
             catch (Exception ex)
             {
                 TempData["Error"] = "Erreur lors de la suppression : " + ex.Message;
             }
-
             return RedirectToPage(new { tab = "teams" });
         }
 
@@ -219,20 +198,19 @@ namespace PlanifPRS.Pages
         {
             try
             {
-                var currentMembers = _context.GroupeUtilisateurs.Where(gu => gu.GroupeId == teamId);
-                _context.GroupeUtilisateurs.RemoveRange(currentMembers);
+                var current = _context.GroupeUtilisateurs.Where(gu => gu.GroupeId == teamId);
+                _context.GroupeUtilisateurs.RemoveRange(current);
 
                 if (selectedUsers?.Any() == true)
                 {
                     foreach (var userId in selectedUsers)
                     {
-                        var groupeUtilisateur = new GroupeUtilisateur
+                        _context.GroupeUtilisateurs.Add(new GroupeUtilisateur
                         {
                             GroupeId = teamId,
                             UtilisateurId = userId,
                             DateAjout = DateTime.Now
-                        };
-                        _context.GroupeUtilisateurs.Add(groupeUtilisateur);
+                        });
                     }
                 }
 
@@ -243,11 +221,9 @@ namespace PlanifPRS.Pages
             {
                 TempData["Error"] = "Erreur lors de la mise à jour des membres : " + ex.Message;
             }
-
             return RedirectToPage(new { tab = "teams" });
         }
 
-        // API pour récupérer les membres d'une équipe (utilisé par AJAX)
         public async Task<IActionResult> OnGetGetTeamMembersAsync(int teamId)
         {
             try
@@ -266,13 +242,13 @@ namespace PlanifPRS.Pages
 
                 return new JsonResult(members);
             }
-            catch (Exception)
+            catch
             {
                 return new JsonResult(new List<object>());
             }
         }
 
-        // Gestion des modèles de checklist (PRG)
+        // Checklists
         public async Task<IActionResult> OnPostSaveChecklistModeleAsync(
             int checklistModeleId,
             string checklistNom,
@@ -285,7 +261,6 @@ namespace PlanifPRS.Pages
                 TempData["Error"] = "Le nom et la famille d'équipement sont obligatoires.";
                 return RedirectToPage(new { tab = "checklists" });
             }
-
             if (elements == null || !elements.Any())
             {
                 TempData["Error"] = "Au moins un élément de checklist est requis.";
@@ -294,7 +269,7 @@ namespace PlanifPRS.Pages
 
             try
             {
-                var currentUser = User.Identity?.Name ?? "Yellow3726";
+                var currentUser = User.Identity?.Name ?? "System";
 
                 if (checklistModeleId == 0)
                 {
@@ -307,15 +282,15 @@ namespace PlanifPRS.Pages
                         CreatedByLogin = currentUser,
                         Actif = true
                     };
-
                     _context.ChecklistModeles.Add(modele);
                     await _context.SaveChangesAsync();
 
                     foreach (var elementDto in elements)
                     {
-                        if (!string.IsNullOrWhiteSpace(elementDto.Libelle) && !string.IsNullOrWhiteSpace(elementDto.Categorie))
+                        if (!string.IsNullOrWhiteSpace(elementDto.Libelle) &&
+                            !string.IsNullOrWhiteSpace(elementDto.Categorie))
                         {
-                            var element = new ChecklistElementModele
+                            _context.ChecklistElementModeles.Add(new ChecklistElementModele
                             {
                                 ChecklistModeleId = modele.Id,
                                 Categorie = elementDto.Categorie,
@@ -323,12 +298,11 @@ namespace PlanifPRS.Pages
                                 Libelle = elementDto.Libelle,
                                 Obligatoire = elementDto.Obligatoire,
                                 Priorite = elementDto.Priorite,
-                                DelaiDefautJours = elementDto.DelaiDefautJours
-                            };
-                            _context.ChecklistElementModeles.Add(element);
+                                DelaiDefautJours = elementDto.DelaiDefautJours,
+                                GroupeId = elementDto.GroupeId  // NOUVEAU
+                            });
                         }
                     }
-
                     TempData["Message"] = "Modèle de checklist créé avec succès.";
                 }
                 else
@@ -337,38 +311,39 @@ namespace PlanifPRS.Pages
                         .Include(cm => cm.Elements)
                         .FirstOrDefaultAsync(cm => cm.Id == checklistModeleId);
 
-                    if (modele != null)
-                    {
-                        modele.Nom = checklistNom.Trim();
-                        modele.Description = checklistDescription?.Trim();
-                        modele.FamilleEquipement = checklistFamille;
-
-                        _context.ChecklistElementModeles.RemoveRange(modele.Elements);
-
-                        foreach (var elementDto in elements)
-                        {
-                            if (!string.IsNullOrWhiteSpace(elementDto.Libelle) && !string.IsNullOrWhiteSpace(elementDto.Categorie))
-                            {
-                                var element = new ChecklistElementModele
-                                {
-                                    ChecklistModeleId = modele.Id,
-                                    Categorie = elementDto.Categorie,
-                                    SousCategorie = elementDto.SousCategorie,
-                                    Libelle = elementDto.Libelle,
-                                    Obligatoire = elementDto.Obligatoire,
-                                    Priorite = elementDto.Priorite,
-                                    DelaiDefautJours = elementDto.DelaiDefautJours
-                                };
-                                _context.ChecklistElementModeles.Add(element);
-                            }
-                        }
-
-                        TempData["Message"] = "Modèle de checklist modifié avec succès.";
-                    }
-                    else
+                    if (modele == null)
                     {
                         TempData["Error"] = "Modèle de checklist introuvable.";
+                        return RedirectToPage(new { tab = "checklists" });
                     }
+
+                    modele.Nom = checklistNom.Trim();
+                    modele.Description = checklistDescription?.Trim();
+                    modele.FamilleEquipement = checklistFamille;
+
+                    // On remplace les éléments (simple)
+                    _context.ChecklistElementModeles.RemoveRange(modele.Elements);
+
+                    foreach (var elementDto in elements)
+                    {
+                        if (!string.IsNullOrWhiteSpace(elementDto.Libelle) &&
+                            !string.IsNullOrWhiteSpace(elementDto.Categorie))
+                        {
+                            _context.ChecklistElementModeles.Add(new ChecklistElementModele
+                            {
+                                ChecklistModeleId = modele.Id,
+                                Categorie = elementDto.Categorie,
+                                SousCategorie = elementDto.SousCategorie,
+                                Libelle = elementDto.Libelle,
+                                Obligatoire = elementDto.Obligatoire,
+                                Priorite = elementDto.Priorite,
+                                DelaiDefautJours = elementDto.DelaiDefautJours,
+                                GroupeId = elementDto.GroupeId  // NOUVEAU
+                            });
+                        }
+                    }
+
+                    TempData["Message"] = "Modèle de checklist modifié avec succès.";
                 }
 
                 await _context.SaveChangesAsync();
@@ -395,21 +370,17 @@ namespace PlanifPRS.Pages
                     await _context.SaveChangesAsync();
                     TempData["Message"] = "Modèle de checklist désactivé avec succès.";
                 }
-                else
-                {
-                    TempData["Error"] = "Modèle de checklist introuvable.";
-                }
+                else TempData["Error"] = "Modèle de checklist introuvable.";
             }
             catch (Exception ex)
             {
                 TempData["Error"] = $"Erreur lors de la suppression : {ex.Message}";
             }
-
             return RedirectToPage(new { tab = "checklists" });
         }
     }
 
-    // DTO pour recevoir les éléments de checklist depuis le formulaire
+    // DTO enrichi
     public class ChecklistElementDto
     {
         public int Id { get; set; }
@@ -419,5 +390,6 @@ namespace PlanifPRS.Pages
         public bool Obligatoire { get; set; }
         public int Priorite { get; set; } = 3;
         public int DelaiDefautJours { get; set; } = 1;
+        public int? GroupeId { get; set; }   // NOUVEAU
     }
 }

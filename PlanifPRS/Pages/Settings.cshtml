@@ -697,31 +697,42 @@
 </style>
 
 <script>
+    // =========================
     // Variables globales
+    // =========================
     let currentTeamId = 0;
     let isServiceFilterMode = false;
     let isCheckedFilterMode = false;
     let checklistElementCounter = 0;
     let checklistDetailsModal = null;
 
-    // Ferme tous les dropdowns ouverts (sécurité avant ouverture d'une modale)
+    // Pré-charge des groupes (id, nom, count) pour le select GroupeId des éléments checklist
+    // (Généré côté serveur via Razor)
+    window.__allGroups = [
+    @foreach (var g in Model.GroupesUtilisateurs)
+    {
+        @: { id: @g.Id, nom: "@g.NomGroupe".replace(/"/g,'&quot;'), count: @((g.Membres?.Count ?? 0)) },
+    }
+    ];
+
+    // =========================
+    // Utilitaires dropdown / modales
+    // =========================
     function closeAllDropdowns() {
-        document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-            menu.classList.remove('show');
-        });
+        document.querySelectorAll('.dropdown-menu.show').forEach(menu => menu.classList.remove('show'));
     }
 
-    // Gestion des familles
+    // =========================
+    // Gestion Familles
+    // =========================
     function showFamilyForm() {
         document.getElementById('familyFormContainer').style.display = 'block';
         document.getElementById('familyName').focus();
     }
-
     function hideFamilyForm() {
         document.getElementById('familyFormContainer').style.display = 'none';
         resetFamilyForm();
     }
-
     function resetFamilyForm() {
         document.getElementById('familyId').value = '0';
         document.getElementById('familyName').value = '';
@@ -730,7 +741,6 @@
         document.getElementById('familyFormTitle').textContent = 'Ajouter une famille PRS';
         updateColorPreview('', '#007bff');
     }
-
     function editFamily(id, name, color) {
         document.getElementById('familyId').value = id;
         document.getElementById('familyName').value = name;
@@ -741,24 +751,23 @@
         showFamilyForm();
     }
 
-    // Gestion des équipes
+    // =========================
+    // Gestion Équipes
+    // =========================
     function showTeamForm() {
         document.getElementById('teamFormContainer').style.display = 'block';
         document.getElementById('teamName').focus();
     }
-
     function hideTeamForm() {
         document.getElementById('teamFormContainer').style.display = 'none';
         resetTeamForm();
     }
-
     function resetTeamForm() {
         document.getElementById('teamId').value = '0';
         document.getElementById('teamName').value = '';
         document.getElementById('teamDescription').value = '';
         document.getElementById('teamFormTitle').textContent = 'Créer une équipe';
     }
-
     function editTeam(id, name, description) {
         document.getElementById('teamId').value = id;
         document.getElementById('teamName').value = name;
@@ -767,119 +776,80 @@
         showTeamForm();
     }
 
-    // Gestion des membres d'équipe
+    // =========================
+    // Gestion Membres d'Équipe
+    // =========================
     function manageTeamMembers(teamId, teamName) {
         currentTeamId = teamId;
         document.getElementById('membersTeamId').value = teamId;
         document.getElementById('membersTitle').textContent = 'Gérer les membres de l\'équipe : ' + teamName;
 
-        // Décocher tous les utilisateurs
-        const checkboxes = document.querySelectorAll('input[name="selectedUsers"]');
-        checkboxes.forEach(cb => cb.checked = false);
-
-        // Réinitialiser le mode de filtre
+        document.querySelectorAll('input[name="selectedUsers"]').forEach(cb => cb.checked = false);
         resetFilterMode();
-
-        // Charger les membres actuels
         loadCurrentMembers(teamId);
-
-        // Afficher le panel
         document.getElementById('teamMembersPanel').style.display = 'block';
-
-        // Scroll vers le panel
         document.getElementById('teamMembersPanel').scrollIntoView({ behavior: 'smooth' });
     }
-
     function hideTeamMembersPanel() {
         document.getElementById('teamMembersPanel').style.display = 'none';
         currentTeamId = 0;
         resetFilterMode();
     }
-
     function loadCurrentMembers(teamId) {
         fetch(`/Settings?handler=GetTeamMembers&teamId=${teamId}`)
-            .then(response => response.json())
+            .then(r => r.json())
             .then(members => {
                 const container = document.getElementById('currentMembers');
-                if (members.length === 0) {
+                if (!members.length) {
                     container.innerHTML = '<p class="text-muted">Aucun membre dans cette équipe</p>';
-                } else {
-                    let html = '';
-                    members.forEach(member => {
-                        html += `
-                            <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
-                                <div>
-                                    <strong>${member.prenom} ${member.nom}</strong><br>
-                                    <span class="badge bg-info">${member.service}</span>
-                                </div>
-                            </div>`;
-
-                        // Cocher l'utilisateur correspondant
-                        const checkbox = document.getElementById(`user_${member.id}`);
-                        if (checkbox) {
-                            checkbox.checked = true;
-                        }
-                    });
-                    container.innerHTML = html;
+                    return;
                 }
+                let html = '';
+                members.forEach(m => {
+                    html += `
+                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded">
+                            <div>
+                                <strong>${m.prenom} ${m.nom}</strong><br>
+                                <span class="badge bg-info">${m.service}</span>
+                            </div>
+                        </div>`;
+                    const cb = document.getElementById(`user_${m.id}`);
+                    if (cb) cb.checked = true;
+                });
+                container.innerHTML = html;
             })
-            .catch(error => {
-                console.error('Erreur lors du chargement des membres:', error);
+            .catch(() => {
                 document.getElementById('currentMembers').innerHTML = '<p class="text-danger">Erreur lors du chargement</p>';
             });
     }
 
-    // Nouvelle gestion du toggle entre filtre texte et filtre service
+    // =========================
+    // Filtres / Recherche utilisateurs
+    // =========================
     function toggleFilterMode() {
-        if (isServiceFilterMode) {
-            // Repasser en mode recherche texte
-            resetFilterMode();
-        } else {
-            // Passer en mode filtre par service
-            showServiceFilter();
-        }
+        if (isServiceFilterMode) resetFilterMode();
+        else showServiceFilter();
     }
-
     function resetFilterMode() {
         isServiceFilterMode = false;
         const searchContainer = document.getElementById('searchContainer');
         const filterBtn = document.getElementById('filterServiceBtn');
-
-        // Remettre le champ de recherche texte
         searchContainer.innerHTML = `
             <span class="input-group-text"><i class="fas fa-search"></i></span>
             <input type="text" class="form-control" id="userSearch" placeholder="Rechercher par nom, prénom, email ou service..." />
         `;
-
-        // Mettre à jour le bouton
         filterBtn.innerHTML = '<i class="fas fa-filter"></i> Par service';
-
-        // Réattacher l'événement de recherche
         const userSearch = document.getElementById('userSearch');
-        if (userSearch) {
-            userSearch.addEventListener('input', filterUsers);
-        }
-
-        // Réafficher tous les utilisateurs
-        const userItems = document.querySelectorAll('.user-item');
-        userItems.forEach(item => item.classList.remove('hidden'));
+        if (userSearch) userSearch.addEventListener('input', filterUsers);
+        document.querySelectorAll('.user-item').forEach(i => i.classList.remove('hidden'));
     }
-
     function showServiceFilter() {
         isServiceFilterMode = true;
         const searchContainer = document.getElementById('searchContainer');
         const filterBtn = document.getElementById('filterServiceBtn');
-
-        // Grouper les utilisateurs par service
         const services = new Set();
-        document.querySelectorAll('.user-item').forEach(item => {
-            services.add(item.dataset.service);
-        });
-
-        const serviceList = Array.from(services).sort();
-        let options = serviceList.map(service => `<option value="${service}">${service}</option>`).join('');
-
-        // Remplacer le champ de recherche par un select
+        document.querySelectorAll('.user-item').forEach(i => services.add(i.dataset.service));
+        const options = Array.from(services).sort().map(s => `<option value="${s}">${s}</option>`).join('');
         searchContainer.innerHTML = `
             <span class="input-group-text"><i class="fas fa-building"></i></span>
             <select class="form-select" id="serviceSelect" onchange="filterBySelectedService(this.value)">
@@ -887,122 +857,115 @@
                 ${options}
             </select>
         `;
-
-        // Mettre à jour le bouton
         filterBtn.innerHTML = '<i class="fas fa-search"></i> Recherche texte';
     }
-
-    // Fonctions de recherche et filtres
     function filterUsers() {
-        const searchTerm = document.getElementById('userSearch').value.toLowerCase();
-        const userItems = document.querySelectorAll('.user-item');
-
-        userItems.forEach(item => {
+        const term = (document.getElementById('userSearch')?.value || '').toLowerCase();
+        document.querySelectorAll('.user-item').forEach(item => {
             const name = item.dataset.name.toLowerCase();
             const email = (item.dataset.email || '').toLowerCase();
             const service = (item.dataset.service || '').toLowerCase();
-
-            if (name.includes(searchTerm) || email.includes(searchTerm) || service.includes(searchTerm)) {
-                item.classList.remove('hidden');
-            } else {
-                item.classList.add('hidden');
-            }
+            (name.includes(term) || email.includes(term) || service.includes(term))
+                ? item.classList.remove('hidden')
+                : item.classList.add('hidden');
         });
     }
-
-    function filterBySelectedService(selectedService) {
-        const userItems = document.querySelectorAll('.user-item');
-
-        userItems.forEach(item => {
-            if (!selectedService || item.dataset.service === selectedService) {
-                item.classList.remove('hidden');
-            } else {
-                item.classList.add('hidden');
-            }
+    function filterBySelectedService(svc) {
+        document.querySelectorAll('.user-item').forEach(item => {
+            if (!svc || item.dataset.service === svc) item.classList.remove('hidden'); else item.classList.add('hidden');
         });
     }
-
     function selectAllUsers() {
-        const checkboxes = document.querySelectorAll('input[name="selectedUsers"]');
-        checkboxes.forEach(cb => {
-            if (!cb.closest('.user-item').classList.contains('hidden')) {
-                cb.checked = true;
-            }
+        document.querySelectorAll('input[name="selectedUsers"]').forEach(cb => {
+            if (!cb.closest('.user-item').classList.contains('hidden')) cb.checked = true;
         });
-        // Si on est en mode "Cochés", rafraîchir l'affichage
-        if (isCheckedFilterMode) {
-            showCheckedUsers();
-        }
+        if (isCheckedFilterMode) showCheckedUsers();
     }
-
     function deselectAllUsers() {
-        const checkboxes = document.querySelectorAll('input[name="selectedUsers"]');
-        checkboxes.forEach(cb => cb.checked = false);
-        // Si on est en mode "Cochés", la liste devient vide
-        if (isCheckedFilterMode) {
-            showCheckedUsers();
-        }
+        document.querySelectorAll('input[name="selectedUsers"]').forEach(cb => cb.checked = false);
+        if (isCheckedFilterMode) showCheckedUsers();
     }
-
-    // Toggle "Cochés" ON/OFF
     function showCheckedUsers() {
         const btn = document.getElementById('checkedBtn');
         if (!btn) return;
-
         if (isCheckedFilterMode) {
-            // Désactiver le mode "Cochés" et rétablir le filtre courant
             isCheckedFilterMode = false;
             btn.classList.remove('active');
-
             if (isServiceFilterMode) {
-                const select = document.getElementById('serviceSelect');
-                const value = select ? select.value : '';
-                filterBySelectedService(value);
+                const sel = document.getElementById('serviceSelect');
+                filterBySelectedService(sel ? sel.value : '');
             } else {
-                const searchInput = document.getElementById('userSearch');
-                if (searchInput && searchInput.value.trim() !== '') {
-                    filterUsers();
-                } else {
-                    // Afficher tout
-                    document.querySelectorAll('.user-item').forEach(item => item.classList.remove('hidden'));
-                }
+                const si = document.getElementById('userSearch');
+                if (si && si.value.trim()) filterUsers();
+                else document.querySelectorAll('.user-item').forEach(i => i.classList.remove('hidden'));
             }
         } else {
-            // Activer le mode "Cochés" et n'afficher que les utilisateurs sélectionnés
             isCheckedFilterMode = true;
             btn.classList.add('active');
             document.querySelectorAll('.user-item').forEach(item => {
-                const checkbox = item.querySelector('input[name="selectedUsers"]');
-                if (checkbox && checkbox.checked) {
-                    item.classList.remove('hidden');
-                } else {
-                    item.classList.add('hidden');
-                }
+                const cb = item.querySelector('input[name="selectedUsers"]');
+                if (cb && cb.checked) item.classList.remove('hidden'); else item.classList.add('hidden');
             });
         }
     }
 
-    // Gestion des couleurs
+    // =========================
+    // Couleurs Familles
+    // =========================
     function updateColorPreview(name, color) {
         const preview = document.getElementById('colorPreview');
-        if (preview) {
-            preview.style.backgroundColor = color;
-            preview.textContent = name || 'Nom de la famille';
-        }
+        if (!preview) return;
+        preview.style.backgroundColor = color;
+        preview.textContent = name || 'Nom de la famille';
     }
 
-    // Réindexation des éléments avant submit et après suppression
+    // =========================
+    // Checklist : helpers groupes & catégories
+    // =========================
+    function buildGroupSelect(index, selectedId) {
+        let opts = '<option value="">-- Aucun groupe --</option>';
+        (window.__allGroups || []).forEach(g => {
+            const sel = (selectedId === g.id) ? 'selected' : '';
+            opts += `<option value="${g.id}" ${sel}>${g.nom} (${g.count})</option>`;
+        });
+        return `
+            <label class="form-label">Groupe assigné</label>
+            <select class="form-select form-select-sm" name="elements[${index}].GroupeId">
+                ${opts}
+            </select>
+        `;
+    }
+    function buildCategorieOptions(selected) {
+        const cats = [
+            "Logistique interne","Moyens Tests","Achat Projet","Chef de projets","Qualité projet",
+            "Méthodes","Besoin opérateur","Qualité client","AQFE","Equipement Indus","ADV","Laboratoire"
+        ];
+        return cats.map(c => `<option value="${c}" ${c === selected ? 'selected' : ''}>${c}</option>`).join('');
+    }
+    function buildPrioriteOptions(sel) {
+        let html = '';
+        const labels = ["Critique","Important","Moyen","Faible","Optionnel"];
+        for (let i = 1; i <= 5; i++) {
+            html += `<option value="${i}" ${i === sel ? 'selected' : ''}>${i} - ${labels[i-1]}</option>`;
+        }
+        return html;
+    }
+
+    // Réindexation dynamique (inclut maintenant GroupeId)
     function reindexChecklistElements() {
         const cards = document.querySelectorAll('#checklistElementsContainer .card');
         cards.forEach((card, idx) => {
-            card.querySelectorAll('input[name^="elements["], select[name^="elements["], textarea[name^="elements["]').forEach(el => {
-                el.name = el.name.replace(/elements\[\d+\]\./, `elements[${idx}].`);
-            });
+            card.querySelectorAll('input[name^="elements["], select[name^="elements["], textarea[name^="elements["]')
+                .forEach(el => {
+                    el.name = el.name.replace(/elements\[\d+\]\./, `elements[${idx}].`);
+                });
         });
         checklistElementCounter = cards.length;
     }
 
-    // Fonctions pour les checklists
+    // =========================
+    // Checklist : CRUD Form
+    // =========================
     function showChecklistForm() {
         document.getElementById('checklistFormContainer').style.display = 'block';
         document.getElementById('checklistFormTitle').textContent = 'Créer un modèle de checklist';
@@ -1012,95 +975,77 @@
         document.getElementById('checklistDescription').value = '';
         document.getElementById('checklistElementsContainer').innerHTML = '';
         checklistElementCounter = 0;
-        addChecklistElement(); // Ajouter un premier élément
+        addChecklistElement();
         document.getElementById('checklistNom').focus();
     }
-
     function hideChecklistForm() {
         document.getElementById('checklistFormContainer').style.display = 'none';
     }
 
     function addChecklistElement() {
         const container = document.getElementById('checklistElementsContainer');
-        const elementDiv = document.createElement('div');
-        elementDiv.className = 'card mb-2';
-        elementDiv.innerHTML = `
+        const idx = checklistElementCounter;
+        const div = document.createElement('div');
+        div.className = 'card mb-2';
+        div.innerHTML = `
             <div class="card-body">
-                <div class="row">
+                <div class="row g-2">
                     <div class="col-md-3">
                         <label class="form-label">Catégorie *</label>
-                        <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Categorie" required>
+                        <select class="form-select form-select-sm" name="elements[${idx}].Categorie" required>
                             <option value="">Sélectionner</option>
-                                <option value="Logistique interne">Logistique interne</option>
-                                <option value="Moyens Tests">Moyens Tests</option>
-                                <option value="Achat Projet">Achat Projet</option>
-                                <option value="Chef de projets">Chef de projets</option>
-                                <option value="Qualité projet">Qualité projet</option>
-                                <option value="Méthodes">Méthodes</option>
-                                <option value="Besoin opérateur">Besoin opérateur</option>
-                                <option value="Qualité client">Qualité client</option>
-                                <option value="AQFE">AQFE</option>
-                                <option value="Equipement Indus">Equipement Indus</option>
-                                <option value="ADV">ADV</option>
-                                <option value="Laboratoire">Laboratoire</option>
+                            ${buildCategorieOptions('')}
                         </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Sous-catégorie</label>
-                        <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].SousCategorie" />
+                        <input type="text" class="form-control form-control-sm" name="elements[${idx}].SousCategorie" />
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label">Libellé *</label>
-                        <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].Libelle" required />
+                        <input type="text" class="form-control form-control-sm" name="elements[${idx}].Libelle" required />
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label">Actions</label>
-                        <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeChecklistElement(this)">
+                        <label class="form-label">Priorité</label>
+                        <select class="form-select form-select-sm" name="elements[${idx}].Priorite">
+                            ${buildPrioriteOptions(3)}
+                        </select>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-start">
+                        <button type="button" class="btn btn-outline-danger btn-sm mt-4" onclick="removeChecklistElement(this)">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </div>
-                <div class="row mt-2">
-                    <div class="col-md-3">
-                        <label class="form-label">Priorité</label>
-                        <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Priorite">
-                            <option value="1">1 - Critique</option>
-                            <option value="2">2 - Important</option>
-                            <option value="3" selected>3 - Moyen</option>
-                            <option value="4">4 - Faible</option>
-                            <option value="5">5 - Optionnel</option>
-                        </select>
-                    </div>
-                    <div class="col-md-3">
+                <div class="row mt-2 g-2">
+                    <div class="col-md-2">
                         <label class="form-label">Délai (jours)</label>
-                        <input type="number" class="form-control form-control-sm" name="elements[${checklistElementCounter}].DelaiDefautJours" value="1" min="1" />
+                        <input type="number" class="form-control form-control-sm" name="elements[${idx}].DelaiDefautJours" value="1" min="1" />
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <div class="form-check mt-4">
-                            <input type="checkbox" class="form-check-input" name="elements[${checklistElementCounter}].Obligatoire" value="true" />
+                            <input type="checkbox" class="form-check-input" name="elements[${idx}].Obligatoire" value="true" />
                             <label class="form-check-label">Obligatoire</label>
                         </div>
                     </div>
+                    <div class="col-md-4">
+                        ${buildGroupSelect(idx, null)}
+                    </div>
                 </div>
-            </div>
-        `;
-        container.appendChild(elementDiv);
+            </div>`;
+        container.appendChild(div);
         checklistElementCounter++;
-        // Réindexer par sécurité après ajout (facultatif mais robuste)
         reindexChecklistElements();
     }
 
-    function removeChecklistElement(button) {
-        button.closest('.card').remove();
-        // Réindexer immédiatement après suppression pour garder des index contigus
+    function removeChecklistElement(btn) {
+        btn.closest('.card').remove();
         reindexChecklistElements();
     }
 
     async function viewChecklistDetails(modeleId) {
         try {
-            // Fermer les dropdowns ouverts pour éviter conflits de z-index
             closeAllDropdowns();
-
             const response = await fetch(`/api/checklists/modeles/${modeleId}`);
             const data = await response.json();
 
@@ -1109,73 +1054,59 @@
                 <p><strong>Description:</strong> ${data.description || 'Aucune description'}</p>
                 <p><strong>Famille:</strong> <span class="badge bg-primary">${data.familleEquipement}</span></p>
                 <p><strong>Créé par:</strong> ${data.createdByLogin} le ${new Date(data.dateCreation).toLocaleDateString('fr-FR')}</p>
-
                 <h6 class="mt-3">Éléments de la checklist (${data.elements.length})</h6>
                 <div class="table-responsive">
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Catégorie</th>
-                                <th>Sous-catégorie</th>
-                                <th>Libellé</th>
-                                <th>Priorité</th>
-                                <th>Délai</th>
-                                <th>Obligatoire</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Catégorie</th>
+                            <th>Sous-catégorie</th>
+                            <th>Libellé</th>
+                            <th>Priorité</th>
+                            <th>Délai</th>
+                            <th>Oblig.</th>
+                            <th>Groupe</th>
+                        </tr>
+                    </thead>
+                    <tbody>
             `;
-
-            data.elements.forEach(element => {
+            data.elements.forEach(el => {
                 content += `
                     <tr>
-                        <td>${element.categorie}</td>
-                        <td>${element.sousCategorie || '-'}</td>
-                        <td>${element.libelle}</td>
-                        <td><span class="badge" style="background-color: ${element.couleurPriorite}">${element.prioriteLibelle}</span></td>
-                        <td>${element.delaiDefautJours} jour(s)</td>
-                        <td>${element.obligatoire ? '<i class="fas fa-check text-success"></i>' : '<i class="fas fa-times text-muted"></i>'}</td>
-                    </tr>
-                `;
+                        <td>${el.categorie}</td>
+                        <td>${el.sousCategorie || '-'}</td>
+                        <td>${el.libelle}</td>
+                        <td><span class="badge" style="background-color:${el.couleurPriorite}">${el.prioriteLibelle}</span></td>
+                        <td>${el.delaiDefautJours} j</td>
+                        <td>${el.obligatoire ? '<i class="fas fa-check text-success"></i>' : '<i class="fas fa-times text-muted"></i>'}</td>
+                        <td>${el.groupeNom || '-'}</td>
+                    </tr>`;
             });
-
-            content += `
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
+            content += `</tbody></table></div>`;
             document.getElementById('checklistDetailsContent').innerHTML = content;
 
             if (!checklistDetailsModal) {
                 const modalEl = document.getElementById('checklistDetailsModal');
-                // Backdrop explicitement désactivé
                 checklistDetailsModal = new bootstrap.Modal(modalEl, { backdrop: false, keyboard: true });
-
-                // Nettoyage de sécurité en cas de backdrop persistant (au cas où)
                 modalEl.addEventListener('hidden.bs.modal', () => {
                     document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
                     document.body.classList.remove('modal-open');
                     document.body.style.paddingRight = '';
                 });
             }
-
             checklistDetailsModal.show();
-        } catch (error) {
-            console.error('Erreur lors du chargement des détails:', error);
+        } catch (e) {
+            console.error(e);
             alert('Erreur lors du chargement des détails de la checklist');
         }
     }
 
     async function editChecklistModele(modeleId) {
         try {
-            // Fermer les dropdowns ouverts pour éviter conflits visuels
             closeAllDropdowns();
-
             const response = await fetch(`/api/checklists/modeles/${modeleId}`);
             const data = await response.json();
 
-            // Remplir le formulaire avec les données existantes
             document.getElementById('checklistFormContainer').style.display = 'block';
             document.getElementById('checklistFormTitle').textContent = 'Modifier le modèle de checklist';
             document.getElementById('checklistModeleId').value = data.id;
@@ -1183,263 +1114,206 @@
             document.getElementById('checklistFamille').value = data.familleEquipement;
             document.getElementById('checklistDescription').value = data.description || '';
 
-            // Vider et remplir les éléments
             const container = document.getElementById('checklistElementsContainer');
             container.innerHTML = '';
             checklistElementCounter = 0;
 
-            data.elements.forEach(element => {
-                const elementDiv = document.createElement('div');
-                elementDiv.className = 'card mb-2';
-                elementDiv.innerHTML = `
+            (data.elements || []).forEach(el => {
+                const idx = checklistElementCounter;
+                const div = document.createElement('div');
+                div.className = 'card mb-2';
+                div.innerHTML = `
                     <div class="card-body">
-                        <input type="hidden" name="elements[${checklistElementCounter}].Id" value="${element.id}" />
-                        <div class="row">
+                        <input type="hidden" name="elements[${idx}].Id" value="${el.id}" />
+                        <div class="row g-2">
                             <div class="col-md-3">
                                 <label class="form-label">Catégorie *</label>
-                                <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Categorie" required>
-                                    <option value="">Sélectionner</option>
-                                        <option value="Logistique interne" ${element.categorie === 'Logistique interne' ? 'selected' : ''}>Logistique interne</option>
-                                        <option value="Moyens Tests" ${element.categorie === 'Moyens Tests' ? 'selected' : ''}>Moyens Tests</option>
-                                        <option value="Achat Projet" ${element.categorie === 'Achat Projet' ? 'selected' : ''}>Achat Projet</option>
-                                        <option value="Chef de projets" ${element.categorie === 'Chef de projets' ? 'selected' : ''}>Chef de projets</option>
-                                        <option value="Qualité projet" ${element.categorie === 'Qualité projet' ? 'selected' : ''}>Qualité projet</option>
-                                        <option value="Méthodes" ${element.categorie === 'Méthodes' ? 'selected' : ''}>Méthodes</option>
-                                        <option value="Besoin opérateur" ${element.categorie === 'Besoin opérateur' ? 'selected' : ''}>Besoin opérateur</option>
-                                        <option value="Qualité client" ${element.categorie === 'Qualité client' ? 'selected' : ''}>Qualité client</option>
-                                        <option value="AQFE" ${element.categorie === 'AQFE' ? 'selected' : ''}>AQFE</option>
-                                        <option value="Equipement Indus" ${element.categorie === 'Equipement Indus' ? 'selected' : ''}>Equipement Indus</option>
-                                        <option value="ADV" ${element.categorie === 'ADV' ? 'selected' : ''}>ADV</option>
-                                        <option value="Laboratoire" ${element.categorie === 'Laboratoire' ? 'selected' : ''}>Laboratoire</option>
-                                        </select>
+                                <select class="form-select form-select-sm" name="elements[${idx}].Categorie" required>
+                                    ${buildCategorieOptions(el.categorie)}
+                                </select>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Sous-catégorie</label>
-                                <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].SousCategorie" value="${element.sousCategorie || ''}" />
+                                <input type="text" class="form-control form-control-sm" name="elements[${idx}].SousCategorie" value="${el.sousCategorie || ''}" />
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Libellé *</label>
-                                <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].Libelle" value="${element.libelle}" required />
+                                <input type="text" class="form-control form-control-sm" name="elements[${idx}].Libelle" value="${el.libelle}" required />
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Actions</label>
-                                <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeChecklistElement(this)">
+                                <label class="form-label">Priorité</label>
+                                <select class="form-select form-select-sm" name="elements[${idx}].Priorite">
+                                    ${buildPrioriteOptions(el.priorite)}
+                                </select>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-start">
+                                <button type="button" class="btn btn-outline-danger btn-sm mt-4" onclick="removeChecklistElement(this)">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
                         </div>
-                        <div class="row mt-2">
-                            <div class="col-md-3">
-                                <label class="form-label">Priorité</label>
-                                <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Priorite">
-                                    <option value="1" ${element.priorite === 1 ? 'selected' : ''}>1 - Critique</option>
-                                    <option value="2" ${element.priorite === 2 ? 'selected' : ''}>2 - Important</option>
-                                    <option value="3" ${element.priorite === 3 ? 'selected' : ''}>3 - Moyen</option>
-                                    <option value="4" ${element.priorite === 4 ? 'selected' : ''}>4 - Faible</option>
-                                    <option value="5" ${element.priorite === 5 ? 'selected' : ''}>5 - Optionnel</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
+                        <div class="row mt-2 g-2">
+                            <div class="col-md-2">
                                 <label class="form-label">Délai (jours)</label>
-                                <input type="number" class="form-control form-control-sm" name="elements[${checklistElementCounter}].DelaiDefautJours" value="${element.delaiDefautJours}" min="1" />
+                                <input type="number" class="form-control form-control-sm" name="elements[${idx}].DelaiDefautJours" value="${el.delaiDefautJours}" min="1" />
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="form-check mt-4">
-                                    <input type="checkbox" class="form-check-input" name="elements[${checklistElementCounter}].Obligatoire" value="true" ${element.obligatoire ? 'checked' : ''} />
+                                    <input type="checkbox" class="form-check-input" name="elements[${idx}].Obligatoire" value="true" ${el.obligatoire ? 'checked' : ''} />
                                     <label class="form-check-label">Obligatoire</label>
                                 </div>
                             </div>
+                            <div class="col-md-4">
+                                ${buildGroupSelect(idx, el.groupeId || null)}
+                            </div>
                         </div>
-                    </div>
-                `;
-                container.appendChild(elementDiv);
+                    </div>`;
+                container.appendChild(div);
                 checklistElementCounter++;
             });
-            // Réindexer par sécurité
             reindexChecklistElements();
-        } catch (error) {
-            console.error('Erreur lors du chargement du modèle:', error);
+
+            const btn = document.querySelector('#settingsTabs button[data-bs-target="#checklists"]');
+            if (btn) (new bootstrap.Tab(btn)).show();
+        } catch (e) {
+            console.error(e);
             alert('Erreur lors du chargement du modèle de checklist');
         }
     }
 
-    // Dupliquer un modèle de checklist: préremplir le formulaire avec une copie (id=0, nom préfixé)
     async function duplicateChecklistModele(modeleId) {
         try {
-            // Fermer les dropdowns ouverts
             closeAllDropdowns();
-
             const response = await fetch(`/api/checklists/modeles/${modeleId}`);
-            if (!response.ok) throw new Error('Erreur HTTP ' + response.status);
+            if (!response.ok) throw new Error('HTTP ' + response.status);
             const data = await response.json();
 
-            // Ouvrir le formulaire en mode création (id=0)
             document.getElementById('checklistFormContainer').style.display = 'block';
             document.getElementById('checklistFormTitle').textContent = 'Dupliquer le modèle de checklist';
-            document.getElementById('checklistModeleId').value = '0'; // nouvelle création
-
-            // Préfixe du nom pour la copie
-            const newName = `Copie de ${data.nom}`;
-            document.getElementById('checklistNom').value = newName;
+            document.getElementById('checklistModeleId').value = '0';
+            document.getElementById('checklistNom').value = 'Copie de ' + data.nom;
             document.getElementById('checklistFamille').value = data.familleEquipement || '';
             document.getElementById('checklistDescription').value = data.description || '';
 
-            // Construire les éléments (sans Id pour créer des nouveaux en base)
             const container = document.getElementById('checklistElementsContainer');
             container.innerHTML = '';
             checklistElementCounter = 0;
 
-            (data.elements || []).forEach(element => {
-                const elementDiv = document.createElement('div');
-                elementDiv.className = 'card mb-2';
-                elementDiv.innerHTML = `
+            (data.elements || []).forEach(el => {
+                const idx = checklistElementCounter;
+                const div = document.createElement('div');
+                div.className = 'card mb-2';
+                div.innerHTML = `
                     <div class="card-body">
-                        <div class="row">
+                        <div class="row g-2">
                             <div class="col-md-3">
                                 <label class="form-label">Catégorie *</label>
-                                <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Categorie" required>
-                                    <option value="">Sélectionner</option>
-                                        <option value="Logistique interne" ${element.categorie === 'Logistique interne' ? 'selected' : ''}>Logistique interne</option>
-                                        <option value="Moyens Tests" ${element.categorie === 'Moyens Tests' ? 'selected' : ''}>Moyens Tests</option>
-                                        <option value="Achat Projet" ${element.categorie === 'Achat Projet' ? 'selected' : ''}>Achat Projet</option>
-                                        <option value="Chef de projets" ${element.categorie === 'Chef de projets' ? 'selected' : ''}>Chef de projets</option>
-                                        <option value="Qualité projet" ${element.categorie === 'Qualité projet' ? 'selected' : ''}>Qualité projet</option>
-                                        <option value="Méthodes" ${element.categorie === 'Méthodes' ? 'selected' : ''}>Méthodes</option>
-                                        <option value="Besoin opérateur" ${element.categorie === 'Besoin opérateur' ? 'selected' : ''}>Besoin opérateur</option>
-                                        <option value="Qualité client" ${element.categorie === 'Qualité client' ? 'selected' : ''}>Qualité client</option>
-                                        <option value="AQFE" ${element.categorie === 'AQFE' ? 'selected' : ''}>AQFE</option>
-                                        <option value="Equipement Indus" ${element.categorie === 'Equipement Indus' ? 'selected' : ''}>Equipement Indus</option>
-                                        <option value="ADV" ${element.categorie === 'ADV' ? 'selected' : ''}>ADV</option>
-                                        <option value="Laboratoire" ${element.categorie === 'Laboratoire' ? 'selected' : ''}>Laboratoire</option>
-                                    </select>
+                                <select class="form-select form-select-sm" name="elements[${idx}].Categorie" required>
+                                    ${buildCategorieOptions(el.categorie)}
+                                </select>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Sous-catégorie</label>
-                                <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].SousCategorie" value="${element.sousCategorie || ''}" />
+                                <input type="text" class="form-control form-control-sm" name="elements[${idx}].SousCategorie" value="${el.sousCategorie || ''}" />
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Libellé *</label>
-                                <input type="text" class="form-control form-control-sm" name="elements[${checklistElementCounter}].Libelle" value="${element.libelle}" required />
+                                <input type="text" class="form-control form-control-sm" name="elements[${idx}].Libelle" value="${el.libelle}" required />
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label">Actions</label>
-                                <button type="button" class="btn btn-outline-danger btn-sm w-100" onclick="removeChecklistElement(this)">
+                                <label class="form-label">Priorité</label>
+                                <select class="form-select form-select-sm" name="elements[${idx}].Priorite">
+                                    ${buildPrioriteOptions(el.priorite)}
+                                </select>
+                            </div>
+                            <div class="col-md-1 d-flex align-items-start">
+                                <button type="button" class="btn btn-outline-danger btn-sm mt-4" onclick="removeChecklistElement(this)">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
                         </div>
-                        <div class="row mt-2">
-                            <div class="col-md-3">
-                                <label class="form-label">Priorité</label>
-                                <select class="form-select form-select-sm" name="elements[${checklistElementCounter}].Priorite">
-                                    <option value="1" ${element.priorite === 1 ? 'selected' : ''}>1 - Critique</option>
-                                    <option value="2" ${element.priorite === 2 ? 'selected' : ''}>2 - Important</option>
-                                    <option value="3" ${element.priorite === 3 ? 'selected' : ''}>3 - Moyen</option>
-                                    <option value="4" ${element.priorite === 4 ? 'selected' : ''}>4 - Faible</option>
-                                    <option value="5" ${element.priorite === 5 ? 'selected' : ''}>5 - Optionnel</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
+                        <div class="row mt-2 g-2">
+                            <div class="col-md-2">
                                 <label class="form-label">Délai (jours)</label>
-                                <input type="number" class="form-control form-control-sm" name="elements[${checklistElementCounter}].DelaiDefautJours" value="${element.delaiDefautJours}" min="1" />
+                                <input type="number" class="form-control form-control-sm" name="elements[${idx}].DelaiDefautJours" value="${el.delaiDefautJours}" min="1" />
                             </div>
-                            <div class="col-md-3">
+                            <div class="col-md-2">
                                 <div class="form-check mt-4">
-                                    <input type="checkbox" class="form-check-input" name="elements[${checklistElementCounter}].Obligatoire" value="true" ${element.obligatoire ? 'checked' : ''} />
+                                    <input type="checkbox" class="form-check-input" name="elements[${idx}].Obligatoire" value="true" ${el.obligatoire ? 'checked' : ''} />
                                     <label class="form-check-label">Obligatoire</label>
                                 </div>
                             </div>
+                            <div class="col-md-4">
+                                ${buildGroupSelect(idx, el.groupeId || null)}
+                            </div>
                         </div>
-                    </div>
-                `;
-                container.appendChild(elementDiv);
+                    </div>`;
+                container.appendChild(div);
                 checklistElementCounter++;
             });
-
-            // Réindexer par sécurité
             reindexChecklistElements();
-            // Focus sur le nom pour éventuel renommage
             document.getElementById('checklistNom').focus();
-            // Activer l'onglet des checklists si besoin
-            const btn = document.querySelector(`#settingsTabs button[data-bs-target="#checklists"]`);
-            if (btn) {
-                const t = new bootstrap.Tab(btn);
-                t.show();
-            }
-        } catch (error) {
-            console.error('Erreur lors de la duplication du modèle:', error);
-            alert('Erreur lors de la duplication du modèle de checklist');
+
+            const btn = document.querySelector('#settingsTabs button[data-bs-target="#checklists"]');
+            if (btn) (new bootstrap.Tab(btn)).show();
+        } catch (e) {
+            console.error(e);
+            alert('Erreur lors de la duplication du modèle');
         }
     }
 
-    // Active l'onglet selon le paramètre ?tab=families|teams|checklists
+    // =========================
+    // Onglet via URL
+    // =========================
     function activateTabFromUrl() {
         const params = new URLSearchParams(window.location.search);
         const tab = params.get('tab');
         if (!tab) return;
         const btn = document.querySelector(`#settingsTabs button[data-bs-target="#${tab}"]`);
-        if (btn) {
-            const t = new bootstrap.Tab(btn);
-            t.show();
-        }
+        if (btn) (new bootstrap.Tab(btn)).show();
     }
 
-    // Événements DOM prêts
-    document.addEventListener('DOMContentLoaded', function() {
-        // Synchronisation des champs couleur
+    // =========================
+    // DOM Ready
+    // =========================
+    document.addEventListener('DOMContentLoaded', () => {
         const colorPicker = document.getElementById('familyColor');
         const colorHex = document.getElementById('familyColorHex');
         const nameField = document.getElementById('familyName');
 
         if (colorPicker && colorHex) {
-            colorPicker.addEventListener('change', function() {
+            colorPicker.addEventListener('change', function () {
                 colorHex.value = this.value;
                 updateColorPreview(nameField.value, this.value);
             });
-
-            colorHex.addEventListener('input', function() {
-                if (this.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+            colorHex.addEventListener('input', function () {
+                if (/^#[0-9A-Fa-f]{6}$/.test(this.value)) {
                     colorPicker.value = this.value;
                     updateColorPreview(nameField.value, this.value);
                 }
             });
-
-            nameField.addEventListener('input', function() {
+            nameField?.addEventListener('input', function () {
                 updateColorPreview(this.value, colorPicker.value);
             });
         }
 
-        // Recherche utilisateurs en temps réel
         const userSearch = document.getElementById('userSearch');
-        if (userSearch) {
-            userSearch.addEventListener('input', filterUsers);
-        }
+        if (userSearch) userSearch.addEventListener('input', filterUsers);
 
-        // À chaque changement d'onglet: fermer panels et modale
-        const tabButtons = document.querySelectorAll('#settingsTabs button[data-bs-toggle="tab"]');
-        tabButtons.forEach(button => {
-            button.addEventListener('shown.bs.tab', function() {
+        document.querySelectorAll('#settingsTabs button[data-bs-toggle="tab"]').forEach(btn => {
+            btn.addEventListener('shown.bs.tab', () => {
                 hideTeamMembersPanel();
                 hideChecklistForm();
-                if (checklistDetailsModal) {
-                    checklistDetailsModal.hide();
-                }
-                // Nettoyage de sécurité (au cas où)
+                if (checklistDetailsModal) checklistDetailsModal.hide();
                 document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
                 document.body.classList.remove('modal-open');
                 document.body.style.paddingRight = '';
             });
         });
 
-        // Réindexer automatiques avant soumission du formulaire de checklist
         const checklistForm = document.getElementById('checklistForm');
-        if (checklistForm) {
-            checklistForm.addEventListener('submit', function() {
-                reindexChecklistElements();
-            });
-        }
+        checklistForm?.addEventListener('submit', () => reindexChecklistElements());
 
-        // Active l'onglet selon ?tab=
         activateTabFromUrl();
     });
 </script>
