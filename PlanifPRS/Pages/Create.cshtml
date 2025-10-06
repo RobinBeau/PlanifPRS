@@ -6,6 +6,12 @@
     // Vérifier si l'utilisateur est admin ou validateur
     var isAdminOrValidateur = Model.IsAdminOrValidateur;
     var currentUserLogin = Model.CurrentUserLogin;
+    Func<string, string> CleanService = s =>
+    {
+        if (string.IsNullOrWhiteSpace(s)) return s;
+        var m = System.Text.RegularExpressions.Regex.Match(s, @"^[A-Z]+_[0-9]+\s+(.+)$");
+        return m.Success ? m.Groups[1].Value.Trim() : s.Trim();
+    };
 }
 
 @section Styles {
@@ -430,6 +436,16 @@
             border: 1px solid #dee2e6;
             margin: 0 2px;
             white-space: nowrap;
+        }
+
+        /* S'assurer que les alertes SweetAlert passent au-dessus du modal checklist */
+        .swal2-container {
+            z-index: 300001 !important;
+        }
+
+        /* Force réellement le masquage si l’attribut hidden est présent */
+        #modeleItemsContainer [hidden] {
+            display: none !important;
         }
     </style>
 }
@@ -893,12 +909,14 @@
                                     <option value="">Sélectionner un utilisateur...</option>
                                     @foreach (var user in Model.Utilisateurs.OrderBy(u => u.Nom).ThenBy(u => u.Prenom))
                                     {
+                                        var serviceClean = CleanService(user.Service);
                                         <option value="@user.Id"
                                                 data-type="Utilisateur"
                                                 data-name="@user.Prenom @user.Nom"
                                                 data-service="@user.Service"
+                                                data-service-clean="@serviceClean"
                                                 data-email="@user.Mail">
-                                            @user.Nom @user.Prenom (@user.Service)
+                                            @user.Nom @user.Prenom (@serviceClean)
                                         </option>
                                     }
                                 </select>
@@ -1008,14 +1026,6 @@
                             </div>
                             <!-- ID attendu par checklist-manager.js -->
                             <div id="checklistItems" class="checklist-items-container"></div>
-                        </div><div id="checklistEditor" class="checklist-editor" style="display:none;">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="mb-0"><i class="fas fa-edit me-1"></i>Éléments de la checklist (<span id="checklistItemCount" class="badge-checklist">0</span> éléments)</h6>
-                                <button type="button" class="btn btn-sm btn-checklist" id="btnAddChecklistItem">
-                                    <i class="fas fa-plus-circle me-1"></i>Ajouter un élément
-                                </button>
-                            </div>
-                            <div id="checklistAffectationItemsContainer"></div>
                         </div>
                         <input type="hidden" id="checklistData" name="ChecklistData" />
                     </div>
@@ -1043,6 +1053,33 @@
 
                             <div id="modeleItemsContainer" class="list-group border" style="max-height: 50vh; overflow:auto;"></div>
                             <div id="modeleEmptyState" class="alert alert-warning d-none mt-3 mb-0">Aucun élément disponible pour ce modèle.</div>
+                            <div id="categoryAssignmentsContainer" class="mt-3 border-top pt-3" style="display:none;">
+                                <h6 class="mb-2">
+                                    <i class="fas fa-user-check me-1 text-primary"></i>
+                                    Attribution des responsables par catégorie
+                                </h6>
+
+                                <div class="row g-2 align-items-end mb-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label small mb-1">
+                                            <i class="fas fa-filter me-1"></i>Filtrer par service
+                                        </label>
+                                        <select id="serviceFilter" class="form-select form-select-sm">
+                                            <option value="">-- Tous les services --</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <small class="text-muted">
+                                            Sélectionnez un service pour limiter les utilisateurs proposés dans chaque catégorie.
+                                        </small>
+                                    </div>
+                                </div>
+
+                                <div id="categoryAssignmentsRows" class="row g-3"></div>
+                                <small class="text-muted d-block mt-1">
+                                    Chaque catégorie listée contient au moins un élément sans groupe – un responsable utilisateur est obligatoire.
+                                </small>
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <div class="text-muted me-auto small" id="modeleCountInfo"></div>
@@ -1145,7 +1182,26 @@
 
 <!-- ✅ CALENDRIER SANS ARRIÈRE-PLAN -->
 @Html.Partial("_CalendarBlock")
-
+<!-- JSON des utilisateurs (id + nom complet) utilisé pour attribution par catégorie -->
+<script id="usersJson" type="application/json">
+    @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                Model.Utilisateurs
+                    .Where(u => u.DateDeleted == null)
+                            .Select(u => new
+                            {
+                                id = u.Id,
+                                prenom = u.Prenom,
+                                nomFamille = u.Nom,
+                                nom = (u.Prenom + " " + u.Nom).Trim(),
+                                service = (u.Service ?? "").Trim(),
+                                serviceDisplay = System.Text.RegularExpressions.Regex
+                 .Replace((u.Service ?? "").Trim(), "^[A-Z]+_[0-9]+\\s+", "")
+                 .Trim()
+                            })
+                    .OrderBy(u => u.service)          // (optionnel si tu veux d’abord regrouper par service)
+                    .ThenBy(u => u.nom)               // tri alpha global
+            ))
+</script>
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script src="~/js/checklist-manager.js" asp-append-version="true"></script>
@@ -1156,40 +1212,98 @@
   try { $('#checklistModele').off('change'); } catch {}
 });
 
-        // ====== AJOUT: gestion de la popup "Modèle" et synchro editor/hidden ======
+                /* ====== Gestion modale sélection modèle + attribution par catégorie ====== */
         (function() {
+          const serviceFilter = document.getElementById('serviceFilter');
           const typeSel = document.getElementById('checklistTypeSelector');
           const modeleSel = document.getElementById('checklistModele');
-          const checklistEditor = document.getElementById('checklistEditor');
-          const editorContainer = document.querySelector('#checklistEditor #checklistItemsContainer');
-          const hiddenChecklistData = document.getElementById('checklistData');
-
-          // Modal refs
           const modalEl = document.getElementById('checklistModeleModal');
-          let bsModal = null;
-          let currentModeleId = null;
-          let currentItems = []; // { id, libelle, tache, categorie, sousCategorie, priorite, delaiDefautJours, obligatoire }
-
           const listContainer = document.getElementById('modeleItemsContainer');
           const emptyState = document.getElementById('modeleEmptyState');
           const selectAll = document.getElementById('modeleSelectAll');
           const filterInput = document.getElementById('modeleFilter');
           const countInfo = document.getElementById('modeleCountInfo');
           const confirmBtn = document.getElementById('confirmChecklistModele');
+          const categoryContainer = document.getElementById('categoryAssignmentsContainer');
+          const categoryRows = document.getElementById('categoryAssignmentsRows');
+          const hiddenChecklistData = document.getElementById('checklistData');
 
-                  function ensureModal() {
-          if (!modalEl) return;
-          // Déplace le modal à la racine du body pour éviter tout problème de stacking context/z-index
-          if (modalEl.parentElement !== document.body) {
-            document.body.appendChild(modalEl);
+          let bsModal = null;
+          let currentModeleId = null;
+          let currentItems = [];
+          let categoryUserMap = {}; // { CatégorieNormalisée: userId }
+
+          function ensureModal() {
+            if (!modalEl) return;
+            if (modalEl.parentElement !== document.body) document.body.appendChild(modalEl);
+            if (!bsModal && window.bootstrap) {
+              bsModal = new bootstrap.Modal(modalEl, { backdrop:true, focus:true });
+            }
           }
-          if (!bsModal && window.bootstrap) {
-            bsModal = new bootstrap.Modal(modalEl, {
-              backdrop: true,
-              focus: true
+
+          async function loadModeleItems(modeleId) {
+            const baseUrl = '@Url.Page("./Create", "ChecklistModeleItems")';
+            const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'id=' + encodeURIComponent(modeleId);
+            const resp = await fetch(url, { headers: { 'Accept':'application/json' }});
+            if (!resp.ok) throw new Error('Erreur de chargement des éléments.');
+            const json = await resp.json();
+            if (!json || !Array.isArray(json.items)) return [];
+            return json.items.map(x => ({
+              id: x.id,
+              libelle: x.libelle,
+              tache: x.libelle,
+              categorie: x.categorie,
+              sousCategorie: x.sousCategorie,
+              priorite: x.priorite > 0 ? x.priorite : 3,
+              delaiDefautJours: x.delaiDefautJours > 0 ? x.delaiDefautJours : 1,
+              obligatoire: !!x.obligatoire,
+              groupeId: x.groupeId || null,
+              groupeNom: x.groupeNom || null,
+              __selected: true
+            }));
+          }
+
+          function renderModeleItems(items) {
+            listContainer.innerHTML = '';
+            emptyState.classList.toggle('d-none', items.length > 0);
+            items.forEach(it => {
+              const label = document.createElement('label');
+              label.className = 'list-group-item d-flex align-items-start gap-2';
+              const cb = document.createElement('input');
+              cb.type = 'checkbox';
+              cb.className = 'form-check-input mt-1';
+              cb.checked = it.__selected;
+              cb.value = it.id;
+              cb.addEventListener('change', () => {
+                it.__selected = cb.checked;
+                updateCountInfo();
+                refreshCategoryAssignments();
+              });
+              const body = document.createElement('div');
+              const title = document.createElement('div');
+              title.className = 'fw-semibold';
+              title.textContent = it.libelle || '(sans libellé)';
+              const meta = document.createElement('div');
+              meta.className = 'small text-muted';
+              const parts = [];
+              if (it.categorie) parts.push(it.categorie);
+              if (it.sousCategorie) parts.push(it.sousCategorie);
+              if (it.obligatoire) parts.push('Obligatoire');
+              if (it.priorite) parts.push('P'+it.priorite);
+              if (it.groupeNom) parts.push('G:'+it.groupeNom);
+              meta.textContent = parts.join(' • ');
+              body.appendChild(title);
+              body.appendChild(meta);
+              label.appendChild(cb);
+              label.appendChild(body);
+              listContainer.appendChild(label);
             });
-          }
+            updateCountInfo();
+            refreshCategoryAssignments();
+                    if (filterInput && filterInput.value.trim()) {
+          applyModeleFilter();
         }
+          }
 
           function updateCountInfo() {
             const all = listContainer.querySelectorAll('input[type="checkbox"]');
@@ -1197,293 +1311,362 @@
             if (countInfo) countInfo.textContent = `${checked.length} sélectionné(s) sur ${all.length}`;
           }
 
-          function renderModeleItems(items) {
-            listContainer.innerHTML = '';
-            emptyState.classList.toggle('d-none', items.length > 0);
-            items.forEach(it => {
-              const row = document.createElement('label');
-              row.className = 'list-group-item d-flex align-items-start gap-2';
-              row.dataset.libelle = (it.libelle || it.tache || '').toLowerCase();
-              row.dataset.categorie = (it.categorie || '').toLowerCase();
-              row.dataset.souscategorie = (it.sousCategorie || '').toLowerCase();
-
-              const cb = document.createElement('input');
-              cb.type = 'checkbox';
-              cb.className = 'form-check-input mt-1';
-              cb.checked = true;
-              cb.value = String(it.id);
-
-              const body = document.createElement('div');
-              const title = document.createElement('div');
-              title.className = 'fw-semibold';
-              title.textContent = it.libelle || it.tache || '(sans libellé)';
-
-              const meta = document.createElement('div');
-              meta.className = 'small text-muted';
-                 const parts = [];
-                if (it.categorie) parts.push(it.categorie);
-                if (it.sousCategorie) parts.push(it.sousCategorie);
-                if (it.obligatoire) parts.push('Obligatoire');
-                if (it.priorite) parts.push(`P${it.priorite}`);
-                if (it.groupeNom) parts.push(`G:${it.groupeNom}`); // AJOUT
-                meta.textContent = parts.join(' • ');
-
-              body.appendChild(title);
-              body.appendChild(meta);
-
-              row.appendChild(cb);
-              row.appendChild(body);
-              listContainer.appendChild(row);
-            });
-            updateCountInfo();
+          function normalizeCategorie(c) {
+            return (c && c.trim()) ? c.trim() : '(Sans catégorie)';
           }
+                  function cleanServiceName(s) {
+          return (s || '').replace(/^[A-Z]+_[0-9]+\s+/, '').trim();
+        }
 
-          function applyFilter() {
-            const q = (filterInput.value || '').trim().toLowerCase();
-            Array.from(listContainer.children).forEach(row => {
-              if (!(row instanceof HTMLElement)) return;
-              if (!q) { row.style.display = ''; return; }
-              const haystack = [row.dataset.libelle, row.dataset.categorie, row.dataset.souscategorie].join(' ');
-              row.style.display = haystack.includes(q) ? '' : 'none';
-            });
-          }
-
-          function collectSelectedItems() {
-            const mapById = new Map(currentItems.map(x => [String(x.id), x]));
-            const selected = [];
-            listContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-              if (cb.checked) {
-                const it = mapById.get(String(cb.value));
-                if (it) selected.push(it);
-              }
-            });
-            return selected;
-          }
-
-          function clearEditor() {
-            if (editorContainer) editorContainer.innerHTML = '';
-          }
-
-          function renderEditorFromSelected(items) {
-            if (!checklistEditor || !editorContainer) return;
-            checklistEditor.style.display = '';
-            clearEditor();
-            items.forEach((it, idx) => {
-              const row = document.createElement('div');
-              row.className = 'checklist-item-row border rounded p-2 mb-2';
-              row.dataset.index = String(idx);
-              row.innerHTML = `
-                <div class="row g-2 align-items-center">
-                  <div class="col-md-3">
-                    <label class="form-label mb-1 small">Catégorie</label>
-                    <input type="text" class="form-control form-control-sm ci-categorie" value="${(it.categorie || '').replace(/"/g,'&quot;')}">
-                  </div>
-                  <div class="col-md-3">
-                    <label class="form-label mb-1 small">Sous-catégorie</label>
-                    <input type="text" class="form-control form-control-sm ci-souscategorie" value="${(it.sousCategorie || '').replace(/"/g,'&quot;')}">
-                  </div>
-                  <div class="col-md-4">
-                    <label class="form-label mb-1 small">Libellé</label>
-                    <input type="text" class="form-control form-control-sm ci-libelle" value="${(it.libelle || it.tache || '').replace(/"/g,'&quot;')}">
-                  </div>
-                  <div class="col-md-1">
-                    <label class="form-label mb-1 small">Prio</label>
-                    <input type="number" class="form-control form-control-sm ci-priorite" min="1" max="5" value="${it.priorite > 0 ? it.priorite : 3}">
-                  </div>
-                  <div class="col-md-1">
-                    <label class="form-label mb-1 small">Obl.</label>
-                    <input type="checkbox" class="form-check-input ci-obligatoire" ${it.obligatoire ? 'checked' : ''} style="margin-top: 10px;">
-                  </div>
-                </div>
-              `;
-              editorContainer.appendChild(row);
-            });
-            const counter = document.getElementById('checklistItemCount');
-            if (counter) counter.textContent = String(items.length);
-          }
-
-          function syncHiddenFromEditor() {
-            if (!hiddenChecklistData) return;
-            const rows = Array.from(document.querySelectorAll('#checklistEditor #checklistItemsContainer .checklist-item-row'));
-            const elements = rows.map(r => ({
-              categorie: r.querySelector('.ci-categorie')?.value || null,
-              sousCategorie: r.querySelector('.ci-souscategorie')?.value || null,
-              libelle: r.querySelector('.ci-libelle')?.value || null,
-              priorite: parseInt(r.querySelector('.ci-priorite')?.value || '3') || 3,
-              delaiDefautJours: 1,
-              obligatoire: !!r.querySelector('.ci-obligatoire')?.checked,
-              assignedUsers: [],
-              assignedGroups: []
-            }));
-            const payload = { type: 'modele', sourceId: currentModeleId, elements };
-            hiddenChecklistData.value = JSON.stringify(payload);
-          }
-
-          async function loadModeleItems(modeleId) {
-            const baseUrl = '@Url.Page("./Create", "ChecklistModeleItems")'; // => /Prs/Create?handler=ChecklistModeleItems
-            const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'id=' + encodeURIComponent(modeleId);
-            const resp = await fetch(url, { headers: { 'Accept': 'application/json' }});
-            if (!resp.ok) throw new Error('Erreur de chargement');
-            const json = await resp.json();
-            if (!json || !Array.isArray(json.items)) return [];
-                return json.items.map(x => ({
-                  id: x.id,
-                  libelle: x.libelle,
-                  tache: x.tache,
-                  categorie: x.categorie,
-                  sousCategorie: x.sousCategorie,
-                  priorite: x.priorite > 0 ? x.priorite : 3,
-                  delaiDefautJours: x.delaiDefautJours > 0 ? x.delaiDefautJours : 1,
-                  obligatoire: !!x.obligatoire,
-                  groupeId: x.groupeId || null,        // AJOUT
-                  groupeNom: x.groupeNom || null       // AJOUT
-                }));
-          }
-
-          async function onModeleSelected() {
-            if (!typeSel || typeSel.value !== 'modele') return;
-            const id = parseInt(modeleSel?.value || '0', 10);
-            if (!id) return;
+                function getUsers() {
+          if (!getUsers.cache) {
             try {
-              currentModeleId = id;
-              currentItems = await loadModeleItems(id);
-              renderModeleItems(currentItems);
-              filterInput.value = '';
-              if (selectAll) { selectAll.checked = true; }
-              updateCountInfo();
-              ensureModal();
-              bsModal?.show();
-            } catch (e) {
-              console.error('[CREATE] Chargement modèle échoué', e);
-              alert('Impossible de charger les éléments du modèle.');
+              const raw = document.getElementById('usersJson')?.textContent;
+              const arr = raw ? JSON.parse(raw) : [];
+
+              // Ajoute propriété serviceDisplay si absente
+              arr.forEach(u => {
+                u.serviceDisplay = u.serviceDisplay ? u.serviceDisplay : cleanServiceName(u.service);
+              });
+
+              // Tri utilisateurs (nom famille puis prénom)
+              arr.sort((a,b) => {
+                const ln = (a.nomFamille||'').localeCompare(b.nomFamille||'','fr',{sensitivity:'base'});
+                return ln !== 0 ? ln : (a.prenom||'').localeCompare(b.prenom||'','fr',{sensitivity:'base'});
+              });
+
+              getUsers.cache = arr;
+
+              // Construire liste services nettoyés uniques
+              const services = Array.from(new Set(
+                arr.map(u => u.serviceDisplay).filter(s => s && s.length > 0)
+              )).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+
+              getUsers.services = services;
+            } catch(e) {
+              console.warn('[CHECKLIST] Échec parse usersJson', e);
+              getUsers.cache = [];
+              getUsers.services = [];
+            }
+          }
+          return getUsers.cache;
+        }
+                        function getFilteredUsers() {
+          const all = getUsers();
+          const svc = serviceFilter?.value || '';
+          if (!svc) return all;
+          return all.filter(u => u.serviceDisplay === svc);
+        }
+                function populateServiceFilter() {
+          if (!serviceFilter) return;
+          // Ne repeupler qu’une fois
+          if (serviceFilter.dataset.built === '1') return;
+          const all = getUsers(); // assure cache initialisé
+          const services = getUsers.services || [];
+          const frag = document.createDocumentFragment();
+          // Garder l’option vide existante
+          services.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s;
+            frag.appendChild(opt);
+          });
+          serviceFilter.appendChild(frag);
+          serviceFilter.dataset.built = '1';
+        }
+
+          function computeNeededCategories() {
+            const selected = currentItems.filter(i => i.__selected);
+            const map = new Map();
+            selected.forEach(it => {
+              const c = normalizeCategorie(it.categorie);
+              if (!map.has(c)) map.set(c, { items: [], need: false });
+              const ref = map.get(c);
+              ref.items.push(it);
+              if (!it.groupeId) ref.need = true;
+            });
+            return Array.from(map.entries())
+              .filter(([cat, data]) => data.need)
+              .map(([cat, data]) => ({ categorie: cat, items: data.items }));
+          }
+
+                  function refreshCategoryAssignments() {
+          const catsData = computeNeededCategories();
+          const allUsers = getUsers();
+          const filteredUsers = getFilteredUsers();
+
+          // Pas de catégories nécessaires → on n'affiche rien mais on NE VIDE PAS categoryUserMap
+          if (!catsData.length) {
+            categoryContainer.style.display = 'none';
+            categoryRows.innerHTML = '';
+            return;
+          }
+
+          categoryContainer.style.display = '';
+          categoryRows.innerHTML = '';
+
+          // Supprime uniquement les affectations dont la catégorie n’existe plus
+          const currentCatNames = catsData.map(c => c.categorie);
+          Object.keys(categoryUserMap).forEach(cat => {
+            if (!currentCatNames.includes(cat)) delete categoryUserMap[cat];
+          });
+
+          catsData.forEach(catObj => {
+            const cat = catObj.categorie;
+            const selectedId = categoryUserMap[cat] || null;
+
+            // Options issues du filtre courant
+            const optionLines = filteredUsers.map(u => {
+              const svc = u.serviceDisplay || cleanServiceName(u.service);
+              return `<option value="${u.id}">${u.nom}${svc ? ' (' + svc + ')' : ''}</option>`;
+            });
+
+            // Si un utilisateur est déjà sélectionné mais n’est pas dans filteredUsers → on le rajoute (hors filtre)
+            if (selectedId && !filteredUsers.some(u => u.id === selectedId)) {
+              const selectedUser = allUsers.find(u => u.id === selectedId);
+              const label = selectedUser
+                ? `${selectedUser.nom}${selectedUser.serviceDisplay ? ' (' + selectedUser.serviceDisplay + ' - hors filtre)' : ' (hors filtre)'}`
+                : `Utilisateur ${selectedId} (hors filtre)`;
+              // Ajoute en tête
+              optionLines.unshift(`<option value="${selectedId}" data-outside="1">${label}</option>`);
+            }
+
+            const col = document.createElement('div');
+            col.className = 'col-md-6';
+            col.innerHTML = `
+              <div class="border rounded p-2 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <label class="form-label fw-bold mb-0">
+                    <i class="fas fa-folder-open me-1 text-secondary"></i>${cat}
+                    <span class="text-danger">*</span>
+                  </label>
+                  <span class="badge bg-light text-muted">
+                    ${catObj.items.filter(i => !i.groupeId).length} élément(s)
+                  </span>
+                </div>
+                <select class="form-select form-select-sm cat-user" data-cat="${cat}">
+                  <option value="">-- Choisir un utilisateur --</option>
+                  ${optionLines.join('')}
+                </select>
+              </div>
+            `;
+            categoryRows.appendChild(col);
+
+            // Appliquer sélection si existante
+            if (selectedId) {
+              const sel = col.querySelector('select.cat-user');
+              if (sel) sel.value = String(selectedId);
+            }
+          });
+
+          // Attacher listeners de changement (mise à jour de categoryUserMap)
+          categoryRows.querySelectorAll('.cat-user').forEach(sel => {
+            sel.addEventListener('change', () => {
+              const cat = sel.getAttribute('data-cat');
+              const val = parseInt(sel.value || '0', 10);
+              if (val > 0) categoryUserMap[cat] = val;
+              else delete categoryUserMap[cat];
+            });
+          });
+
+          // Nettoyage final : si un user n'existe plus du tout dans allUsers (suppression côté backend)
+          const validIds = new Set(allUsers.map(u => u.id));
+          Object.keys(categoryUserMap).forEach(cat => {
+            if (!validIds.has(categoryUserMap[cat])) delete categoryUserMap[cat];
+          });
+        }
+
+          function validateBeforeImport() {
+            const needed = computeNeededCategories();
+            const missing = needed.filter(c => !categoryUserMap[c.categorie]);
+            if (missing.length) {
+              Swal.fire({
+                title: 'Responsables manquants',
+                icon: 'warning',
+                html: '<p>Veuillez sélectionner un utilisateur pour :</p><ul>' +
+                      missing.map(m=>`<li>${m.categorie}</li>`).join('') +
+                              '</ul>',
+          didOpen: () => {
+            // Sécurité si le CSS n'était pas chargé
+            const c = document.querySelector('.swal2-container');
+            if (c) c.style.zIndex = '300001';
+          }
+              });
+              return false;
+            }
+            return true;
+          }
+
+          function mapForManager(selected) {
+            return selected.map(el => {
+              const catNorm = normalizeCategorie(el.categorie);
+              return {
+                id: 0, // sera réattribué par checklistManager
+                categorie: el.categorie || '',
+                sousCategorie: el.sousCategorie || '',
+                libelle: el.libelle || el.tache || '',
+                priorite: el.priorite > 0 ? el.priorite : 3,
+                delaiDefautJours: el.delaiDefautJours > 0 ? el.delaiDefautJours : 1,
+                obligatoire: !!el.obligatoire,
+                assignedGroups: el.groupeId ? [el.groupeId] : [],
+                assignedUsers: (!el.groupeId && categoryUserMap[catNorm]) ? [categoryUserMap[catNorm]] : []
+              };
+            });
+          }
+
+          function collectSelected() {
+            return currentItems.filter(i => i.__selected);
+          }
+
+          function importSelected() {
+            const selected = collectSelected();
+            if (!selected.length) {
+              alert('Aucun élément sélectionné.');
+              return;
+            }
+            if (!validateBeforeImport()) return;
+
+            try {
+              if (window.checklistManager) {
+                const mgr = window.checklistManager;
+                const mapped = mapForManager(selected);
+                mapped.forEach(m => { m.id = ++mgr.elementIdCounter; });
+                mgr.currentChecklist = {
+                  type: 'modele',
+                  sourceId: currentModeleId,
+                  elements: mapped
+                };
+                mgr.showChecklistEditor();
+                mgr.renderChecklistItems();
+                mgr.updateChecklistData();
+                // Reset local
+                categoryUserMap = {};
+                categoryContainer.style.display = 'none';
+                categoryRows.innerHTML = '';
+                document.getElementById('checklistEditor')?.scrollIntoView({ behavior:'smooth', block:'start' });
+              } else {
+                // fallback si checklistManager indisponible
+                const mapped = mapForManager(selected);
+                hiddenChecklistData.value = JSON.stringify({
+                  type: 'modele',
+                  sourceId: currentModeleId,
+                  elements: mapped
+                });
+                document.getElementById('checklistEditor').style.display = '';
+              }
+              bsModal?.hide();
+            } catch(e) {
+              console.error('Erreur import checklist:', e);
+              alert('Erreur lors de l\'import.');
             }
           }
 
-          // Afficher/cacher les sélecteurs selon le type
+          // Écouteurs
+          if (selectAll) {
+            selectAll.addEventListener('change', () => {
+              currentItems.forEach(it => it.__selected = selectAll.checked);
+              listContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = selectAll.checked);
+              updateCountInfo();
+              refreshCategoryAssignments();
+            });
+          }
+
+                  // ---- Filtrage avancé des éléments du modèle ----
+        function normalizeText(str) {
+          return (str || '')
+            .toLowerCase()
+            .normalize('NFD')                // décompose accents
+            .replace(/[\u0300-\u036f]/g,'')  // supprime diacritiques
+            .replace(/\s+/g,' ')             // espaces multiples
+            .trim();
+        }
+
+        function applyModeleFilter() {
+          if (!filterInput) return;
+          const raw = filterInput.value || '';
+          const query = normalizeText(raw);
+          const tokens = query.split(' ').filter(t => t.length);
+
+          Array.from(listContainer.children).forEach(label => {
+            if (!(label instanceof HTMLElement)) return;
+            const cb = label.querySelector('input[type="checkbox"]');
+            if (!cb) return;
+            const it = currentItems.find(x => String(x.id) === cb.value);
+            if (!it) { label.hidden = true; return; }
+
+            // Construire un haystack normalisé
+            const haystack = normalizeText(
+              [
+                it.libelle,
+                it.categorie,
+                it.sousCategorie,
+                it.obligatoire ? 'obligatoire oui' : '',
+                it.priorite ? 'p' + it.priorite : '',
+                it.groupeNom ? ('groupe ' + it.groupeNom) : ''
+              ].join(' ')
+            );
+
+            // Chaque token doit être présent
+            const match = tokens.every(t => haystack.includes(t));
+            label.hidden = !match;
+          });
+        }
+
+        function debounce(fn, delay=120) {
+          let t;
+          return function() {
+           clearTimeout(t);
+           t = setTimeout(() => fn(), delay);
+          };
+        }
+
+        if (filterInput) {
+          filterInput.addEventListener('input', debounce(applyModeleFilter, 100));
+        }
+
+          if (confirmBtn) confirmBtn.addEventListener('click', importSelected);
+
+          if (modeleSel) {
+            modeleSel.addEventListener('change', async (e) => {
+              if (!typeSel || typeSel.value !== 'modele') return;
+              const id = parseInt(modeleSel.value || '0', 10);
+              if (!id) return;
+              try {
+                currentModeleId = id;
+                currentItems = await loadModeleItems(id);
+                        populateServiceFilter();
+                renderModeleItems(currentItems);
+                ensureModal();
+                bsModal?.show();
+              } catch(err) {
+                console.error('Chargement modèle échoué', err);
+                alert('Impossible de charger le modèle.');
+              }
+            }, true); // capture
+          }
+
           if (typeSel) {
             typeSel.addEventListener('change', () => {
+              const v = typeSel.value;
               const ms = document.getElementById('modeleSelector');
               const ps = document.getElementById('prsSelector');
-              if (typeSel.value === 'modele') {
-                if (ms) ms.style.display = '';
-                if (ps) ps.style.display = 'none';
-              } else if (typeSel.value === 'copy') {
-                if (ms) ms.style.display = 'none';
-                if (ps) ps.style.display = '';
+              if (v === 'modele') {
+                if (ms) ms.style.display='';
+                if (ps) ps.style.display='none';
+              } else if (v === 'copy') {
+                if (ms) ms.style.display='none';
+                if (ps) ps.style.display='';
               } else {
-                if (ms) ms.style.display = 'none';
-                if (ps) ps.style.display = 'none';
-                // reset
-                if (editorContainer) editorContainer.innerHTML = '';
-                if (hiddenChecklistData) hiddenChecklistData.value = '';
-                const counter = document.getElementById('checklistItemCount');
-                if (counter) counter.textContent = '0';
-                document.getElementById('checklistEditor').style.display = 'none';
+                if (ms) ms.style.display='none';
+                if (ps) ps.style.display='none';
               }
             });
           }
-
-                    if (modeleSel) {
-            // Phase capture pour passer AVANT jQuery et bloquer checklist-manager
-            modeleSel.addEventListener('change', function(e) {
-              if (!typeSel || typeSel.value !== 'modele') return;
-              // Empêche tout autre handler "change" (dont checklist-manager) de s'exécuter
-              if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-              e.stopPropagation();
-              // Pas besoin de preventDefault ici, on garde la sélection
-              onModeleSelected();
-            }, true); // <= capture = true
-          }
-          if (selectAll) selectAll.addEventListener('change', function() {
-            listContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = selectAll.checked);
-            updateCountInfo();
+                  if (serviceFilter) {
+          serviceFilter.addEventListener('change', () => {
+            refreshCategoryAssignments();
           });
-          if (filterInput) filterInput.addEventListener('input', applyFilter);
-          if (listContainer) listContainer.addEventListener('change', e => {
-            if ((e.target)?.tagName === 'INPUT') updateCountInfo();
-          });
-
-                  if (confirmBtn) confirmBtn.addEventListener('click', function() {
-          const selected = collectSelectedItems();
-          if (selected.length === 0) {
-            alert('Aucun élément sélectionné.');
-            return;
-          }
-
-          try {
-            if (window.checklistManager) {
-              const mgr = window.checklistManager;
-
-              // Mapper les éléments sélectionnés au format attendu par le manager
-                  const mapped = selected.map(el => ({
-                  id: ++mgr.elementIdCounter,
-                  categorie: el.categorie || '',
-                  sousCategorie: el.sousCategorie || '',
-                  libelle: el.libelle || el.tache || '',
-                  priorite: el.priorite > 0 ? el.priorite : 3,
-                  delaiDefautJours: el.delaiDefautJours > 0 ? el.delaiDefautJours : 1,
-                  obligatoire: !!el.obligatoire,
-                  assignedUsers: [],
-                  assignedGroups: el.groupeId ? [el.groupeId] : [] // AJOUT
-                }));
-
-              // Injecter dans l’état du manager et rendre via l’éditeur standard
-              mgr.currentChecklist = {
-                type: 'modele',
-                sourceId: currentModeleId,
-                elements: mapped
-              };
-
-              mgr.showChecklistEditor();
-              mgr.renderChecklistItems();
-                  // Afficher un badge des groupes préassignés (optionnel)
-                if (mgr.currentChecklist?.elements) {
-                  mgr.currentChecklist.elements.forEach((el, idx) => {
-                    if (el.assignedGroups && el.assignedGroups.length > 0) {
-                      const row = document.querySelector(`.checklist-item-row[data-index="${idx}"]`);
-                      if (row) {
-                        let zone = row.querySelector('.preassigned-groups');
-                        if (!zone) {
-                          zone = document.createElement('div');
-                          zone.className = 'preassigned-groups mt-1';
-                          row.appendChild(zone);
-                        }
-                        zone.innerHTML = el.assignedGroups.map(gid => {
-                          const g = (window.__allGroups || []).find(x => x.id === gid);
-                          return `<span class="badge bg-success me-1"><i class="fas fa-users"></i> ${(g && g.nom) || ('Groupe ' + gid)}</span>`;
-                        }).join('');
-                      }
-                    }
-                  });
-                }
-              mgr.updateChecklistData();
-
-              // Optionnel: scroll vers l’éditeur
-              document.getElementById('checklistEditor')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } else {
-              // Fallback minimal si le manager n’est pas disponible
-              document.getElementById('checklistEditor').style.display = '';
-              document.getElementById('checklistData').value = JSON.stringify({
-                type: 'modele',
-                sourceId: currentModeleId,
-                elements: selected
-              });
-            }
-          } catch (e) {
-            console.error('Erreur import checklist:', e);
-            alert('Erreur lors de l\'import des éléments sélectionnés.');
-            return;
-          }
-
-          bsModal?.hide();
-        });
-
-          // Si l’utilisateur modifie ensuite l’éditeur, on resynchronise le hidden
-          document.addEventListener('input', function(e) {
-            if ((e.target).closest && (e.target).closest('#checklistEditor')) {
-              syncHiddenFromEditor();
-            }
-          });
+        }
         })();
 
         // Variables globales
@@ -2660,6 +2843,7 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
             const userId = parseInt(selectedOption.value, 10);
             const userName = selectedOption.dataset.name || selectedOption.textContent.trim();
             const userService = selectedOption.dataset.service || '';
+        const userServiceClean = selectedOption.dataset.serviceClean || cleanServiceName(userService);
             const userEmail = (selectedOption.dataset.email || selectedOption.getAttribute('data-email') || '').trim();
 
             // Vérifier si déjà ajouté (par id ou par email si dispo)
@@ -2675,7 +2859,7 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
                 id: userId,
                 type: 'Utilisateur',
                 name: userName,
-                info: userService,
+                        info: userServiceClean,
                 email: userEmail // <-- essentiel pour les absences
             });
 
