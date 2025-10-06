@@ -39,26 +39,29 @@ namespace PlanifPRS.Pages.Prs
             try
             {
                 var items = await _context.ChecklistElementModeles
-                    .AsNoTracking()
-                    .Where(e => e.ChecklistModeleId == id)
-                    // Tri demandé : Catégorie DESC, Délai DESC, puis Priorité ASC, puis SousCategorie ASC, puis Libellé ASC
-                    .OrderByDescending(e => e.Categorie)
-                    .ThenByDescending(e => e.DelaiDefautJours)
-                    .ThenBy(e => e.Priorite)
-                    .ThenBy(e => e.SousCategorie)
-                    .ThenBy(e => e.Libelle)
-                    .Select(e => new
-                    {
-                        id = e.Id,
-                        libelle = e.Libelle,
-                        tache = e.Libelle,
-                        categorie = e.Categorie,
-                        sousCategorie = e.SousCategorie,
-                        priorite = e.Priorite,
-                        delaiDefautJours = e.DelaiDefautJours,
-                        obligatoire = e.Obligatoire
-                    })
-                    .ToListAsync();
+    .AsNoTracking()
+    .Include(e => e.Groupe) // AJOUT pour récupérer le nom
+    .Where(e => e.ChecklistModeleId == id)
+    // Tri demandé : Catégorie DESC, Délai DESC, puis Priorité ASC, puis SousCategorie, Libellé
+    .OrderByDescending(e => e.Categorie)
+    .ThenByDescending(e => e.DelaiDefautJours)
+    .ThenBy(e => e.Priorite)
+    .ThenBy(e => e.SousCategorie)
+    .ThenBy(e => e.Libelle)
+    .Select(e => new
+    {
+        id = e.Id,
+        libelle = e.Libelle,
+        tache = e.Libelle,
+        categorie = e.Categorie,
+        sousCategorie = e.SousCategorie,
+        priorite = e.Priorite,
+        delaiDefautJours = e.DelaiDefautJours,
+        obligatoire = e.Obligatoire,
+        groupeId = e.GroupeId,                                 // AJOUT
+        groupeNom = e.Groupe != null ? e.Groupe.NomGroupe : null // AJOUT
+    })
+    .ToListAsync();
 
                 return new JsonResult(new { items });
             }

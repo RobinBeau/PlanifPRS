@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using PlanifPRS.Data;
 using PlanifPRS.Models;
@@ -19,6 +20,31 @@ namespace PlanifPRS.Pages
             _context = context;
         }
 
+        // ====== GARDE D'ACCÈS ADMIN ======
+        private bool IsAdmin()
+        {
+            var login = User.Identity?.Name?.Split('\\').LastOrDefault();
+            if (string.IsNullOrWhiteSpace(login)) return false;
+
+            var user = _context.Utilisateurs
+                .FirstOrDefault(u => u.LoginWindows == login && u.DateDeleted == null);
+
+            return user != null &&
+                   user.Droits != null &&
+                   user.Droits.Equals("admin", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public override void OnPageHandlerExecuting(PageHandlerExecutingContext context)
+        {
+            if (!IsAdmin())
+            {
+                context.Result = new RedirectToPageResult("/AccessDenied");
+                return;
+            }
+            base.OnPageHandlerExecuting(context);
+        }
+        // =================================
+
         public List<PrsFamille> FamillesPRS { get; set; } = new List<PrsFamille>();
         public List<GroupeUtilisateurs> GroupesUtilisateurs { get; set; } = new List<GroupeUtilisateurs>();
         public List<Utilisateur> Utilisateurs { get; set; } = new List<Utilisateur>();
@@ -32,9 +58,13 @@ namespace PlanifPRS.Pages
 
         private async Task LoadDataAsync()
         {
-            FamillesPRS = await _context.PrsFamilles.OrderBy(f => f.Libelle).ToListAsync();
+            FamillesPRS = await _context.PrsFamilles
+                .OrderBy(f => f.Libelle)
+                .ToListAsync();
+
             GroupesUtilisateurs = await _context.GroupesUtilisateurs
                 .Include(g => g.Membres)
+                    .ThenInclude(m => m.Utilisateur)
                 .OrderBy(g => g.NomGroupe)
                 .ToListAsync();
 
@@ -46,7 +76,6 @@ namespace PlanifPRS.Pages
 
             GroupeUtilisateurs = await _context.GroupeUtilisateurs.ToListAsync();
 
-            // Charger modèles + éléments (inclure GroupeId si déjà mappé dans l'entité)
             ChecklistModeles = await _context.ChecklistModeles
                 .Include(cm => cm.Elements)
                 .Where(cm => cm.Actif)
@@ -54,7 +83,7 @@ namespace PlanifPRS.Pages
                 .ToListAsync();
         }
 
-        // Helper équipes
+        // Helpers équipes
         public int GetTeamMembersCount(int teamId) =>
             GroupeUtilisateurs.Count(gu => gu.GroupeId == teamId);
 
@@ -68,7 +97,7 @@ namespace PlanifPRS.Pages
             return Utilisateurs.Where(u => memberIds.Contains(u.Id));
         }
 
-        // Familles PRS
+        // ---------- Familles PRS ----------
         public async Task<IActionResult> OnPostSaveFamilyAsync(int familyId, string familyName, string familyColor)
         {
             if (string.IsNullOrWhiteSpace(familyName) || string.IsNullOrWhiteSpace(familyColor))
@@ -97,14 +126,19 @@ namespace PlanifPRS.Pages
                         famille.CouleurHex = familyColor.Trim();
                         TempData["Message"] = "Famille modifiée avec succès.";
                     }
-                    else TempData["Error"] = "Famille introuvable.";
+                    else
+                    {
+                        TempData["Error"] = "Famille introuvable.";
+                    }
                 }
+
                 await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
                 TempData["Error"] = "Erreur lors de l'enregistrement : " + ex.Message;
             }
+
             return RedirectToPage(new { tab = "families" });
         }
 
@@ -119,16 +153,20 @@ namespace PlanifPRS.Pages
                     await _context.SaveChangesAsync();
                     TempData["Message"] = "Famille supprimée avec succès.";
                 }
-                else TempData["Error"] = "Famille introuvable.";
+                else
+                {
+                    TempData["Error"] = "Famille introuvable.";
+                }
             }
             catch (Exception ex)
             {
                 TempData["Error"] = "Erreur lors de la suppression : " + ex.Message;
             }
+
             return RedirectToPage(new { tab = "families" });
         }
 
-        // Équipes
+        // ---------- Équipes ----------
         public async Task<IActionResult> OnPostSaveTeamAsync(int teamId, string teamName, string teamDescription)
         {
             if (string.IsNullOrWhiteSpace(teamName))
@@ -140,6 +178,7 @@ namespace PlanifPRS.Pages
             try
             {
                 var currentUser = User?.Identity?.Name ?? "System";
+
                 if (teamId == 0)
                 {
                     _context.GroupesUtilisateurs.Add(new GroupeUtilisateurs
@@ -161,14 +200,19 @@ namespace PlanifPRS.Pages
                         groupe.Description = teamDescription?.Trim() ?? "";
                         TempData["Message"] = "Équipe modifiée avec succès.";
                     }
-                    else TempData["Error"] = "Équipe introuvable.";
+                    else
+                    {
+                        TempData["Error"] = "Équipe introuvable.";
+                    }
                 }
+
                 await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
                 TempData["Error"] = "Erreur lors de l'enregistrement : " + ex.Message;
             }
+
             return RedirectToPage(new { tab = "teams" });
         }
 
@@ -181,16 +225,21 @@ namespace PlanifPRS.Pages
                 {
                     var membres = _context.GroupeUtilisateurs.Where(gu => gu.GroupeId == teamId);
                     _context.GroupeUtilisateurs.RemoveRange(membres);
+
                     _context.GroupesUtilisateurs.Remove(groupe);
                     await _context.SaveChangesAsync();
                     TempData["Message"] = "Équipe supprimée avec succès.";
                 }
-                else TempData["Error"] = "Équipe introuvable.";
+                else
+                {
+                    TempData["Error"] = "Équipe introuvable.";
+                }
             }
             catch (Exception ex)
             {
                 TempData["Error"] = "Erreur lors de la suppression : " + ex.Message;
             }
+
             return RedirectToPage(new { tab = "teams" });
         }
 
@@ -198,8 +247,8 @@ namespace PlanifPRS.Pages
         {
             try
             {
-                var current = _context.GroupeUtilisateurs.Where(gu => gu.GroupeId == teamId);
-                _context.GroupeUtilisateurs.RemoveRange(current);
+                var currentMembers = _context.GroupeUtilisateurs.Where(gu => gu.GroupeId == teamId);
+                _context.GroupeUtilisateurs.RemoveRange(currentMembers);
 
                 if (selectedUsers?.Any() == true)
                 {
@@ -221,6 +270,7 @@ namespace PlanifPRS.Pages
             {
                 TempData["Error"] = "Erreur lors de la mise à jour des membres : " + ex.Message;
             }
+
             return RedirectToPage(new { tab = "teams" });
         }
 
@@ -248,7 +298,7 @@ namespace PlanifPRS.Pages
             }
         }
 
-        // Checklists
+        // ---------- Checklists ----------
         public async Task<IActionResult> OnPostSaveChecklistModeleAsync(
             int checklistModeleId,
             string checklistNom,
@@ -282,6 +332,7 @@ namespace PlanifPRS.Pages
                         CreatedByLogin = currentUser,
                         Actif = true
                     };
+
                     _context.ChecklistModeles.Add(modele);
                     await _context.SaveChangesAsync();
 
@@ -299,10 +350,11 @@ namespace PlanifPRS.Pages
                                 Obligatoire = elementDto.Obligatoire,
                                 Priorite = elementDto.Priorite,
                                 DelaiDefautJours = elementDto.DelaiDefautJours,
-                                GroupeId = elementDto.GroupeId  // NOUVEAU
+                                GroupeId = elementDto.GroupeId
                             });
                         }
                     }
+
                     TempData["Message"] = "Modèle de checklist créé avec succès.";
                 }
                 else
@@ -321,7 +373,6 @@ namespace PlanifPRS.Pages
                     modele.Description = checklistDescription?.Trim();
                     modele.FamilleEquipement = checklistFamille;
 
-                    // On remplace les éléments (simple)
                     _context.ChecklistElementModeles.RemoveRange(modele.Elements);
 
                     foreach (var elementDto in elements)
@@ -338,7 +389,7 @@ namespace PlanifPRS.Pages
                                 Obligatoire = elementDto.Obligatoire,
                                 Priorite = elementDto.Priorite,
                                 DelaiDefautJours = elementDto.DelaiDefautJours,
-                                GroupeId = elementDto.GroupeId  // NOUVEAU
+                                GroupeId = elementDto.GroupeId
                             });
                         }
                     }
@@ -370,17 +421,21 @@ namespace PlanifPRS.Pages
                     await _context.SaveChangesAsync();
                     TempData["Message"] = "Modèle de checklist désactivé avec succès.";
                 }
-                else TempData["Error"] = "Modèle de checklist introuvable.";
+                else
+                {
+                    TempData["Error"] = "Modèle de checklist introuvable.";
+                }
             }
             catch (Exception ex)
             {
                 TempData["Error"] = $"Erreur lors de la suppression : {ex.Message}";
             }
+
             return RedirectToPage(new { tab = "checklists" });
         }
     }
 
-    // DTO enrichi
+    // DTO pour les éléments de checklist (post back)
     public class ChecklistElementDto
     {
         public int Id { get; set; }
@@ -390,6 +445,6 @@ namespace PlanifPRS.Pages
         public bool Obligatoire { get; set; }
         public int Priorite { get; set; } = 3;
         public int DelaiDefautJours { get; set; } = 1;
-        public int? GroupeId { get; set; }   // NOUVEAU
+        public int? GroupeId { get; set; }
     }
 }

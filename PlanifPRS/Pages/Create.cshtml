@@ -1220,12 +1220,13 @@
 
               const meta = document.createElement('div');
               meta.className = 'small text-muted';
-              const parts = [];
-              if (it.categorie) parts.push(it.categorie);
-              if (it.sousCategorie) parts.push(it.sousCategorie);
-              if (it.obligatoire) parts.push('Obligatoire');
-              if (it.priorite) parts.push(`P${it.priorite}`);
-              meta.textContent = parts.join(' • ');
+                 const parts = [];
+                if (it.categorie) parts.push(it.categorie);
+                if (it.sousCategorie) parts.push(it.sousCategorie);
+                if (it.obligatoire) parts.push('Obligatoire');
+                if (it.priorite) parts.push(`P${it.priorite}`);
+                if (it.groupeNom) parts.push(`G:${it.groupeNom}`); // AJOUT
+                meta.textContent = parts.join(' • ');
 
               body.appendChild(title);
               body.appendChild(meta);
@@ -1325,16 +1326,18 @@
             if (!resp.ok) throw new Error('Erreur de chargement');
             const json = await resp.json();
             if (!json || !Array.isArray(json.items)) return [];
-            return json.items.map(x => ({
-              id: x.id,
-              libelle: x.libelle,
-              tache: x.tache,
-              categorie: x.categorie,
-              sousCategorie: x.sousCategorie,
-              priorite: x.priorite > 0 ? x.priorite : 3,
-              delaiDefautJours: x.delaiDefautJours > 0 ? x.delaiDefautJours : 1,
-              obligatoire: !!x.obligatoire
-            }));
+                return json.items.map(x => ({
+                  id: x.id,
+                  libelle: x.libelle,
+                  tache: x.tache,
+                  categorie: x.categorie,
+                  sousCategorie: x.sousCategorie,
+                  priorite: x.priorite > 0 ? x.priorite : 3,
+                  delaiDefautJours: x.delaiDefautJours > 0 ? x.delaiDefautJours : 1,
+                  obligatoire: !!x.obligatoire,
+                  groupeId: x.groupeId || null,        // AJOUT
+                  groupeNom: x.groupeNom || null       // AJOUT
+                }));
           }
 
           async function onModeleSelected() {
@@ -1412,17 +1415,17 @@
               const mgr = window.checklistManager;
 
               // Mapper les éléments sélectionnés au format attendu par le manager
-              const mapped = selected.map(el => ({
-                id: ++mgr.elementIdCounter,
-                categorie: el.categorie || '',
-                sousCategorie: el.sousCategorie || '',
-                libelle: el.libelle || el.tache || '',
-                priorite: el.priorite > 0 ? el.priorite : 3,
-                delaiDefautJours: el.delaiDefautJours > 0 ? el.delaiDefautJours : 1,
-                obligatoire: !!el.obligatoire,
-                assignedUsers: [],
-                assignedGroups: []
-              }));
+                  const mapped = selected.map(el => ({
+                  id: ++mgr.elementIdCounter,
+                  categorie: el.categorie || '',
+                  sousCategorie: el.sousCategorie || '',
+                  libelle: el.libelle || el.tache || '',
+                  priorite: el.priorite > 0 ? el.priorite : 3,
+                  delaiDefautJours: el.delaiDefautJours > 0 ? el.delaiDefautJours : 1,
+                  obligatoire: !!el.obligatoire,
+                  assignedUsers: [],
+                  assignedGroups: el.groupeId ? [el.groupeId] : [] // AJOUT
+                }));
 
               // Injecter dans l’état du manager et rendre via l’éditeur standard
               mgr.currentChecklist = {
@@ -1433,6 +1436,26 @@
 
               mgr.showChecklistEditor();
               mgr.renderChecklistItems();
+                  // Afficher un badge des groupes préassignés (optionnel)
+                if (mgr.currentChecklist?.elements) {
+                  mgr.currentChecklist.elements.forEach((el, idx) => {
+                    if (el.assignedGroups && el.assignedGroups.length > 0) {
+                      const row = document.querySelector(`.checklist-item-row[data-index="${idx}"]`);
+                      if (row) {
+                        let zone = row.querySelector('.preassigned-groups');
+                        if (!zone) {
+                          zone = document.createElement('div');
+                          zone.className = 'preassigned-groups mt-1';
+                          row.appendChild(zone);
+                        }
+                        zone.innerHTML = el.assignedGroups.map(gid => {
+                          const g = (window.__allGroups || []).find(x => x.id === gid);
+                          return `<span class="badge bg-success me-1"><i class="fas fa-users"></i> ${(g && g.nom) || ('Groupe ' + gid)}</span>`;
+                        }).join('');
+                      }
+                    }
+                  });
+                }
               mgr.updateChecklistData();
 
               // Optionnel: scroll vers l’éditeur
