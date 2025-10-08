@@ -60,7 +60,7 @@
         }
     </div>
 
-    @if (!string.IsNullOrEmpty(Model.Flash))
+@*     @if (!string.IsNullOrEmpty(Model.Flash))
     {
         <div class="alert alert-success alert-modern">
             <div class="d-flex align-items-center">
@@ -69,7 +69,7 @@
             </div>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
-    }
+    } *@
 
     @if (!ViewData.ModelState.IsValid)
     {
@@ -576,6 +576,114 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
+
+        // ====== Filtrage dynamique des lignes (avec pré‑sélection) ======
+document.addEventListener('DOMContentLoaded', function () {
+    const equipSel = document.getElementById('Prs_Equipement'); // (dans Clone : adapte l'ID si différent)
+    const ligneSel = document.getElementById('ligne-select');
+    const placeholder = '-- Choisir une ligne --';
+
+    if (!ligneSel) return;
+
+    // 1. Mémoriser la ligne initiale (priorité à data-*, sinon value)
+    const initialLigneId =
+        ligneSel.getAttribute('data-current-ligne-id')
+        || (ligneSel.value ? ligneSel.value : '');
+
+    // 2. Mémoriser le label éventuel de l’option initiale (pour fallback)
+    let initialLigneLabel = '';
+    if (initialLigneId) {
+        const opt = ligneSel.querySelector(`option[value="${initialLigneId}"]`);
+        if (opt) initialLigneLabel = opt.textContent.trim();
+    }
+
+    // 3. Normalisation équipement (cas Create vs Edit : emoji ou pas)
+    function normalizeEquipementLabel(label) {
+        if (!label) return '';
+        if (label.includes('CMS')) return 'CMS';
+        if (label.includes('Finition')) return 'Finition';
+        return label.trim();
+    }
+
+    async function reloadLignes() {
+        if (!equipSel) return;
+
+        const norm = normalizeEquipementLabel(equipSel.value);
+
+        // Réinitialise proprement
+        ligneSel.innerHTML = `<option value="">${placeholder}</option>`;
+        ligneSel.disabled = true;
+
+        if (!norm) {
+            // Pas d’équipement => on s’arrête
+            return;
+        }
+
+        ligneSel.innerHTML = `<option value="">Chargement...</option>`;
+
+        try {
+            const resp = await fetch(`?handler=LignesByEquipement&equipement=${encodeURIComponent(norm)}`);
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const json = await resp.json();
+
+            ligneSel.innerHTML = `<option value="">${placeholder}</option>`;
+
+            let foundInitial = false;
+
+            if (json && Array.isArray(json.lignes) && json.lignes.length) {
+                json.lignes.forEach(l => {
+                    const opt = document.createElement('option');
+                    opt.value = l.id;
+                    opt.textContent = l.nom;
+                    ligneSel.appendChild(opt);
+                    if (String(l.id) === String(initialLigneId)) {
+                        foundInitial = true;
+                    }
+                });
+                ligneSel.disabled = false;
+            } else {
+                ligneSel.innerHTML = `<option value="">(Aucune ligne disponible)</option>`;
+            }
+
+            // 4. Réappliquer la sélection si possible
+            if (initialLigneId) {
+                if (foundInitial) {
+                    ligneSel.value = initialLigneId;
+                } else {
+                    // Ligne initiale pas dans le secteur → ajouter fallback visible (non filtrée)
+                    const fallbackOpt = document.createElement('option');
+                    fallbackOpt.value = initialLigneId;
+                    fallbackOpt.textContent = initialLigneLabel
+                        ? `${initialLigneLabel} (hors secteur)`
+                        : `Ligne #${initialLigneId} (hors secteur)`;
+                    fallbackOpt.dataset.fallback = '1';
+                    ligneSel.appendChild(fallbackOpt);
+                    ligneSel.value = initialLigneId;
+
+                    // Optionnel : mise en forme visuelle
+                    fallbackOpt.style.backgroundColor = '#fff3cd';
+                    fallbackOpt.style.color = '#856404';
+                }
+            }
+        } catch (e) {
+            console.error('[EDIT/CLONE] Erreur chargement lignes filtrées:', e);
+            ligneSel.innerHTML = `<option value="">(Erreur chargement)</option>`;
+        }
+    }
+
+    // 5. Relancer au changement d’équipement
+    if (equipSel) {
+        equipSel.addEventListener('change', reloadLignes);
+    }
+
+    // 6. Chargement initial (équipement déjà défini en mode Edit / Clone)
+    if (equipSel && equipSel.value) {
+        reloadLignes();
+    } else {
+        ligneSel.disabled = true;
+    }
+});
+
         const isAdminOrValidateur = @Json.Serialize(isAdminOrValidateur);
         const canEdit = true;
         const prsId = @Model.Prs.Id;

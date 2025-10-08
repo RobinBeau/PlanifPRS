@@ -365,6 +365,44 @@ namespace PlanifPRS.Pages
                 return new JsonResult(new { success = false, elements = Array.Empty<object>() });
             }
         }
+        // ===== AJOUT 1 : Normalisation texte équipement =====
+        private string NormalizeEquipement(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return "";
+            raw = raw.Trim();
+            if (raw.Contains("CMS", StringComparison.OrdinalIgnoreCase)) return "CMS";
+            if (raw.Contains("Finition", StringComparison.OrdinalIgnoreCase)) return "Finition";
+            return raw;
+        }
+
+        // ===== AJOUT 2 : Endpoint AJAX pour filtrer les lignes =====
+        // Appel depuis la vue : ?handler=LignesByEquipement&equipement=CMS
+        public async Task<IActionResult> OnGetLignesByEquipementAsync(string equipement)
+        {
+            var norm = NormalizeEquipement(equipement);
+
+            int? typeSecteur = norm switch
+            {
+                "CMS" => 1,
+                "Finition" => 2,
+                _ => null
+            };
+
+            if (!typeSecteur.HasValue)
+                return new JsonResult(new { lignes = Array.Empty<object>() });
+
+            var lignes = await (from l in _context.Lignes
+                                join s in _context.Secteurs on l.IdSecteur equals s.Id
+                                where l.Activation == true
+                                      && s.DateDeleted == null
+                                      && s.IdTypeSecteur == typeSecteur.Value
+                                      && l.Nom != null && l.Nom != ""
+                                orderby l.Nom
+                                select new { id = l.Id, nom = l.Nom })
+                               .ToListAsync();
+
+            return new JsonResult(new { lignes });
+        }
 
         public async Task<IActionResult> OnPostAsync()
         {
