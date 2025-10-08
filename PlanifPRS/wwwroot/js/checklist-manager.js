@@ -271,9 +271,7 @@
 
         $(this.options.modeleSelector).on('change', (e) => {
             const modeleId = e.target.value;
-            if (modeleId) {
-                this.loadChecklistModele(modeleId);
-            }
+            
         });
 
         $(this.options.searchInput).on('input', (e) => {
