@@ -4,87 +4,86 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using PlanifPRS.Data;
 using PlanifPRS.Models;
+using System.Text.Json;
 
 namespace PlanifPRS.Pages.Prs
 {
     public class AuditModel : PageModel
     {
         private readonly PlanifPrsDbContext _context;
+        private readonly ILogger<AuditModel> _logger;
 
-        public AuditModel(PlanifPrsDbContext context)
+        public AuditModel(PlanifPrsDbContext context, ILogger<AuditModel> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
-        [BindProperty]
-        public Models.Prs Prs { get; set; } = new();
+        [BindProperty] public Models.Prs Prs { get; set; } = new();
 
-        public SelectList LigneList { get; set; } = new(new List<SelectListItem>(), "Value", "Text");
+        public SelectList LigneList { get; set; } =
+            new(new List<SelectListItem>(), "Value", "Text");
 
         public string? Flash { get; set; }
 
-        // ✅ PROPRIÉTÉS POUR GÉRER LES PARAMÈTRES DE L'URL
-        [BindProperty(SupportsGet = true)]
-        public string? EventType { get; set; }
+        // Param GET
+        [BindProperty(SupportsGet = true)] public string? EventType { get; set; }
+        [BindProperty(SupportsGet = true)] public string? EventDetails { get; set; }
+        [BindProperty(SupportsGet = true)] public string? DateDebut { get; set; }
+        [BindProperty(SupportsGet = true)] public string? DateFin { get; set; }
+        [BindProperty(SupportsGet = true)] public bool Quick { get; set; }
 
-        [BindProperty(SupportsGet = true)]
-        public string? EventDetails { get; set; }
+        // Affectations (hidden JSON)
+        [BindProperty] public string? AffectationsData { get; set; }
 
-        [BindProperty(SupportsGet = true)]
-        public string? DateDebut { get; set; }
+        // Listes sources
+        public List<Utilisateur> UtilisateursList { get; set; } = new();
+        public List<GroupeUtilisateurs> GroupesList { get; set; } = new();
 
-        [BindProperty(SupportsGet = true)]
-        public string? DateFin { get; set; }
-
-        [BindProperty(SupportsGet = true)]
-        public bool Quick { get; set; }
+        private class AffectationDto
+        {
+            public int id { get; set; }
+            public string type { get; set; } = "";
+            public string? name { get; set; }
+            public string? info { get; set; }
+            public string? email { get; set; }
+        }
 
         public async Task<IActionResult> OnGetAsync()
         {
-            // ✅ MÊME LOGIQUE QUE VOTRE PAGE USERS
             if (!HasRequiredRole())
-            {
                 return Redirect("/AccessDenied");
-            }
 
             try
             {
                 await ChargerLignesAsync();
+                await ChargerAffectationsSourcesAsync();
                 InitialiserDatesDefaut();
 
-                // ✅ PRÉ-SÉLECTIONNER LE TYPE D'ÉVÉNEMENT DEPUIS L'URL
-                if (!string.IsNullOrEmpty(EventType))
-                {
-                    ViewData["PreselectedEventType"] = EventType;
-                }
+                // Pré‑sélection du type si absent
+                if (string.IsNullOrEmpty(EventType))
+                    EventType = "Audit";
 
-                // ✅ PRÉ-REMPLIR LES DÉTAILS SI FOURNIS
+                // Injecter pour la vue (pré-sélection cartes + détails)
+                ViewData["PreselectedEventType"] = EventType;
                 if (!string.IsNullOrEmpty(EventDetails))
-                {
                     ViewData["PreselectedEventDetails"] = EventDetails;
-                }
 
-                // ✅ PRÉ-REMPLIR LES DATES SI FOURNIES
-                if (!string.IsNullOrEmpty(DateDebut) && DateTime.TryParse(DateDebut, out var debut))
-                {
-                    Prs.DateDebut = debut;
-                }
+                if (!string.IsNullOrEmpty(DateDebut) && DateTime.TryParse(DateDebut, out var d1))
+                    Prs.DateDebut = d1;
+                if (!string.IsNullOrEmpty(DateFin) && DateTime.TryParse(DateFin, out var d2))
+                    Prs.DateFin = d2;
 
-                if (!string.IsNullOrEmpty(DateFin) && DateTime.TryParse(DateFin, out var fin))
-                {
-                    Prs.DateFin = fin;
-                }
+                if (string.IsNullOrEmpty(Prs.Equipement))
+                    Prs.Equipement = EventType; // sync
 
-                // ✅ INDICATEUR DE CRÉATION RAPIDE
-                if (Quick)
-                {
-                    ViewData["QuickMode"] = true;
-                }
+                if (Quick) ViewData["QuickMode"] = true;
 
                 return Page();
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Erreur OnGet Audit");
                 ModelState.AddModelError(string.Empty, $"Erreur : {ex.Message}");
                 return Page();
             }
@@ -92,192 +91,148 @@ namespace PlanifPRS.Pages.Prs
 
         public async Task<IActionResult> OnPostAsync()
         {
-            // ✅ MÊME LOGIQUE QUE VOTRE PAGE USERS
             if (!HasRequiredRole())
-            {
                 return Redirect("/AccessDenied");
-            }
 
             try
             {
                 await ChargerLignesAsync();
+                await ChargerAffectationsSourcesAsync();
 
-                var eventType = Request.Form["EventType"].ToString();
-                var eventDetails = Request.Form["EventDetails"].ToString();
+                var et = Request.Form["EventType"].ToString();
+                var details = Request.Form["EventDetails"].ToString();
+                var equipHidden = Request.Form["Prs.Equipement"].ToString();
 
-                if (!ValiderFormulaire(eventType, eventDetails))
-                {
+                if (!ValiderFormulaire(et, details))
                     return Page();
-                }
 
-                await ConstruirePrsAsync(eventType, eventDetails);
+                await ConstruirePrsAsync(et, details, equipHidden);
 
                 _context.Prs.Add(Prs);
                 await _context.SaveChangesAsync();
+                _logger.LogInformation("[AUDIT] PRS créée Id={Id}", Prs.Id);
 
-                TempData["SuccessMessage"] = $"✅ {eventType} '{eventDetails}' planifié(e) avec succès pour le {Prs.DateDebut:dd/MM/yyyy à HH:mm} par {User.Identity?.Name} !";
+                await InsererAffectationsAsync();
 
+                TempData["SuccessMessage"] =
+                    $"✅ {et} '{details}' planifié(e) avec succès pour le {Prs.DateDebut:dd/MM/yyyy à HH:mm}.";
                 return RedirectToPage("/Index");
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Erreur OnPost Audit");
                 ModelState.AddModelError(string.Empty, $"Erreur : {ex.Message}");
                 return Page();
             }
         }
 
-        #region ✅ MÉTHODES PRIVÉES
+        #region Helpers
 
-        /// <summary>
-        /// ✅ MÊME LOGIQUE QUE VOTRE PAGE USERS - SIMPLE ET EFFICACE
-        /// </summary>
         private bool HasRequiredRole()
         {
             try
             {
-                // ✅ NETTOYER LE LOGIN COMME DANS VOTRE CODE USERS
                 var login = User.Identity?.Name?.Split('\\').LastOrDefault();
-
-                if (string.IsNullOrEmpty(login))
-                {
-                    return false;
-                }
-
-                // ✅ CHERCHER L'UTILISATEUR DANS LA BASE
+                if (string.IsNullOrEmpty(login)) return false;
                 var user = _context.Utilisateurs.FirstOrDefault(u => u.LoginWindows == login);
-
-                if (user == null || user.DateDeleted.HasValue)
-                {
-                    return false;
-                }
-
-                // ✅ VÉRIFIER LES DROITS REQUIS POUR AUDIT
+                if (user == null || user.DateDeleted.HasValue) return false;
                 var droitsAutorises = new[] { "admin", "cdp", "process", "maintenance", "validateur" };
-                var droitUser = user.Droits?.ToLower() ?? "";
-
-                return droitsAutorises.Contains(droitUser);
+                var droit = user.Droits?.ToLower() ?? "";
+                return droitsAutorises.Contains(droit);
             }
-            catch
-            {
-                return false;
-            }
+            catch { return false; }
         }
 
         private void InitialiserDatesDefaut()
         {
             var now = DateTime.Now;
-            var rounded = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0);
-
-            if (Prs.DateDebut == default)
-                Prs.DateDebut = rounded;
-
-            if (Prs.DateFin == default)
-                Prs.DateFin = rounded.AddHours(2);
+            var baseTime = new DateTime(now.Year, now.Month, now.Day, now.Hour, 0, 0);
+            if (Prs.DateDebut == default) Prs.DateDebut = baseTime;
+            if (Prs.DateFin == default) Prs.DateFin = baseTime.AddHours(2);
         }
 
         private async Task ChargerLignesAsync()
         {
             try
             {
-                var lignesList = new List<SelectListItem>();
-                var connection = _context.Database.GetDbConnection();
+                var rows = await _context.Lignes
+                    .Where(l => l.Activation == true && !string.IsNullOrEmpty(l.Nom))
+                    .OrderBy(l => l.Nom)
+                    .Select(l => new SelectListItem { Value = l.Id.ToString(), Text = l.Nom! })
+                    .ToListAsync();
 
-                if (connection.State != System.Data.ConnectionState.Open)
-                    await connection.OpenAsync();
-
-                using var command = connection.CreateCommand();
-                command.CommandText = @"
-                    SELECT Id, Nom 
-                    FROM [PlanifPRS].[dbo].[Lignes] 
-                    WHERE activation = 1 AND Nom IS NOT NULL AND Nom != ''
-                    ORDER BY Nom";
-
-                using var reader = await command.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
-                {
-                    var idObj = reader["Id"];
-                    var nomObj = reader["Nom"];
-
-                    if (idObj != null && idObj != DBNull.Value && int.TryParse(idObj.ToString(), out int id) && id > 0)
-                    {
-                        lignesList.Add(new SelectListItem
-                        {
-                            Value = id.ToString(),
-                            Text = nomObj?.ToString() ?? "Sans nom"
-                        });
-                    }
-                }
-
-                LigneList = new SelectList(lignesList, "Value", "Text");
+                LigneList = new SelectList(rows, "Value", "Text");
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Erreur chargement lignes");
                 LigneList = new SelectList(new List<SelectListItem>(), "Value", "Text");
-                throw;
             }
         }
 
-        private bool ValiderFormulaire(string eventType, string eventDetails)
+        private async Task ChargerAffectationsSourcesAsync()
         {
-            var isValid = true;
+            UtilisateursList = await _context.Utilisateurs
+                .Where(u => !u.DateDeleted.HasValue)
+                .OrderBy(u => u.Nom)
+                .ToListAsync();
 
-            if (string.IsNullOrEmpty(eventType) || !new[] { "Audit", "Intervention", "Visite Client" }.Contains(eventType))
+            GroupesList = await _context.GroupesUtilisateurs
+                .Include(g => g.Membres)
+                .OrderBy(g => g.NomGroupe)
+                .ToListAsync();
+        }
+
+        private bool ValiderFormulaire(string eventType, string details)
+        {
+            var ok = true;
+            if (string.IsNullOrEmpty(eventType) ||
+                !new[] { "Audit", "Intervention", "Visite Client" }.Contains(eventType))
             {
                 ModelState.AddModelError(string.Empty, "Type d'événement invalide.");
-                isValid = false;
+                ok = false;
             }
-
-            // ✅ DÉTAILS OBLIGATOIRES - VALIDATION REMISE
-            if (string.IsNullOrWhiteSpace(eventDetails))
+            if (string.IsNullOrWhiteSpace(details))
             {
                 ModelState.AddModelError(string.Empty, "Les détails de l'événement sont requis.");
-                isValid = false;
+                ok = false;
             }
-
             if (Prs.DateFin <= Prs.DateDebut)
             {
                 ModelState.AddModelError("Prs.DateFin", "La date de fin doit être postérieure à la date de début.");
-                isValid = false;
+                ok = false;
             }
-
             if (Prs.LigneId <= 0)
             {
                 ModelState.AddModelError("Prs.LigneId", "Sélection d'une ligne requise.");
-                isValid = false;
+                ok = false;
             }
 
+            // Nettoyage champs non utilisés
             ModelState.Remove("Prs.Statut");
             ModelState.Remove("Prs.ReferenceProduit");
             ModelState.Remove("Prs.Quantite");
             ModelState.Remove("Prs.BesoinOperateur");
             ModelState.Remove("Prs.PresenceClient");
 
-            return isValid;
+            return ok;
         }
 
-        private async Task ConstruirePrsAsync(string eventType, string eventDetails)
+        private async Task ConstruirePrsAsync(string eventType, string details, string equipHidden)
         {
-            // ✅ RÉCUPÉRER LE LOGIN UTILISATEUR
             var login = User.Identity?.Name?.Split('\\').LastOrDefault();
-
-            // ✅ DÉTAILS MAINTENANT OBLIGATOIRES
-            Prs.Titre = $"{eventType} - {eventDetails}";
-            Prs.Equipement = eventType;
+            Prs.Titre = $"{eventType} - {details}";
+            // Priorité à l’équipement hidden si cohérent sinon fallback eventType
+            Prs.Equipement = !string.IsNullOrWhiteSpace(equipHidden) ? equipHidden : eventType;
             Prs.FamilleId = await GetFamilleIdAsync(eventType);
-            Prs.CreatedByLogin = login; // ✅ AJOUT DU LOGIN CRÉATEUR
+            Prs.CreatedByLogin = login;
 
-            // ✅ STATUT SELON LE RÔLE DE L'UTILISATEUR
             var user = _context.Utilisateurs.FirstOrDefault(u => u.LoginWindows == login);
-            var droitUser = user?.Droits?.ToLower() ?? "";
-            var isAdminOrValidateur = new[] { "admin", "validateur" }.Contains(droitUser);
-
-            Prs.Statut = isAdminOrValidateur ? "Validé" : "En attente";
+            var droit = user?.Droits?.ToLower() ?? "";
+            var canValidate = new[] { "admin", "validateur" }.Contains(droit);
+            Prs.Statut = canValidate ? "Validé" : "En attente";
             Prs.DateCreation = DateTime.Now;
             Prs.DerniereModification = DateTime.Now;
-            Prs.ReferenceProduit = null;
-            Prs.Quantite = null;
-            Prs.BesoinOperateur = null;
-            Prs.PresenceClient = null;
         }
 
         private async Task<int?> GetFamilleIdAsync(string eventType)
@@ -290,7 +245,10 @@ namespace PlanifPRS.Pages.Prs
 
                 using var command = connection.CreateCommand();
                 command.CommandText = "SELECT TOP 1 Id FROM [PlanifPRS].[dbo].[PRS_Famille] WHERE Libelle = @eventType";
-                command.Parameters.Add(new Microsoft.Data.SqlClient.SqlParameter("@eventType", eventType));
+                var p = command.CreateParameter();
+                p.ParameterName = "@eventType";
+                p.Value = eventType;
+                command.Parameters.Add(p);
 
                 var result = await command.ExecuteScalarAsync();
                 if (result != null && result != DBNull.Value)
@@ -298,7 +256,6 @@ namespace PlanifPRS.Pages.Prs
                     return Convert.ToInt32(result);
                 }
 
-                // ✅ FALLBACK SELON VOS DONNÉES
                 return eventType switch
                 {
                     "Audit" => 8,
@@ -307,9 +264,69 @@ namespace PlanifPRS.Pages.Prs
                     _ => null
                 };
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogWarning(ex, "GetFamilleIdAsync fallback");
                 return null;
+            }
+        }
+
+        private async Task InsererAffectationsAsync()
+        {
+            if (Prs.Id <= 0) return;
+            if (string.IsNullOrWhiteSpace(AffectationsData)) return;
+
+            try
+            {
+                var trimmed = AffectationsData.Trim();
+                if (string.IsNullOrEmpty(trimmed)) return;
+
+                List<AffectationDto>? list;
+                try
+                {
+                    list = JsonSerializer.Deserialize<List<AffectationDto>>(trimmed,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                }
+                catch
+                {
+                    _logger.LogWarning("AffectationsData JSON invalide: {Data}", trimmed);
+                    return;
+                }
+
+                if (list == null || !list.Any()) return;
+
+                var login = User.Identity?.Name?.Split('\\').LastOrDefault();
+                int created = 0;
+
+                foreach (var dto in list)
+                {
+                    if (dto.id <= 0) continue;
+                    if (dto.type != "Utilisateur" && dto.type != "Groupe") continue;
+
+                    var entity = new PrsAffectation
+                    {
+                        PrsId = Prs.Id,
+                        TypeAffectation = dto.type,
+                        DateAffectation = DateTime.Now,
+                        AffectePar = login
+                    };
+
+                    if (dto.type == "Utilisateur") entity.UtilisateurId = dto.id;
+                    else entity.GroupeId = dto.id;
+
+                    _context.PrsAffectations.Add(entity);
+                    created++;
+                }
+
+                if (created > 0)
+                {
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("[AUDIT] {Count} affectations insérées pour PRS {Id}", created, Prs.Id);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur insertion affectations PRS (Audit)");
             }
         }
 

@@ -3,55 +3,59 @@
 @{
     ViewData["Title"] = "Créer un Événement";
 }
-
 @section Styles {
     <link rel="stylesheet" href="~/css/create-prs.css" asp-append-version="true" />
     <style>
         .event-type-card {
-            transition: all 0.3s ease;
+            transition: .3s;
             cursor: pointer;
             border: 2px solid transparent;
         }
 
             .event-type-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+                transform: translateY(-4px);
+                box-shadow: 0 6px 18px rgba(0,0,0,.15);
             }
 
             .event-type-card.selected {
                 border-color: #667eea;
-                background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+                background: linear-gradient(135deg,rgba(102,126,234,.08),rgba(118,75,162,.08));
             }
 
         .quick-mode-banner {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
+            background: linear-gradient(135deg,#11998e,#38ef7d);
+            color: #fff;
             padding: 1rem;
             border-radius: 1rem;
             margin-bottom: 2rem;
             text-align: center;
         }
+
+        #affectationsList li .remove-affectation {
+            opacity: .75;
+            transition: .15s;
+        }
+
+            #affectationsList li .remove-affectation:hover {
+                opacity: 1;
+            }
     </style>
 }
 
 <div class="page-container">
-    <!-- Banner mode rapide -->
     @if (ViewData["QuickMode"] as bool? == true)
     {
         <div class="quick-mode-banner">
             <h5 class="mb-0">
-                <i class="fas fa-bolt me-2"></i>
-                Mode de création rapide activé
-                <small class="ms-2">- Paramètres pré-remplis depuis le menu</small>
+                <i class="fas fa-bolt me-2"></i> Mode rapide activé
+                <small class="ms-2">Paramètres pré‑remplis</small>
             </h5>
         </div>
     }
 
-    <!-- En-tête moderne -->
     <div class="page-header">
         <h1 class="page-title">
-            <i class="fas fa-clipboard-check"></i>
-            @ViewData["Title"]
+            <i class="fas fa-clipboard-check"></i> @ViewData["Title"]
         </h1>
         <p class="page-subtitle">
             <i class="fas fa-info-circle me-1"></i>
@@ -59,48 +63,34 @@
         </p>
     </div>
 
-    <!-- Messages -->
     @if (!string.IsNullOrEmpty(Model.Flash))
     {
         <div class="alert alert-success alert-modern">
-            <div class="d-flex align-items-center">
-                <i class="fas fa-check-circle me-2 fs-5"></i>
-                <span>@Model.Flash</span>
-            </div>
+            <i class="fas fa-check-circle me-2"></i>@Model.Flash
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     }
-
     @if (!ViewData.ModelState.IsValid)
     {
         <div class="alert alert-danger alert-modern">
-            <div>
-                <i class="fas fa-exclamation-triangle me-2 fs-5"></i>
-                <strong>Erreurs détectées :</strong>
-                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-                {
-                    <div class="mt-1">• @error.ErrorMessage</div>
-                }
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <i class="fas fa-exclamation-triangle me-2"></i><strong>Erreurs :</strong>
+            @foreach (var e in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <div>• @e.ErrorMessage</div>
+            }
         </div>
     }
 
-    <!-- Sélection du type d'événement -->
+    <!-- Choix type -->
     <div class="mb-4">
-        <h4 class="mb-3">
-            <i class="fas fa-list-alt me-2"></i>
-            Sélectionnez le type d'événement
-        </h4>
+        <h4 class="mb-3"><i class="fas fa-list-alt me-2"></i>Type d'événement</h4>
         <div class="row g-3">
             <div class="col-md-4">
                 <div class="card event-type-card h-100" data-event-type="Audit">
                     <div class="card-body text-center">
                         <i class="fas fa-clipboard-check fa-3x text-danger mb-3"></i>
                         <h5 class="card-title">Audit</h5>
-                        <p class="card-text text-muted">
-                            Contrôle qualité, audit de processus, vérification conformité
-                        </p>
+                        <p class="text-muted mb-0">Contrôle, conformité, process</p>
                     </div>
                 </div>
             </div>
@@ -109,9 +99,7 @@
                     <div class="card-body text-center">
                         <i class="fas fa-tools fa-3x text-warning mb-3"></i>
                         <h5 class="card-title">Intervention</h5>
-                        <p class="card-text text-muted">
-                            Maintenance, réparation, intervention technique
-                        </p>
+                        <p class="text-muted mb-0">Maintenance, correctif technique</p>
                     </div>
                 </div>
             </div>
@@ -120,341 +108,324 @@
                     <div class="card-body text-center">
                         <i class="fas fa-handshake fa-3x text-info mb-3"></i>
                         <h5 class="card-title">Visite Client</h5>
-                        <p class="card-text text-muted">
-                            Présentation, démonstration, visite d'installation
-                        </p>
+                        <p class="text-muted mb-0">Présentation, relation client</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Formulaire principal -->
-    <div class="form-container">
-        <form method="post" class="row g-3" id="audit-form">
-            <!-- Champ caché pour le type d'événement -->
-            <input type="hidden" id="EventType" name="EventType" value="" />
+    <form method="post" id="audit-form" class="row g-3">
+        <!-- Champs cachés -->
+        <input type="hidden" id="EventType" name="EventType" value="@ViewData["PreselectedEventType"]" />
+        <input type="hidden" id="Equipement" name="Prs.Equipement" value="@Model.Prs.Equipement" />
 
-            <div class="col-md-8">
-                <label class="form-label fw-bold">
-                    <i class="fas fa-edit"></i>
-                    Détails de l'événement *
-                </label>
-                <input type="text" id="EventDetails" name="EventDetails" class="form-control"
-                       placeholder="Ex: Audit qualité ligne 1, Maintenance préventive, Présentation produit" required />
-                <div class="form-text">Décrivez précisément l'objet de cet événement</div>
-            </div>
+        <div class="col-md-8">
+            <label class="form-label fw-bold"><i class="fas fa-edit"></i> Détails *</label>
+            <input type="text" id="EventDetails" name="EventDetails" class="form-control"
+                   value="@ViewData["PreselectedEventDetails"]"
+                   placeholder="Ex: Audit process ligne 4" required />
+        </div>
 
-            <div class="col-md-4">
-                <label asp-for="Prs.LigneId" class="form-label fw-bold">
-                    <i class="fas fa-industry"></i>
-                    Ligne concernée *
-                </label>
-                <select asp-for="Prs.LigneId" asp-items="Model.LigneList" class="form-select" required>
-                    <option value="">-- Choisir une ligne --</option>
-                </select>
-                <span asp-validation-for="Prs.LigneId" class="text-danger"></span>
-            </div>
+        <div class="col-md-4">
+            <label asp-for="Prs.LigneId" class="form-label fw-bold"><i class="fas fa-industry"></i> Ligne *</label>
+            <select asp-for="Prs.LigneId" asp-items="Model.LigneList" class="form-select" required>
+                <option value="">-- Choisir --</option>
+            </select>
+            <span asp-validation-for="Prs.LigneId" class="text-danger"></span>
+        </div>
 
-            <!-- Planification -->
-            <div class="col-md-12">
-                <div class="card border-primary">
-                    <div class="card-header bg-primary text-white">
-                        <h6 class="mb-0">
-                            <i class="fas fa-clock me-2"></i>
-                            Planification de l'événement
-                        </h6>
+        <!-- Planification -->
+        <div class="col-12">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="fas fa-clock me-2"></i>Planification</h6>
+                </div>
+                <div class="card-body row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="Prs.DateDebut" class="form-label fw-bold">Début</label>
+                        <input asp-for="Prs.DateDebut" type="datetime-local" class="form-control"
+                               value="@Model.Prs.DateDebut.ToString("yyyy-MM-ddTHH:mm")" required />
                     </div>
-                    <div class="card-body">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label asp-for="Prs.DateDebut" class="form-label fw-bold">
-                                    <i class="fas fa-calendar-alt text-primary"></i> Date et heure de début
-                                </label>
-                                <input asp-for="Prs.DateDebut" type="datetime-local" class="form-control"
-                                       value="@Model.Prs.DateDebut.ToString("yyyy-MM-ddTHH:mm")" required />
-                            </div>
-
-                            <div class="col-md-6">
-                                <label asp-for="Prs.DateFin" class="form-label fw-bold">
-                                    <i class="fas fa-calendar-check text-success"></i> Date et heure de fin
-                                </label>
-                                <input asp-for="Prs.DateFin" type="datetime-local" class="form-control"
-                                       value="@Model.Prs.DateFin.ToString("yyyy-MM-ddTHH:mm")" required />
-                            </div>
-                        </div>
+                    <div class="col-md-6">
+                        <label asp-for="Prs.DateFin" class="form-label fw-bold">Fin</label>
+                        <input asp-for="Prs.DateFin" type="datetime-local" class="form-control"
+                               value="@Model.Prs.DateFin.ToString("yyyy-MM-ddTHH:mm")" required />
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Informations complémentaires -->
-            <div class="col-md-12">
-                <label asp-for="Prs.InfoDiverses" class="form-label fw-bold">
-                    <i class="fas fa-comment-alt"></i>
-                    Informations complémentaires
-                </label>
-                <textarea asp-for="Prs.InfoDiverses" class="form-control" rows="3"
-                          placeholder="Informations additionnelles, remarques, consignes particulières..."></textarea>
-                <div class="form-text">Ajoutez toute information utile pour cet événement (optionnel)</div>
-                <span asp-validation-for="Prs.InfoDiverses" class="text-danger"></span>
-            </div>
+        <!-- Infos -->
+        <div class="col-12">
+            <label asp-for="Prs.InfoDiverses" class="form-label fw-bold"><i class="fas fa-comment-alt"></i> Infos</label>
+            <textarea asp-for="Prs.InfoDiverses" class="form-control" rows="3"
+                      placeholder="Remarques, consignes..."></textarea>
+        </div>
 
-            <div class="col-12 text-center">
-                <button type="submit" class="btn btn-primary btn-lg px-5" id="submit-btn" disabled>
-                    <i class="fas fa-plus-circle me-2"></i>
-                    <span id="submit-text">Sélectionnez d'abord un type d'événement</span>
-                </button>
+        <!-- AFFECTATIONS (comme Create) -->
+        <div class="col-12">
+            <div class="card border-secondary">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0"><i class="fas fa-users me-2"></i>Affectations</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="fas fa-user me-1"></i>Utilisateur</label>
+                            <div class="input-group">
+                                <select id="userSelect" class="form-select">
+                                    <option value="">Sélectionner...</option>
+                                    @foreach (var u in Model.UtilisateursList)
+                                    {
+                                        <option value="@u.Id"
+                                                data-type="Utilisateur"
+                                                data-name="@u.Nom @u.Prenom"
+                                                data-service="@u.Service"
+                                                data-email="@u.Mail">
+                                            @u.Nom @u.Prenom (@u.Service)
+                                        </option>
+                                    }
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" id="addUserBtn">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="fas fa-users me-1"></i>Groupe</label>
+                            <div class="input-group">
+                                <select id="groupSelect" class="form-select">
+                                    <option value="">Sélectionner...</option>
+                                    @foreach (var g in Model.GroupesList)
+                                    {
+                                        <option value="@g.Id"
+                                                data-type="Groupe"
+                                                data-name="@g.NomGroupe"
+                                                data-count="@g.Membres?.Count">
+                                            @g.NomGroupe (@(g.Membres?.Count ?? 0) membres)
+                                        </option>
+                                    }
+                                </select>
+                                <button type="button" class="btn btn-outline-success" id="addGroupBtn">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3">
+                        <h6><i class="fas fa-list me-1"></i>Personnes affectées</h6>
+                        <ul id="affectationsList" class="list-group">
+                            <li class="list-group-item text-muted">
+                                <i class="fas fa-info-circle me-2"></i>Aucune affectation pour le moment.
+                            </li>
+                        </ul>
+                    </div>
+                    <input type="hidden" name="AffectationsData" id="affectationsData" value="" />
+                </div>
             </div>
-        </form>
-    </div>
+        </div>
+
+        <div class="col-12 text-center">
+            <button type="submit" class="btn btn-primary btn-lg px-5" id="submit-btn" disabled>
+                <i class="fas fa-plus-circle me-2"></i>
+                <span id="submit-text">Sélectionnez d'abord un type d'événement</span>
+            </button>
+        </div>
+    </form>
 </div>
 
-<!-- Calendrier -->
-<div class="calendar-section-title">
+<div class="calendar-section-title mt-5">
     <h4 class="calendar-standalone-title">
-        <i class="fas fa-calendar-alt"></i>
-        Visualisation du planning (créneaux existants)
+        <i class="fas fa-calendar-alt"></i> Planning existant
     </h4>
 </div>
-
 @Html.Partial("_CalendarBlock")
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
-
     <script>
-        // Variables globales
+        // ===== Sélection type / équipement =====
         const eventTypeInput = document.getElementById('EventType');
+        const equipHidden = document.getElementById('Equipement');
         const eventDetailsInput = document.getElementById('EventDetails');
         const ligneSelect = document.querySelector('select[name="Prs.LigneId"]');
         const submitBtn = document.getElementById('submit-btn');
         const submitText = document.getElementById('submit-text');
-        const eventTypeCards = document.querySelectorAll('.event-type-card');
 
-        // ✅ VARIABLE POUR CONTRÔLER LE FOCUS AUTOMATIQUE
-        let shouldAutoFocusLigne = false;
-
-        // ✅ PRÉ-SÉLECTION DEPUIS L'URL
-        const preselectedType = '@ViewData["PreselectedEventType"]';
-        const preselectedDetails = '@ViewData["PreselectedEventDetails"]';
-
-        // Gestion de la sélection des types d'événements
-        eventTypeCards.forEach(card => {
-            card.addEventListener('click', function() {
-                const eventType = this.getAttribute('data-event-type');
-                selectEventType(eventType, this);
-            });
-        });
-
-        function selectEventType(eventType, cardElement) {
-            // Supprimer la sélection précédente
-            eventTypeCards.forEach(c => c.classList.remove('selected'));
-
-            // Sélectionner la nouvelle carte
-            cardElement.classList.add('selected');
-
-            // Mettre à jour les champs
-            eventTypeInput.value = eventType;
-
-            // ✅ APPELER updateSubmitButton IMMÉDIATEMENT
-            updateSubmitButton();
-
-            // Animation
-            cardElement.style.transform = 'scale(0.95)';
-            setTimeout(() => {
-                cardElement.style.transform = '';
-            }, 150);
-
-            // ✅ FOCUS SUR DÉTAILS APRÈS SÉLECTION DU TYPE
-            setTimeout(() => {
-                eventDetailsInput.focus();
-            }, 200);
+        function selectEventType(type, card) {
+            document.querySelectorAll('.event-type-card').forEach(c=>c.classList.remove('selected'));
+            card.classList.add('selected');
+            eventTypeInput.value = type;
+            equipHidden.value = type; // synchronisation
+            updateSubmitBtn();
+            card.style.transform='scale(.95)';
+            setTimeout(()=>card.style.transform='',130);
+            setTimeout(()=>eventDetailsInput.focus(),120);
         }
 
-        // ✅ FONCTION DE VALIDATION COMPLÈTE (DÉTAILS OBLIGATOIRES)
-        function updateSubmitButton() {
-            const hasEventType = eventTypeInput.value.trim() !== '';
-            const hasEventDetails = eventDetailsInput.value.trim() !== '';
-            const hasLigne = ligneSelect.value.trim() !== '';
-
-            // ✅ TOUTES LES 3 CONDITIONS REQUISES
-            if (hasEventType && hasEventDetails && hasLigne) {
+        function updateSubmitBtn() {
+            const ready = eventTypeInput.value && eventDetailsInput.value.trim() && ligneSelect.value;
+            if (ready) {
                 submitBtn.disabled = false;
-                submitBtn.className = 'btn btn-success btn-lg px-5';
-                submitText.textContent = `Créer ${eventTypeInput.value}`;
-            }
-            // ✅ ÉTAPES DE VALIDATION PROGRESSIVE
-            else if (!hasEventType) {
-                submitBtn.disabled = true;
-                submitBtn.className = 'btn btn-primary btn-lg px-5';
-                submitText.textContent = 'Sélectionnez d\'abord un type d\'événement';
-            }
-            else if (!hasEventDetails) {
-                submitBtn.disabled = true;
-                submitBtn.className = 'btn btn-warning btn-lg px-5';
-                submitText.textContent = 'Saisissez les détails de l\'événement';
-            }
-            else if (!hasLigne) {
-                submitBtn.disabled = true;
-                submitBtn.className = 'btn btn-info btn-lg px-5';
-                submitText.textContent = 'Sélectionnez une ligne';
-
-                // ✅ METTRE EN ÉVIDENCE LE SELECT LIGNE
-                ligneSelect.style.borderColor = '#0dcaf0';
-                ligneSelect.style.boxShadow = '0 0 0 0.2rem rgba(13, 202, 240, 0.25)';
-            }
-        }
-
-        // ✅ ÉVÉNEMENTS DE VALIDATION AVEC DÉTAILS OBLIGATOIRES
-        eventDetailsInput.addEventListener('input', function() {
-            // ✅ VALIDATION À CHAQUE SAISIE
-            updateSubmitButton();
-
-            // Si on a saisi quelque chose et qu'on a pas encore de ligne
-            if (this.value.trim() && eventTypeInput.value && !ligneSelect.value) {
-                // Suggérer visuellement la ligne après 1 seconde
-                setTimeout(() => {
-                    if (!ligneSelect.value) {
-                        ligneSelect.style.borderColor = '#0dcaf0';
-                        ligneSelect.style.boxShadow = '0 0 0 0.2rem rgba(13, 202, 240, 0.25)';
-                    }
-                }, 1000);
-            }
-        });
-
-        ligneSelect.addEventListener('change', function() {
-            // Enlever la mise en évidence
-            this.style.borderColor = '';
-            this.style.boxShadow = '';
-
-            // ✅ APPELER updateSubmitButton QUAND ON CHANGE DE LIGNE
-            updateSubmitButton();
-        });
-
-        // ✅ INITIALISATION AVEC PARAMÈTRES URL
-        document.addEventListener('DOMContentLoaded', function() {
-            // Pré-sélectionner le type d'événement
-            if (preselectedType) {
-                const targetCard = document.querySelector(`[data-event-type="${preselectedType}"]`);
-                if (targetCard) {
-                    selectEventType(preselectedType, targetCard);
-
-                    // Scroll vers la carte sélectionnée
-                    targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }
-
-            // Pré-remplir les détails
-            if (preselectedDetails) {
-                eventDetailsInput.value = preselectedDetails;
-            }
-
-            // Animation d'entrée
-            eventTypeCards.forEach((card, index) => {
-                card.style.opacity = '0';
-                card.style.transform = 'translateY(20px)';
-                setTimeout(() => {
-                    card.style.transition = 'all 0.5s ease';
-                    card.style.opacity = '1';
-                    card.style.transform = 'translateY(0)';
-                }, index * 100);
-            });
-
-            // ✅ VALIDATION INITIALE FORCÉE
-            setTimeout(() => {
-                updateSubmitButton();
-            }, 500);
-        });
-
-        // ✅ VALIDATION RENFORCÉE DU FORMULAIRE
-        document.getElementById('audit-form').addEventListener('submit', function(e) {
-            if (!eventTypeInput.value) {
-                e.preventDefault();
-                showValidationError('Veuillez sélectionner un type d\'événement');
-                return false;
-            }
-
-            // ✅ VALIDATION DÉTAILS OBLIGATOIRE
-            if (!eventDetailsInput.value.trim()) {
-                e.preventDefault();
-                showValidationError('Veuillez saisir les détails de l\'événement');
-                eventDetailsInput.focus();
-                eventDetailsInput.style.borderColor = '#dc3545';
-                eventDetailsInput.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
-                return false;
-            }
-
-            if (!ligneSelect.value) {
-                e.preventDefault();
-                showValidationError('Veuillez sélectionner une ligne');
-                ligneSelect.focus();
-                ligneSelect.style.borderColor = '#dc3545';
-                ligneSelect.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
-                return false;
-            }
-
-            // ✅ VALIDATION DES DATES
-            const dateDebut = new Date(document.querySelector('input[name="Prs.DateDebut"]').value);
-            const dateFin = new Date(document.querySelector('input[name="Prs.DateFin"]').value);
-
-            if (dateFin <= dateDebut) {
-                e.preventDefault();
-                showValidationError('La date de fin doit être postérieure à la date de début');
-                return false;
-            }
-
-            // Animation de soumission
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Création en cours...';
-            submitBtn.disabled = true;
-        });
-
-        // ✅ FONCTION D'AFFICHAGE DES ERREURS
-        function showValidationError(message) {
-            const notification = document.createElement('div');
-            notification.className = 'alert alert-danger alert-dismissible fade show position-fixed';
-            notification.style.cssText = 'top: 100px; right: 20px; z-index: 9999; min-width: 350px;';
-            notification.innerHTML = `
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-exclamation-triangle me-2"></i>
-                    <strong>Erreur de validation :</strong> ${message}
-                    <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
-                </div>
-            `;
-
-            document.body.appendChild(notification);
-
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
-            }, 5000);
-        }
-
-        // Synchronisation des dates
-        const dateDebutInput = document.querySelector('input[name="Prs.DateDebut"]');
-        const dateFinInput = document.querySelector('input[name="Prs.DateFin"]');
-
-        dateDebutInput.addEventListener('change', function() {
-            const dateDebut = new Date(this.value);
-            const dateFin = new Date(dateFinInput.value);
-
-            if (dateFin <= dateDebut) {
-                const newDateFin = new Date(dateDebut.getTime() + (2 * 60 * 60 * 1000));
-                dateFinInput.value = newDateFin.toISOString().slice(0, 16);
-            }
-        });
-
-        dateFinInput.addEventListener('change', function() {
-            const dateDebut = new Date(dateDebutInput.value);
-            const dateFin = new Date(this.value);
-
-            if (dateFin <= dateDebut) {
-                this.style.borderColor = '#dc3545';
-                this.style.boxShadow = '0 0 0 0.2rem rgba(220, 53, 69, 0.25)';
+                submitBtn.className='btn btn-success btn-lg px-5';
+                submitText.textContent='Créer '+eventTypeInput.value;
             } else {
-                this.style.borderColor = '';
-                this.style.boxShadow = '';
+                submitBtn.disabled = true;
+                submitBtn.className='btn btn-primary btn-lg px-5';
+                if (!eventTypeInput.value) submitText.textContent="Sélectionnez d'abord un type d'événement";
+                else if (!eventDetailsInput.value.trim()) submitText.textContent="Saisissez les détails";
+                else submitText.textContent="Sélectionnez une ligne";
+            }
+        }
+
+        document.querySelectorAll('.event-type-card').forEach(card=>{
+            card.addEventListener('click', ()=> selectEventType(card.dataset.eventType, card));
+        });
+        eventDetailsInput.addEventListener('input', updateSubmitBtn);
+        ligneSelect.addEventListener('change', updateSubmitBtn);
+
+        // Pré-sélection (défaut Audit si vide)
+        document.addEventListener('DOMContentLoaded', ()=>{
+            let def = eventTypeInput.value || '@(ViewData["PreselectedEventType"] ?? "Audit")';
+            const card = document.querySelector(`.event-type-card[data-event-type="${def}"]`);
+            if (card) selectEventType(def, card);
+            updateSubmitBtn();
+        });
+
+        // ===== Validation formulaire =====
+        document.getElementById('audit-form').addEventListener('submit', e=>{
+            if(!eventTypeInput.value){ e.preventDefault(); notify('Type requis','danger'); return; }
+            if(!eventDetailsInput.value.trim()){ e.preventDefault(); notify('Détails requis','danger'); return; }
+            if(!ligneSelect.value){ e.preventDefault(); notify('Ligne requise','danger'); return; }
+            const d1=new Date(document.querySelector('[name="Prs.DateDebut"]').value);
+            const d2=new Date(document.querySelector('[name="Prs.DateFin"]').value);
+            if(d2<=d1){ e.preventDefault(); notify('Fin doit être après le début','danger'); return; }
+            submitBtn.disabled=true;
+            submitBtn.innerHTML='<i class="fas fa-spinner fa-spin me-2"></i>Création...';
+        });
+
+        function notify(msg,type){
+            const n=document.createElement('div');
+            n.className=`alert alert-${type} alert-dismissible fade show position-fixed`;
+            n.style.cssText='top:100px;right:20px;z-index:1050;min-width:320px;';
+            n.innerHTML=`<div><i class="fas fa-info-circle me-2"></i>${msg}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+            document.body.appendChild(n);
+            setTimeout(()=>{ if(n.parentNode) n.remove(); },4000);
+        }
+
+        // Dates cohérentes
+        const dateDebutInput=document.querySelector('[name="Prs.DateDebut"]');
+        const dateFinInput=document.querySelector('[name="Prs.DateFin"]');
+        dateDebutInput.addEventListener('change', ()=>{
+            const d1=new Date(dateDebutInput.value);
+            const d2=new Date(dateFinInput.value);
+            if(d2<=d1){
+                const nf=new Date(d1.getTime()+2*60*60*1000);
+                dateFinInput.value=nf.toISOString().slice(0,16);
             }
         });
+
+        dateFinInput.addEventListener('change', ()=>{
+            const d1=new Date(dateDebutInput.value);
+            const d2=new Date(dateFinInput.value);
+            if(d2<=d1){
+                dateFinInput.style.borderColor='#dc3545';
+                dateFinInput.style.boxShadow='0 0 0 0.2rem rgba(220,53,69,.25)';
+            } else {
+                dateFinInput.style.borderColor='';
+                dateFinInput.style.boxShadow='';
+            }
+        });
+
+        // ===== Affectations (copie logique Create) =====
+        const userSelect = document.getElementById('userSelect');
+        const groupSelect = document.getElementById('groupSelect');
+        const addUserBtn = document.getElementById('addUserBtn');
+        const addGroupBtn = document.getElementById('addGroupBtn');
+        const affectationsList = document.getElementById('affectationsList');
+        const affectationsData = document.getElementById('affectationsData');
+        let selectedAffectations = [];
+
+        function refreshAffectationsUI(){
+            affectationsList.innerHTML='';
+            if(!selectedAffectations.length){
+                const li=document.createElement('li');
+                li.className='list-group-item text-muted';
+                li.innerHTML='<i class="fas fa-info-circle me-2"></i>Aucune affectation pour le moment.';
+                affectationsList.appendChild(li);
+                affectationsData.value='';
+                return;
+            }
+            selectedAffectations.forEach((a,i)=>{
+                const icon = a.type==='Utilisateur'?'fa-user':'fa-users';
+                const badge = a.type==='Utilisateur'?'bg-primary':'bg-success';
+                const li=document.createElement('li');
+                li.className='list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML=`
+                    <div>
+                        <i class="fas ${icon} me-2"></i>
+                        <strong>${a.name}</strong>
+                        <span class="badge ${badge} ms-2">${a.type}</span>
+                        ${a.info?`<br><small class="text-muted">${a.info}</small>`:''}
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-affectation" data-index="${i}">
+                        <i class="fas fa-times"></i>
+                    </button>`;
+                affectationsList.appendChild(li);
+            });
+            affectationsData.value=JSON.stringify(selectedAffectations);
+
+            document.querySelectorAll('.remove-affectation').forEach(btn=>{
+                btn.addEventListener('click', function(){
+                    const idx=parseInt(this.dataset.index,10);
+                    const removed = selectedAffectations.splice(idx,1)[0];
+                    refreshAffectationsUI();
+                    affectationsData.dispatchEvent(new Event('change',{bubbles:true}));
+                    document.dispatchEvent(new CustomEvent('affectations:changed',{
+                        detail:{ action:'remove', id:removed?.id, email:(removed?.email||'').trim() }
+                    }));
+                });
+            });
+        }
+
+        addUserBtn.addEventListener('click', ()=>{
+            const opt=userSelect.selectedOptions[0];
+            if(!opt || !opt.value) return;
+            const id=parseInt(opt.value,10);
+            if(selectedAffectations.some(a=>a.type==='Utilisateur' && a.id===id)){
+                notify('Utilisateur déjà affecté','info'); return;
+            }
+            selectedAffectations.push({
+                id,
+                type:'Utilisateur',
+                name: opt.dataset.name || opt.textContent.trim(),
+                info: opt.dataset.service || '',
+                email: opt.dataset.email || ''
+            });
+            userSelect.value='';
+            refreshAffectationsUI();
+        });
+
+        addGroupBtn.addEventListener('click', ()=>{
+            const opt=groupSelect.selectedOptions[0];
+            if(!opt || !opt.value) return;
+            const id=parseInt(opt.value,10);
+            if(selectedAffectations.some(a=>a.type==='Groupe' && a.id===id)){
+                notify('Groupe déjà affecté','info'); return;
+            }
+            selectedAffectations.push({
+                id,
+                type:'Groupe',
+                name: opt.dataset.name || opt.textContent.trim(),
+                info: (opt.dataset.count ? (opt.dataset.count+' membres') : '')
+            });
+            groupSelect.value='';
+            refreshAffectationsUI();
+        });
+
+        refreshAffectationsUI();
     </script>
 }
