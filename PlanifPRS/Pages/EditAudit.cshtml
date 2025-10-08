@@ -168,13 +168,6 @@
                                            value="@Model.Prs.DateFin.ToString("yyyy-MM-ddTHH:mm")" required />
                                 </div>
                             </div>
-
-                            <div class="mt-3 p-3 bg-light rounded">
-                                <small class="text-muted">
-                                    <i class="fas fa-info-circle text-info me-1"></i>
-                                    Les événements sont automatiquement validés et n'ont pas besoin d'approbation.
-                                </small>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -282,7 +275,7 @@
             if (hasEventType && hasEventDetails && hasLigne) {
                 submitBtn.disabled = false;
                 submitBtn.className = 'btn btn-success btn-lg px-5 me-3';
-                submitText.textContent = `Modifier ${eventTypeInput.value}`;
+                submitText.textContent = `Valider ${eventTypeInput.value}`;
             } else if (!hasEventType) {
                 submitBtn.disabled = true;
                 submitBtn.className = 'btn btn-primary btn-lg px-5 me-3';

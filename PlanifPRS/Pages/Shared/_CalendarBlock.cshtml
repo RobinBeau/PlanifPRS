@@ -204,6 +204,16 @@
 
 <script>
     const hasColorViewRights = @Json.Serialize(hasColorViewRights);
+            const EQUIP_COLORS = {
+      'CMS': '#1383fb',
+      '🏭 CMS': '#1383fb',
+      'PRS CMS': '#1383fb',
+      'Finition': '#02d938',
+      '✨ Finition': '#02d938',
+      'PRS Finition': '#02d938'
+    };
+
+
 
     function getContrastColor(backgroundColor) {
         let r, g, b;
@@ -595,28 +605,48 @@
                     }
                 }
 
-                if (info.event.backgroundColor) {
-                    info.el.style.backgroundColor = info.event.backgroundColor;
-                    info.el.style.borderColor = info.event.borderColor || info.event.backgroundColor;
-                    info.el.style.color = info.event.textColor || '#ffffff';
+                    const typeEvt = info.event.extendedProps.type;
 
-                    const eventContent = info.el.querySelector('.fc-event-main');
-                    if (eventContent) {
-                        eventContent.style.backgroundColor = info.event.backgroundColor;
-                        eventContent.style.color = info.event.textColor || '#ffffff';
-                        eventContent.style.position = 'relative';
-                    }
+    // Pour les PRS (pas Absence) : fond = équipement (backgroundColor déjà posé)
+    if (typeEvt !== 'Absence') {
+      const equipColor = info.event.extendedProps.equipementColor || info.event.backgroundColor;
+      info.el.style.backgroundColor = equipColor;
+      info.el.style.borderColor = equipColor;
+      info.el.style.color = '#ffffff';
+    } else {
+      // Absence → garde logique existante
+          const typeEvt = info.event.extendedProps.type;
+    if (typeEvt === 'Absence') {
+      // Absence : garde ta logique d’origine si nécessaire
+         // Fond externe = couleur équipement (déjà fixée en backgroundColor)
+    if (info.event.backgroundColor) {
+        info.el.style.backgroundColor = info.event.backgroundColor;
+        info.el.style.borderColor = info.event.borderColor || info.event.backgroundColor;
+        info.el.style.color = '#ffffff';
+    }
+    } else {
+      // PRS : fond extérieur = couleur équipement
+      const equipColor = info.event.extendedProps.equipementColor || info.event.backgroundColor;
+      info.el.style.backgroundColor = equipColor;
+      info.el.style.borderColor = equipColor;
+      info.el.style.color = '#fff';
+    }
 
-                    const eventTitle = info.el.querySelector('.fc-event-title');
-                    if (eventTitle) {
-                        eventTitle.style.color = info.event.textColor || '#ffffff';
-                    }
+    // Neutraliser fond forcé interne
+    const eventMain = info.el.querySelector('.fc-event-main');
+    if (eventMain) {
+      eventMain.style.background = 'transparent';
+      eventMain.style.position = 'relative';
+    }
+    }
 
-                    const eventTime = info.el.querySelector('.fc-event-time');
-                    if (eventTime) {
-                        eventTime.style.color = info.event.textColor || '#ffffff';
-                    }
-                }
+        // IMPORTANT : ne PAS repeindre le bloc interne avec la couleur d'équipement
+    const eventContent = info.el.querySelector('.fc-event-main');
+    if (eventContent) {
+        eventContent.style.background = 'transparent';
+        eventContent.style.position = 'relative';
+        // Laisse createColorBackground() injecter sa div interne avec couleur famille
+    }
 
                 let infoDiverses = info.event.extendedProps.infoDiverses ||
                                    info.event.extendedProps.InfoDiverses ||
@@ -739,6 +769,29 @@
                         const diff = end - start;
                         ev.allDay = diff >= 86400000 && start.getHours() === 0 && end.getHours() === 0;
                     }
+                        // === COULEURS ===
+    // Couleur famille (on suppose qu’avant c’était couleurPRS)
+    const familyColor =
+        ev.extendedProps.couleurFamille ||
+        ev.couleurFamille ||
+        ev.extendedProps.couleurPRS ||
+        ev.couleurPRS ||
+        null;
+
+     // === Couleurs ===
+    // NE PAS toucher à ev.extendedProps.couleurPRS : c’est la couleur famille (déjà envoyée par l’API)
+    // Déterminer couleur équipement
+    const ext = ev.extendedProps;
+    const equip = ext.equipement || ext.Equipement || ev.equipement || ev.Equipement || '';
+    const equipColor = EQUIP_COLORS[equip] || ev.extendedProps.couleurPRS;
+
+    // Stocker explicitement
+    ext.equipementColor = equipColor;
+
+    // Fond externe (fullcalendar wrapper)
+    ev.backgroundColor = equipColor;
+    ev.borderColor = equipColor;
+
                     return ev;
                 });
 
@@ -822,14 +875,19 @@
                 const isRevalidate = statut === "À re-valider";
                 const isFullWeekEvent = isFullWeek(arg.event);
                 const couleurPRS = arg.event.extendedProps?.couleurPRS;
-
-                function createColorBackground(content) {
-                    if (hasColorViewRights && couleurPRS && couleurPRS.trim() !== '') {
-                        const textColor = getContrastColor(couleurPRS);
-                        return `<div class="prs-text-background" style="background-color: ${couleurPRS}; color: ${textColor};">${content}</div>`;
-                    }
-                    return `<div>${content}</div>`;
-                }
+                    const familyColor = arg.event.extendedProps?.familyColor || null;
+                        function createColorBackground(content) {
+      const effectiveFamily = familyColor || couleurPRS; // fallback si familyColor absent
+      if (hasColorViewRights && effectiveFamily && effectiveFamily.trim() !== '') {
+        const textColor = getContrastColor(effectiveFamily);
+        return `
+          <div class="prs-text-background"
+               style="background-color:${effectiveFamily}; color:${textColor}; position:relative;">
+            ${content}
+          </div>`;
+      }
+      return `<div>${content}</div>`;
+    }
 
                 if ((isPending || isRevalidate) && isFullWeekEvent) {
                     const badge = isPending
@@ -904,6 +962,17 @@
         });
 
         calendar.render();
+
+            // Force le bouton “Jour” standard à recentrer sur aujourd’hui après son action
+    setTimeout(() => {
+      const dayBtn = document.querySelector('.fc-timeGridDay-button');
+      if (dayBtn) {
+        dayBtn.addEventListener('click', () => {
+          // Exécuter après que FullCalendar ait terminé son propre handler
+          setTimeout(() => calendar.today(), 0);
+        });
+      }
+    }, 0);
 
         // ===== Rafraîchissement des absences =====
         async function refreshAbsences() {
