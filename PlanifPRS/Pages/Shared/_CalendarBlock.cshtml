@@ -974,7 +974,8 @@
                    function createColorBackground(content) {
         const ext = arg.event.extendedProps || {};
         const equipColor = ext.equipementColor || arg.event.backgroundColor || '#5a6b7c';
-        const familyBgRaw = (familyColor || couleurPRS || '').trim();
+        // Afficher la couleur famille (couleurPRS / famille) uniquement pour les admins / validateurs
+const familyBgRaw = hasColorViewRights ? (familyColor || couleurPRS || '').trim() : '';
         const innerBg = familyBgRaw || equipColor;
 
         // Normalisation hex
