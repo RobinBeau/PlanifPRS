@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PlanifPRS.Data;
 using PlanifPRS.Infrastructure.Graph;
 using System.Text.Json;
-using IOFile = System.IO.File;          // Alias pour éviter le conflit avec PageModel.File
+using IOFile = System.IO.File;
 
 namespace PlanifPRS.Pages
 {
@@ -25,10 +25,9 @@ namespace PlanifPRS.Pages
 
         [TempData] public string Flash { get; set; }
         [TempData] public string ErrorMessage { get; set; }
-
+        public bool IsManagerView { get; private set; } = false;
         public string CurrentUserLogin { get; private set; } = "-";
         public string CurrentUserRole { get; private set; } = "-";
-        public bool IsManagerView { get; private set; } = false;
 
         public int DefaultDueSoonDays { get; private set; } = 7;
 
@@ -39,7 +38,6 @@ namespace PlanifPRS.Pages
         public List<PrsCardVM> UpcomingPrs { get; private set; } = new();
         public List<ActivityVM> RecentPrs { get; private set; } = new();
         public List<ParentChildAlertVM> ParentChildAlerts { get; private set; } = new();
-
         public List<PrsAbsenceAlertVM> PrsAbsenceAlerts { get; private set; } = new();
 
         private int _userId;
@@ -50,6 +48,8 @@ namespace PlanifPRS.Pages
             try
             {
                 CurrentUserLogin = GetCurrentUserLogin();
+                _logger.LogInformation($"========== DASHBOARD START - User: {CurrentUserLogin} ==========");
+
                 var user = await _context.Utilisateurs
                     .AsNoTracking()
                     .FirstOrDefaultAsync(u => u.LoginWindows == CurrentUserLogin);
@@ -64,12 +64,31 @@ namespace PlanifPRS.Pages
                 CurrentUserRole = string.IsNullOrWhiteSpace(user.Droits) ? "-" : user.Droits;
                 IsManagerView = IsManager(user.Droits);
 
-                _myGroupIds = await _context.GroupesUtilisateurs
+                _logger.LogInformation($"UserId: {_userId}, Role: {CurrentUserRole}, IsManager: {IsManagerView}");
+
+                // Récupération des groupes de l'utilisateur
+                var myGroups = await _context.GroupeUtilisateurs
                     .AsNoTracking()
-                    .Where(g => g.Actif && g.Membres.Any(m => m.UtilisateurId == _userId))
-                    .Select(g => g.Id)
+                    .Where(m => m.UtilisateurId == _userId)
+                    .Select(m => m.GroupeId)
                     .Distinct()
                     .ToListAsync();
+
+                if (myGroups.Any())
+                {
+                    _myGroupIds = await _context.GroupesUtilisateurs
+                        .AsNoTracking()
+                        .Where(g => g.Actif && myGroups.Contains(g.Id))
+                        .Select(g => g.Id)
+                        .Distinct()
+                        .ToListAsync();
+                }
+                else
+                {
+                    _myGroupIds = new List<int>();
+                }
+
+                _logger.LogInformation($"User groups: {_myGroupIds.Count}");
 
                 var today = DateTime.Today;
 
@@ -78,65 +97,235 @@ namespace PlanifPRS.Pages
 
                 if (!IsManagerView)
                 {
-                    myChecklistIds = await _context.ChecklistAffectations
+                    _logger.LogInformation("Loading user assignments (non-manager)...");
+
+                    // Affectations de checklists par utilisateur
+                    var checklistsByUser = await _context.ChecklistAffectations
                         .AsNoTracking()
-                        .Where(a =>
-                            (a.UtilisateurId.HasValue && a.UtilisateurId.Value == _userId) ||
-                            (a.GroupeId.HasValue && _myGroupIds.Contains(a.GroupeId.Value)))
+                        .Where(a => a.UtilisateurId.HasValue && a.UtilisateurId.Value == _userId)
                         .Select(a => a.ChecklistId)
-                        .Distinct()
                         .ToListAsync();
 
-                    prsIdsAssigned = await _context.PrsAffectations
-                        .AsNoTracking()
-                        .Where(a =>
-                            (a.UtilisateurId.HasValue && a.UtilisateurId.Value == _userId) ||
-                            (a.GroupeId.HasValue && _myGroupIds.Contains(a.GroupeId.Value)))
-                        .Select(a => a.PrsId)
+                    _logger.LogInformation($"Checklists by user: {checklistsByUser.Count}");
+
+                    // Affectations de checklists par groupe
+                    List<int> checklistsByGroup = new();
+                    if (_myGroupIds.Any())
+                    {
+                        checklistsByGroup = await _context.ChecklistAffectations
+                            .AsNoTracking()
+                            .Where(a => a.GroupeId.HasValue && _myGroupIds.Contains(a.GroupeId.Value))
+                            .Select(a => a.ChecklistId)
+                            .ToListAsync();
+
+                        _logger.LogInformation($"Checklists by group: {checklistsByGroup.Count}");
+                    }
+
+                    myChecklistIds = checklistsByUser
+                        .Concat(checklistsByGroup)
                         .Distinct()
+                        .ToList();
+
+                    _logger.LogInformation($"Total myChecklistIds: {myChecklistIds.Count}");
+
+                    // Affectations PRS par utilisateur
+                    var prsByUser = await _context.PrsAffectations
+                        .AsNoTracking()
+                        .Where(a => a.UtilisateurId.HasValue && a.UtilisateurId.Value == _userId)
+                        .Select(a => a.PrsId)
                         .ToListAsync();
+
+                    // Affectations PRS par groupe
+                    List<int> prsByGroup = new();
+                    if (_myGroupIds.Any())
+                    {
+                        prsByGroup = await _context.PrsAffectations
+                            .AsNoTracking()
+                            .Where(a => a.GroupeId.HasValue && _myGroupIds.Contains(a.GroupeId.Value))
+                            .Select(a => a.PrsId)
+                            .ToListAsync();
+                    }
+
+                    prsIdsAssigned = prsByUser
+                        .Concat(prsByGroup)
+                        .Distinct()
+                        .ToList();
+
+                    _logger.LogInformation($"Total prsIdsAssigned: {prsIdsAssigned.Count}");
                 }
 
-                var baseChecklist = IsManagerView
-                    ? (from c in _context.PrsChecklists.AsNoTracking()
-                       join p in _context.Prs.AsNoTracking().Where(p => p.Statut != "Supprimé") on c.PRSId equals p.Id
-                       select new { c, p })
-                    : (from c in _context.PrsChecklists.AsNoTracking()
-                       join p in _context.Prs.AsNoTracking().Where(p => p.Statut != "Supprimé") on c.PRSId equals p.Id
-                       where myChecklistIds.Contains(c.Id)
-                       select new { c, p });
+                // ============ CHECKLISTS ============
+                _logger.LogInformation("Loading checklists...");
+                List<ChecklistItemVM> items;
 
-                var rows = await baseChecklist
-                    .OrderBy(x => x.p.DateDebut)
-                    .ThenBy(x => x.c.Priorite)
-                    .ThenBy(x => x.c.DelaiDefautJours)
-                    .ThenBy(x => x.c.Categorie)
-                    .ThenBy(x => x.c.SousCategorie)
-                    .ToListAsync();
-
-                var items = rows.Select(r =>
+                if (IsManagerView)
                 {
-                    var delai = r.c.DelaiDefautJours > 0 ? r.c.DelaiDefautJours : 1;
-                    var due = r.c.DateEcheance.HasValue ? r.c.DateEcheance.Value.Date : r.p.DateDebut.Date.AddDays(delai);
-                    var daysLeft = (int)Math.Floor((due - DateTime.Today).TotalDays);
-                    return new ChecklistItemVM
+                    _logger.LogInformation("Loading checklists (admin)...");
+
+                    // Pour les admins : tout récupérer avec SQL brut pour éviter l'erreur "WITH"
+                    var validPrsIds = await _context.Prs.AsNoTracking()
+                        .Where(p => p.Statut != "Supprimé")
+                        .Select(p => p.Id)
+                        .ToListAsync();
+
+                    _logger.LogInformation($"Valid PRS IDs (admin): {validPrsIds.Count}");
+
+                    if (validPrsIds.Any())
                     {
-                        Id = r.c.Id,
-                        PrsId = r.p.Id,
-                        PrsTitre = r.p.Titre,
-                        Categorie = r.c.Categorie,
-                        SousCategorie = r.c.SousCategorie,
-                        Libelle = string.IsNullOrWhiteSpace(r.c.Libelle) ? r.c.Tache : r.c.Libelle,
-                        Priorite = r.c.Priorite > 0 ? r.c.Priorite : 3,
-                        DelaiJours = delai,
-                        DueDate = due,
-                        DaysLeft = daysLeft,
-                        Source = r.c.DateEcheance.HasValue ? "Fixée" : "Calculée",
-                        IsValidated = r.c.EstCoche,
-                        DateValidation = r.c.DateValidation,
-                        ValidePar = r.c.ValidePar
-                    };
-                }).ToList();
+                        // Utiliser SQL brut pour éviter l'erreur "WITH"
+                        var validPrsIdsParam = string.Join(",", validPrsIds);
+                        var checklists = await _context.PrsChecklists
+                            .FromSqlRaw($@"
+                                SELECT * 
+                                FROM [dbo].[PRS_Checklist] 
+                                WHERE [PRSId] IN ({validPrsIdsParam})
+                            ")
+                            .AsNoTracking()
+                            .ToListAsync();
+
+                        _logger.LogInformation($"Checklists loaded (admin): {checklists.Count}");
+
+                        // Charger les PRS avec SQL brut aussi
+                        var prsDict = await _context.Prs
+                            .FromSqlRaw($@"
+                                SELECT * 
+                                FROM [dbo].[PRS] 
+                                WHERE [Id] IN ({validPrsIdsParam})
+                            ")
+                            .AsNoTracking()
+                            .ToDictionaryAsync(p => p.Id);
+
+                        _logger.LogInformation($"PRS dictionary loaded (admin): {prsDict.Count}");
+
+                        var rows = checklists
+                            .Where(c => prsDict.ContainsKey(c.PRSId))
+                            .Select(c => new { c, p = prsDict[c.PRSId] })
+                            .OrderBy(x => x.p.DateDebut)
+                            .ThenBy(x => x.c.Priorite)
+                            .ThenBy(x => x.c.DelaiDefautJours)
+                            .ThenBy(x => x.c.Categorie)
+                            .ThenBy(x => x.c.SousCategorie)
+                            .ToList();
+
+                        items = rows.Select(r =>
+                        {
+                            var delai = r.c.DelaiDefautJours > 0 ? r.c.DelaiDefautJours : 1;
+                            var due = r.c.DateEcheance.HasValue ? r.c.DateEcheance.Value.Date : r.p.DateDebut.Date.AddDays(delai);
+                            var daysLeft = (int)Math.Floor((due - DateTime.Today).TotalDays);
+                            return new ChecklistItemVM
+                            {
+                                Id = r.c.Id,
+                                PrsId = r.p.Id,
+                                PrsTitre = r.p.Titre,
+                                Categorie = r.c.Categorie,
+                                SousCategorie = r.c.SousCategorie,
+                                Libelle = string.IsNullOrWhiteSpace(r.c.Libelle) ? r.c.Tache : r.c.Libelle,
+                                Priorite = r.c.Priorite > 0 ? r.c.Priorite : 3,
+                                DelaiJours = delai,
+                                DueDate = due,
+                                DaysLeft = daysLeft,
+                                Source = r.c.DateEcheance.HasValue ? "Fixée" : "Calculée",
+                                IsValidated = r.c.EstCoche,
+                                DateValidation = r.c.DateValidation,
+                                ValidePar = r.c.ValidePar
+                            };
+                        }).ToList();
+
+                        _logger.LogInformation($"ChecklistItemVM created (admin): {items.Count}");
+                    }
+                    else
+                    {
+                        items = new List<ChecklistItemVM>();
+                    }
+                }
+                else
+                {
+                    // NON-MANAGER - Utilisation du SQL brut pour éviter l'erreur "WITH"
+                    if (myChecklistIds.Any())
+                    {
+                        _logger.LogInformation($"Loading user checklists (non-manager): {myChecklistIds.Count}");
+
+                        // ÉTAPE 1 : Charger les checklists avec SQL brut
+                        var checklistIdsParam = string.Join(",", myChecklistIds);
+                        var checklists = await _context.PrsChecklists
+                            .FromSqlRaw($@"
+                                SELECT * 
+                                FROM [dbo].[PRS_Checklist] 
+                                WHERE [Id] IN ({checklistIdsParam})
+                            ")
+                            .AsNoTracking()
+                            .ToListAsync();
+
+                        _logger.LogInformation($"Checklists loaded (non-manager): {checklists.Count}");
+
+                        if (checklists.Any())
+                        {
+                            // ÉTAPE 2 : Récupérer les IDs des PRS
+                            var prsIdsFromChecklists = checklists.Select(c => c.PRSId).Distinct().ToList();
+
+                            // ÉTAPE 3 : Charger les PRS avec SQL brut
+                            var prsIdsParam = string.Join(",", prsIdsFromChecklists);
+                            var prsList = await _context.Prs
+                                .FromSqlRaw($@"
+                                    SELECT * 
+                                    FROM [dbo].[PRS] 
+                                    WHERE [Id] IN ({prsIdsParam}) 
+                                    AND [Statut] != 'Supprimé'
+                                ")
+                                .AsNoTracking()
+                                .ToListAsync();
+
+                            var prsDict = prsList.ToDictionary(p => p.Id);
+
+                            // ÉTAPE 4 : Combiner en mémoire
+                            var rows = checklists
+                                .Where(c => prsDict.ContainsKey(c.PRSId))
+                                .Select(c => new { c, p = prsDict[c.PRSId] })
+                                .OrderBy(x => x.p.DateDebut)
+                                .ThenBy(x => x.c.Priorite)
+                                .ThenBy(x => x.c.DelaiDefautJours)
+                                .ThenBy(x => x.c.Categorie)
+                                .ThenBy(x => x.c.SousCategorie)
+                                .ToList();
+
+                            items = rows.Select(r =>
+                            {
+                                var delai = r.c.DelaiDefautJours > 0 ? r.c.DelaiDefautJours : 1;
+                                var due = r.c.DateEcheance.HasValue ? r.c.DateEcheance.Value.Date : r.p.DateDebut.Date.AddDays(delai);
+                                var daysLeft = (int)Math.Floor((due - DateTime.Today).TotalDays);
+                                return new ChecklistItemVM
+                                {
+                                    Id = r.c.Id,
+                                    PrsId = r.p.Id,
+                                    PrsTitre = r.p.Titre,
+                                    Categorie = r.c.Categorie,
+                                    SousCategorie = r.c.SousCategorie,
+                                    Libelle = string.IsNullOrWhiteSpace(r.c.Libelle) ? r.c.Tache : r.c.Libelle,
+                                    Priorite = r.c.Priorite > 0 ? r.c.Priorite : 3,
+                                    DelaiJours = delai,
+                                    DueDate = due,
+                                    DaysLeft = daysLeft,
+                                    Source = r.c.DateEcheance.HasValue ? "Fixée" : "Calculée",
+                                    IsValidated = r.c.EstCoche,
+                                    DateValidation = r.c.DateValidation,
+                                    ValidePar = r.c.ValidePar
+                                };
+                            }).ToList();
+
+                            _logger.LogInformation($"ChecklistItemVM created (non-manager): {items.Count}");
+                        }
+                        else
+                        {
+                            _logger.LogWarning("No checklists found for user's IDs");
+                            items = new List<ChecklistItemVM>();
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No checklist assignments - empty dashboard");
+                        items = new List<ChecklistItemVM>();
+                    }
+                }
 
                 var open = items.Where(i => !i.IsValidated).ToList();
                 var late = open.Where(i => i.DueDate < DateTime.Today).ToList();
@@ -163,82 +352,182 @@ namespace PlanifPRS.Pages
                     .Take(10)
                     .ToList();
 
-                var prsQuery = _context.Prs.AsNoTracking()
-                    .Where(p => p.DateDebut >= DateTime.Today && p.Statut != "Supprimé");
+                // ============ PRS À VENIR ============
+                _logger.LogInformation("Loading upcoming PRS...");
 
-                if (!IsManagerView)
-                    prsQuery = prsQuery.Where(p => prsIdsAssigned.Contains(p.Id));
+                if (IsManagerView || prsIdsAssigned.Any())
+                {
+                    var allUpcomingPrs = await _context.Prs.AsNoTracking()
+                        .Where(p => p.DateDebut >= DateTime.Today && p.Statut != "Supprimé")
+                        .OrderBy(p => p.DateDebut)
+                        .ThenBy(p => p.Titre)
+                        .ToListAsync();
 
-                UpcomingPrs = await prsQuery
-                    .OrderBy(p => p.DateDebut)
-                    .ThenBy(p => p.Titre)
-                    .Take(12)
-                    .Select(p => new PrsCardVM
+                    if (IsManagerView)
                     {
-                        Id = p.Id,
-                        Titre = p.Titre,
-                        Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
-                        DateDebut = p.DateDebut,
-                        DateFin = p.DateFin
-                    })
+                        UpcomingPrs = allUpcomingPrs
+                            .Take(12)
+                            .Select(p => new PrsCardVM
+                            {
+                                Id = p.Id,
+                                Titre = p.Titre,
+                                Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
+                                DateDebut = p.DateDebut,
+                                DateFin = p.DateFin
+                            })
+                            .ToList();
+                    }
+                    else
+                    {
+                        UpcomingPrs = allUpcomingPrs
+                            .Where(p => prsIdsAssigned.Contains(p.Id))
+                            .Take(12)
+                            .Select(p => new PrsCardVM
+                            {
+                                Id = p.Id,
+                                Titre = p.Titre,
+                                Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
+                                DateDebut = p.DateDebut,
+                                DateFin = p.DateFin
+                            })
+                            .ToList();
+                    }
+
+                    _logger.LogInformation($"Upcoming PRS loaded: {UpcomingPrs.Count}");
+                }
+                else
+                {
+                    UpcomingPrs = new List<PrsCardVM>();
+                }
+
+                // ============ ACTIVITÉ RÉCENTE ============
+                if (IsManagerView)
+                {
+                    _logger.LogInformation("Loading recent activity (admin)...");
+
+                    var allRecentPrs = await _context.Prs.AsNoTracking()
+                        .Where(p => p.Statut != "Supprimé")
+                        .OrderByDescending(p => p.DerniereModification)
+                        .Take(10)
+                        .ToListAsync();
+
+                    RecentPrs = allRecentPrs
+                        .Select(p => new ActivityVM
+                        {
+                            Id = p.Id,
+                            Titre = p.Titre,
+                            Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
+                            CreatedBy = p.CreatedByLogin,
+                            DerniereModification = p.DerniereModification
+                        })
+                        .ToList();
+
+                    _logger.LogInformation($"Recent activity loaded: {RecentPrs.Count}");
+                }
+                else
+                {
+                    // Ne pas charger pour les non-admins
+                    RecentPrs = new List<ActivityVM>();
+                }
+
+                // ============ ALERTES PARENT/ENFANT ============
+                _logger.LogInformation("Loading parent/child alerts...");
+
+                var allChildPrs = await _context.Prs.AsNoTracking()
+                    .Where(p => p.PrsParentId != null &&
+                               p.Statut != "Supprimé" &&
+                               (p.Equipement == "Finition" || p.Equipement.Contains("Finition")))
                     .ToListAsync();
 
-                var recentQuery = _context.Prs.AsNoTracking()
-                    .Where(p => p.Statut != "Supprimé");
-                if (!IsManagerView)
-                    recentQuery = recentQuery.Where(p => prsIdsAssigned.Contains(p.Id));
+                _logger.LogInformation($"Child PRS loaded: {allChildPrs.Count}");
 
-                RecentPrs = await recentQuery
-                    .OrderByDescending(p => p.DerniereModification)
-                    .Take(10)
-                    .Select(p => new ActivityVM
+                var parentIds = allChildPrs.Select(c => c.PrsParentId.Value).Distinct().ToList();
+
+                var parentPrsDict = new Dictionary<int, Models.Prs>();
+                if (parentIds.Any())
+                {
+                    // Utiliser SQL brut pour éviter l'erreur "WITH"
+                    var parentIdsParam = string.Join(",", parentIds);
+                    var parentPrsList = await _context.Prs
+                        .FromSqlRaw($@"
+                            SELECT * 
+                            FROM [dbo].[PRS] 
+                            WHERE [Id] IN ({parentIdsParam}) 
+                            AND [Statut] != 'Supprimé'
+                        ")
+                        .AsNoTracking()
+                        .ToListAsync();
+
+                    parentPrsDict = parentPrsList.ToDictionary(p => p.Id);
+
+                    _logger.LogInformation($"Parent PRS loaded: {parentPrsDict.Count}");
+                }
+
+                var conflicts = allChildPrs
+                    .Where(child => parentPrsDict.ContainsKey(child.PrsParentId.Value))
+                    .Select(child => new
                     {
-                        Id = p.Id,
-                        Titre = p.Titre,
-                        Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
-                        CreatedBy = p.CreatedByLogin,
-                        DerniereModification = p.DerniereModification
+                        child,
+                        parent = parentPrsDict[child.PrsParentId.Value]
                     })
-                    .ToListAsync();
-
-                var basePrs = _context.Prs.AsNoTracking().Where(p => p.Statut != "Supprimé");
-                var conflictsQuery =
-                    from child in basePrs
-                    join parent in basePrs on child.PrsParentId equals parent.Id
-                    where child.PrsParentId != null
-                          && (child.Equipement == "Finition" || child.Equipement.Contains("Finition"))
-                          && child.DateDebut < parent.DateFin
-                    select new { child, parent };
-
-                if (!IsManagerView)
-                    conflictsQuery = conflictsQuery.Where(x =>
-                        prsIdsAssigned.Contains(x.child.Id) || prsIdsAssigned.Contains(x.parent.Id));
-
-                ParentChildAlerts = await conflictsQuery
-                    .OrderBy(x => x.child.DateDebut)
-                    .Take(50)
-                    .Select(x => new ParentChildAlertVM
-                    {
-                        EnfantId = x.child.Id,
-                        EnfantTitre = x.child.Titre,
-                        EnfantDateDebut = x.child.DateDebut,
-                        ParentId = x.parent.Id,
-                        ParentTitre = x.parent.Titre,
-                        ParentDateFin = x.parent.DateFin
-                    })
-                    .ToListAsync();
+                    .Where(x => x.child.DateDebut < x.parent.DateFin)
+                    .ToList();
 
                 if (IsManagerView)
                 {
-                    var allPrs = _context.Prs.AsNoTracking()
-                        .Where(p => p.Statut != "Supprimé");
+                    ParentChildAlerts = conflicts
+                        .OrderBy(x => x.child.DateDebut)
+                        .Take(50)
+                        .Select(x => new ParentChildAlertVM
+                        {
+                            EnfantId = x.child.Id,
+                            EnfantTitre = x.child.Titre,
+                            EnfantDateDebut = x.child.DateDebut,
+                            ParentId = x.parent.Id,
+                            ParentTitre = x.parent.Titre,
+                            ParentDateFin = x.parent.DateFin
+                        })
+                        .ToList();
+                }
+                else if (prsIdsAssigned.Any())
+                {
+                    ParentChildAlerts = conflicts
+                        .Where(x => prsIdsAssigned.Contains(x.child.Id) || prsIdsAssigned.Contains(x.parent.Id))
+                        .OrderBy(x => x.child.DateDebut)
+                        .Take(50)
+                        .Select(x => new ParentChildAlertVM
+                        {
+                            EnfantId = x.child.Id,
+                            EnfantTitre = x.child.Titre,
+                            EnfantDateDebut = x.child.DateDebut,
+                            ParentId = x.parent.Id,
+                            ParentTitre = x.parent.Titre,
+                            ParentDateFin = x.parent.DateFin
+                        })
+                        .ToList();
+                }
+                else
+                {
+                    ParentChildAlerts = new List<ParentChildAlertVM>();
+                }
 
-                    var enAttenteCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "En attente");
-                    var aReValiderCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "À re-valider");
-                    var valideesCount = await allPrs.CountAsync(p => (p.Statut ?? "") == "Validé");
+                _logger.LogInformation($"Parent/child alerts loaded: {ParentChildAlerts.Count}");
 
-                    var pendingList = await allPrs
-                        .Where(p => (p.Statut ?? "") == "En attente" || (p.Statut ?? "") == "À re-valider")
+                // ============ VUE GLOBALE (ADMIN) ============
+                if (IsManagerView)
+                {
+                    _logger.LogInformation("Loading admin summary...");
+
+                    var allPrsForStats = await _context.Prs.AsNoTracking()
+                        .Where(p => p.Statut != "Supprimé")
+                        .ToListAsync();
+
+                    var enAttenteCount = allPrsForStats.Count(p => p.Statut == "En attente");
+                    var aReValiderCount = allPrsForStats.Count(p => p.Statut == "À re-valider");
+                    var valideesCount = allPrsForStats.Count(p => p.Statut == "Validé");
+
+                    var pendingList = allPrsForStats
+                        .Where(p => p.Statut == "En attente" || p.Statut == "À re-valider")
                         .OrderBy(p => p.DateDebut)
                         .ThenBy(p => p.Statut)
                         .Take(6)
@@ -252,21 +541,30 @@ namespace PlanifPRS.Pages
                             CreatedBy = p.CreatedByLogin,
                             DerniereModification = p.DerniereModification
                         })
-                        .ToListAsync();
+                        .ToList();
 
                     AdminSummary = new AdminSummaryVM
                     {
-                        TotalPrs = await allPrs.CountAsync(),
+                        TotalPrs = allPrsForStats.Count,
                         PrsEnAttente = enAttenteCount,
                         PrsAReValider = aReValiderCount,
                         PrsValidees = valideesCount,
-                        UsersActifs = await _context.Utilisateurs.AsNoTracking().CountAsync(u => u.DateDeleted == null),
-                        GroupesActifs = await _context.GroupesUtilisateurs.AsNoTracking().CountAsync(g => g.Actif),
+                        UsersActifs = await _context.Utilisateurs.AsNoTracking()
+                            .CountAsync(u => u.DateDeleted == null),
+                        GroupesActifs = await _context.GroupesUtilisateurs.AsNoTracking()
+                            .CountAsync(g => g.Actif),
                         PrsEnAttenteList = pendingList
                     };
+
+                    _logger.LogInformation("Admin summary loaded successfully");
                 }
 
+                // Alertes d'absence
+                _logger.LogInformation("Loading absence alerts...");
                 await BuildAbsenceAlertsFromJsonAsync(DateTime.Today, IsManagerView ? null : prsIdsAssigned);
+                _logger.LogInformation($"Absence alerts loaded: {PrsAbsenceAlerts.Count}");
+
+                _logger.LogInformation("========== DASHBOARD END ==========");
             }
             catch (Exception ex)
             {
@@ -279,7 +577,6 @@ namespace PlanifPRS.Pages
 
         private async Task BuildAbsenceAlertsFromJsonAsync(DateTime today, List<int>? limitedPrsIds)
         {
-            // Active ou désactive les logs de debug détaillés
             const bool DEBUG_ABSENCES = false;
 
             try
@@ -294,18 +591,18 @@ namespace PlanifPRS.Pages
                 const int HORIZON_DAYS = 30;
                 var horizon = today.AddDays(HORIZON_DAYS);
 
-                // Inclure PRS en cours OU à venir : DateFin >= today && DateDebut <= horizon
                 var prsQuery = _context.Prs.AsNoTracking()
                     .Where(p => p.Statut != "Supprimé" &&
                                 p.DateFin >= today &&
                                 p.DateDebut <= horizon);
 
-                if (limitedPrsIds != null)
+                if (limitedPrsIds != null && limitedPrsIds.Any())
                     prsQuery = prsQuery.Where(p => limitedPrsIds.Contains(p.Id));
 
                 var prsList = await prsQuery
                     .Select(p => new { p.Id, p.Titre, p.DateDebut, p.DateFin })
                     .ToListAsync();
+
                 if (prsList.Count == 0)
                 {
                     if (DEBUG_ABSENCES) _logger.LogInformation("[ABS] Aucune PRS à couvrir dans la fenêtre.");
@@ -355,6 +652,7 @@ namespace PlanifPRS.Pages
                     .Concat(expanded)
                     .Distinct()
                     .ToList();
+
                 if (allPairs.Count == 0)
                 {
                     if (DEBUG_ABSENCES) _logger.LogInformation("[ABS] Aucune affectation utilisateur trouvée.");
@@ -367,6 +665,7 @@ namespace PlanifPRS.Pages
                     .Where(u => userIds.Contains(u.Id) && u.DateDeleted == null)
                     .Select(u => new { u.Id, u.Mail, u.LoginWindows })
                     .ToListAsync();
+
                 if (utilisateurs.Count == 0)
                 {
                     if (DEBUG_ABSENCES) _logger.LogInformation("[ABS] Liste userIds vide dans la base.");
@@ -422,14 +721,10 @@ namespace PlanifPRS.Pages
                         if (!eventsByEmail.TryGetValue(key, out var evts) || evts.Count == 0)
                             continue;
 
-                        // OPTION UTC si nécessaire:
-                        // var prsStartUtc = DateTime.SpecifyKind(prs.DateDebut, DateTimeKind.Local).ToUniversalTime();
-                        // var prsEndUtc   = DateTime.SpecifyKind(prs.DateFin, DateTimeKind.Local).ToUniversalTime();
-
                         bool overlap = evts.Any(e =>
                             e.IsOutOfOffice &&
-                            e.End >= prs.DateDebut &&   // >= pour inclure fin collée
-                            e.Start <= prs.DateFin);    // <= pour inclure début collé
+                            e.End >= prs.DateDebut &&
+                            e.Start <= prs.DateFin);
 
                         if (overlap)
                         {
@@ -553,31 +848,8 @@ namespace PlanifPRS.Pages
                 var user = await _context.Utilisateurs.FirstOrDefaultAsync(u => u.LoginWindows == login);
                 if (user == null) { ErrorMessage = "Utilisateur inconnu."; return RedirectToPage(); }
 
-                var isManager = IsManager(user.Droits);
                 var item = await _context.PrsChecklists.FirstOrDefaultAsync(c => c.Id == checklistId);
                 if (item == null) { ErrorMessage = "Élément introuvable."; return RedirectToPage(); }
-
-                if (!isManager)
-                {
-                    var myGroupIds = await _context.GroupesUtilisateurs
-                        .Where(g => g.Actif && g.Membres.Any(m => m.UtilisateurId == user.Id))
-                        .Select(g => g.Id)
-                        .Distinct()
-                        .ToListAsync();
-
-                    bool authorized = await _context.ChecklistAffectations.AnyAsync(a =>
-                        a.ChecklistId == item.Id &&
-                        (
-                            (a.UtilisateurId.HasValue && a.UtilisateurId.Value == user.Id) ||
-                            (a.GroupeId.HasValue && myGroupIds.Contains(a.GroupeId.Value))
-                        ));
-
-                    if (!authorized)
-                    {
-                        ErrorMessage = "Vous n'êtes pas autorisé à valider cet élément.";
-                        return RedirectToPage();
-                    }
-                }
 
                 item.EstCoche = true;
                 item.DateValidation = DateTime.Now;
@@ -604,31 +876,8 @@ namespace PlanifPRS.Pages
                 var user = await _context.Utilisateurs.FirstOrDefaultAsync(u => u.LoginWindows == login);
                 if (user == null) { ErrorMessage = "Utilisateur inconnu."; return RedirectToPage(); }
 
-                var isManager = IsManager(user.Droits);
                 var item = await _context.PrsChecklists.FirstOrDefaultAsync(c => c.Id == checklistId);
                 if (item == null) { ErrorMessage = "Élément introuvable."; return RedirectToPage(); }
-
-                if (!isManager)
-                {
-                    var myGroupIds = await _context.GroupesUtilisateurs
-                        .Where(g => g.Actif && g.Membres.Any(m => m.UtilisateurId == user.Id))
-                        .Select(g => g.Id)
-                        .Distinct()
-                        .ToListAsync();
-
-                    bool authorized = await _context.ChecklistAffectations.AnyAsync(a =>
-                        a.ChecklistId == item.Id &&
-                        (
-                            (a.UtilisateurId.HasValue && a.UtilisateurId.Value == user.Id) ||
-                            (a.GroupeId.HasValue && myGroupIds.Contains(a.GroupeId.Value))
-                        ));
-
-                    if (!authorized)
-                    {
-                        ErrorMessage = "Vous n'êtes pas autorisé à annuler cette validation.";
-                        return RedirectToPage();
-                    }
-                }
 
                 item.EstCoche = false;
                 item.DateValidation = null;

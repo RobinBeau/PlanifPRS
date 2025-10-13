@@ -288,39 +288,72 @@
             </div>
         </div>
 
-        <div class="col-12 col-xl-6">
+        <div class="col-12 col-xxl-6">
             <div class="card shadow-sm h-100">
                 <div class="card-body">
                     <div class="d-flex justify-content-between mb-2">
-                        <div class="fw-semibold text-muted"><i class="fas fa-bullseye me-1"></i>Prochaines échéances (qui me concernent)</div>
-                        <div>
-                            <span class="badge bg-info"><i class="fas fa-bell me-1"></i><span id="soonCount">@Model.DueSoonItems.Count</span> à venir</span>
+                        <div class="fw-semibold text-muted">
+                            <i class="fas fa-calendar-days me-1"></i>Prochaines échéances (qui me concernent)
                         </div>
+                        <a href="/Checklists" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
                     </div>
-
                     @if (Model.DueSoonItems.Any())
                     {
-                        <ul class="list-group list-group-flush" id="soonList">
-                            @foreach (var it in Model.DueSoonItems)
+                        <ul class="list-group list-group-flush">
+                            @foreach (var item in Model.DueSoonItems)
                             {
-                                <li class="list-group-item d-flex justify-content-between align-items-center soon-item"
-                                    data-daysleft="@it.DaysLeft">
-                                    <div class="me-3">
-                                        <div class="fw-semibold">@it.Libelle</div>
+                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <div class="fw-semibold">@item.Libelle</div>
                                         <div class="small text-muted">
-                                            @it.PrsTitre • @it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                            PRS: <a href="/Prs/Details?id=@item.PrsId">@item.PrsTitre</a>
+                                        </div>
+                                        <div class="small">
+                                            <span class="badge bg-info text-dark">Priorité @item.Priorite</span>
+                                            @if (!string.IsNullOrWhiteSpace(item.Categorie))
                                             {
-                                                <text>• @it.SousCategorie</text>
+                                                <span class="badge bg-secondary">@item.Categorie</span>
                                             }
                                         </div>
                                     </div>
-                                    <div class="text-end">
-                                        <div class="small">Échéance: <strong>@it.DueDate.ToString("dd/MM/yyyy")</strong></div>
-                                        <div>
-                                            <span class="badge bg-@(it.DaysLeft == 0 ? "warning text-dark" : "info")">
-                                                @(it.DaysLeft == 0 ? "Aujourd'hui" : $"Dans {it.DaysLeft} j")
-                                            </span>
-                                        </div>
+                                    <div class="text-end d-flex flex-column align-items-end">
+                                        @if (item.DaysLeft == 0)
+                                        {
+                                            <span class="badge bg-warning text-dark mb-1">Aujourd'hui</span>
+                                        }
+                                        else if (item.DaysLeft == 1)
+                                        {
+                                            <span class="badge bg-warning text-dark mb-1">Demain</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-info text-dark mb-1">Dans @item.DaysLeft jours</span>
+                                        }
+                                        <small class="text-muted">@item.DueDate.ToString("dd/MM/yyyy")</small>
+
+                                        @if (!item.IsValidated)
+                                        {
+                                            <form method="post" asp-page-handler="ValidateChecklist" class="mt-2">
+                                                <input type="hidden" name="checklistId" value="@item.Id" />
+                                                <button type="submit" class="btn btn-sm btn-success" title="Valider">
+                                                    <i class="fas fa-check"></i> Valider
+                                                </button>
+                                            </form>
+                                        }
+                                        else
+                                        {
+                                            <div class="mt-2">
+                                                <span class="badge bg-success">
+                                                    <i class="fas fa-check-circle"></i> Validé
+                                                </span>
+                                                <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
+                                                    <input type="hidden" name="checklistId" value="@item.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary btn-sm" title="Annuler validation">
+                                                        <i class="fas fa-undo"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        }
                                     </div>
                                 </li>
                             }
@@ -328,7 +361,7 @@
                     }
                     else
                     {
-                        <div class="text-muted small">Aucun élément à échéance proche.</div>
+                        <div class="text-muted small">Aucune échéance prochaine.</div>
                     }
                 </div>
             </div>
@@ -404,7 +437,8 @@
                 </div>
             </div>
         </div>
-
+        @if (Model.IsManagerView)
+        {
         <div class="col-12 col-xxl-6">
             <div class="card shadow-sm h-100">
                 <div class="card-body">
@@ -436,6 +470,7 @@
                 </div>
             </div>
         </div>
+        }
     </div>
 </div>
 
