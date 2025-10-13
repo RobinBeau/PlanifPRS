@@ -1209,13 +1209,17 @@
     <script src="~/js/checklist-manager.js" asp-append-version="true"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
+                // ===== DÉCLARATIONS GLOBALES (ligne ~1710) =====
+                let selectedAffectations = [];
+                let updateAffectationsList;
+                function cleanServiceName(s) { return (s || '').replace(/^[A-Z]+_[0-9]+\s+/, '').trim(); }
 
-        $(function() {
-  try { $('#checklistModele').off('change'); } catch {}
-});
+                $(function() {
+                    try { $('#checklistModele').off('change'); } catch {}
+                });
 
-    // ====== AJOUT : Filtrage dynamique des lignes selon l'équipement ======
-    document.addEventListener('DOMContentLoaded', function () {
+                // ====== AJOUT : Filtrage dynamique des lignes selon l'équipement ======
+                document.addEventListener('DOMContentLoaded', function () {
         const equipSel = document.getElementById('Prs_Equipement'); // select équipement
         const ligneSel = document.getElementById('ligne-select');   // select lignes (déjà dans ton HTML)
         const placeholder = '-- Choisir une ligne --';
@@ -1580,49 +1584,224 @@
             return currentItems.filter(i => i.__selected);
           }
 
-          function importSelected() {
+                  function importSelected() {
             const selected = collectSelected();
             if (!selected.length) {
-              alert('Aucune tâche sélectionné.');
-              return;
+                alert('Aucune tâche sélectionnée.');
+                return;
             }
             if (!validateBeforeImport()) return;
 
             try {
-              if (window.checklistManager) {
-                const mgr = window.checklistManager;
-                const mapped = mapForManager(selected);
-                mapped.forEach(m => { m.id = ++mgr.elementIdCounter; });
-                mgr.currentChecklist = {
-                  type: 'modele',
-                  sourceId: currentModeleId,
-                  elements: mapped
-                };
-                mgr.showChecklistEditor();
-                mgr.renderChecklistItems();
-                mgr.updateChecklistData();
-                // Reset local
-                categoryUserMap = {};
-                categoryContainer.style.display = 'none';
-                categoryRows.innerHTML = '';
-                document.getElementById('checklistEditor')?.scrollIntoView({ behavior:'smooth', block:'start' });
-              } else {
-                // fallback si checklistManager indisponible
-                const mapped = mapForManager(selected);
-                hiddenChecklistData.value = JSON.stringify({
-                  type: 'modele',
-                  sourceId: currentModeleId,
-                  elements: mapped
-                });
-                document.getElementById('checklistEditor').style.display = '';
-              }
-              bsModal?.hide();
-            } catch(e) {
-              console.error('Erreur import checklist:', e);
-              alert('Erreur lors de l\'import.');
-            }
-          }
+                if (window.checklistManager) {
+                    const mgr = window.checklistManager;
+                    const mapped = mapForManager(selected);
+                    mapped.forEach(m => { m.id = ++mgr.elementIdCounter; });
+                    mgr.currentChecklist = {
+                        type: 'modele',
+                        sourceId: currentModeleId,
+                        elements: mapped
+                    };
+                    mgr.showChecklistEditor();
+                    mgr.renderChecklistItems();
+                    mgr.updateChecklistData();
 
+                    // ✅ AJOUT : Ajouter automatiquement les utilisateurs affectés aux tâches dans la section "Affectation des personnes"
+                    ajouterUtilisateursDesGroupesEtTaches(mapped);
+
+                    // Reset local
+                    categoryUserMap = {};
+                    categoryContainer.style.display = 'none';
+                    categoryRows.innerHTML = '';
+                    document.getElementById('checklistEditor')?.scrollIntoView({ behavior:'smooth', block:'start' });
+                } else {
+                    // fallback si checklistManager indisponible
+                    const mapped = mapForManager(selected);
+                    hiddenChecklistData.value = JSON.stringify({
+                        type: 'modele',
+                        sourceId: currentModeleId,
+                        elements: mapped
+                    });
+                    document.getElementById('checklistEditor').style.display = '';
+
+                    // ✅ AJOUT : Ajouter automatiquement les utilisateurs (fallback)
+                    ajouterUtilisateursDesGroupesEtTaches(mapped);
+                }
+                bsModal?.hide();
+            } catch(e) {
+                console.error('Erreur import checklist:', e);
+                alert('Erreur lors de l\'import.');
+            }
+        }
+
+                // ===== VIDER LES AFFECTATIONS LORS DU CHANGEMENT DE TYPE DE TÂCHE =====
+        document.addEventListener('DOMContentLoaded', function() {
+            const checklistTypeSelector = document.getElementById('checklistTypeSelector');
+
+            if (checklistTypeSelector) {
+                checklistTypeSelector.addEventListener('change', function() {
+                    const newType = this.value;
+
+                    // Si l'utilisateur sélectionne un nouveau type de tâche et qu'il y a déjà des affectations
+                    if (newType && selectedAffectations && selectedAffectations.length > 0) {
+                        // Demander confirmation avant de vider
+                        Swal.fire({
+                            title: 'Changer de type de tâche ?',
+                            html: 'Vous avez <strong>' + selectedAffectations.length + ' personne(s) affectée(s)</strong>.<br><br>Voulez-vous les supprimer et repartir avec une liste vide ?',
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonText: 'Oui, vider la liste',
+                            cancelButtonText: 'Non, conserver les affectations',
+                            confirmButtonColor: '#d33',
+                            cancelButtonColor: '#3085d6',
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                // Vider le tableau des affectations
+                                selectedAffectations = [];
+
+                                // Mettre à jour l'affichage
+                                if (typeof updateAffectationsList === 'function') {
+                                    updateAffectationsList();
+                                }
+
+                                // Afficher une notification
+                                showRobiaNotification('Liste des affectations vidée', 'info');
+                            }
+                        });
+                    }
+                });
+            }
+        });
+
+                // ✅ NOUVELLE FONCTION : Ajouter les utilisateurs des tâches et groupes dans "Affectation des personnes"
+        async function ajouterUtilisateursDesGroupesEtTaches(mappedElements) {
+            if (!mappedElements || mappedElements.length === 0) return;
+
+            const utilisateursAjoutes = new Set();
+            const groupesAjoutes = new Set();
+
+            // Collecter tous les utilisateurs et groupes des tâches
+            mappedElements.forEach(element => {
+                // Utilisateurs directs
+                if (element.assignedUsers && element.assignedUsers.length > 0) {
+                    element.assignedUsers.forEach(userId => utilisateursAjoutes.add(userId));
+                }
+
+                // Groupes
+                if (element.assignedGroups && element.assignedGroups.length > 0) {
+                    element.assignedGroups.forEach(groupId => groupesAjoutes.add(groupId));
+                }
+            });
+
+            // Récupérer les détails des groupes pour extraire leurs membres
+            const groupesDetails = await Promise.all(
+                Array.from(groupesAjoutes).map(async (groupId) => {
+                    return await obtenirMembresGroupe(groupId);
+                })
+            );
+
+            // Ajouter tous les membres des groupes
+            groupesDetails.forEach(groupe => {
+                if (groupe && groupe.membres) {
+                    groupe.membres.forEach(membreId => utilisateursAjoutes.add(membreId));
+                }
+            });
+
+            // Ajouter les utilisateurs dans la section "Affectation des personnes"
+            const userSelect = document.getElementById('userSelect');
+            const addUserBtn = document.getElementById('addUserBtn');
+
+            if (!userSelect || !addUserBtn) {
+                console.warn('userSelect ou addUserBtn introuvable');
+                return;
+            }
+
+            let compteurAjoutes = 0;
+
+            // Parcourir tous les utilisateurs à ajouter
+            for (const userId of utilisateursAjoutes) {
+                // Trouver l'option correspondante dans le select
+                const option = Array.from(userSelect.options).find(opt => parseInt(opt.value) === userId);
+
+                if (option && option.value) {
+                    // Vérifier s'il n'est pas déjà dans la liste
+                    const userName = option.dataset.name || option.textContent.trim();
+                    const userEmail = (option.dataset.email || '').trim();
+
+                    const exists = selectedAffectations.some(a =>
+                        a.type === 'Utilisateur' && (a.id === userId || (userEmail && a.email === userEmail))
+                    );
+
+                    if (!exists) {
+                        // Ajouter l'utilisateur
+                        const userService = option.dataset.service || '';
+                        const userServiceClean = option.dataset.serviceClean || cleanServiceName(userService);
+
+                        selectedAffectations.push({
+                            id: userId,
+                            type: 'Utilisateur',
+                            name: userName,
+                            info: userServiceClean,
+                            email: userEmail
+                        });
+
+                        compteurAjoutes++;
+                    }
+                }
+            }
+
+            // Mettre à jour l'affichage
+            if (compteurAjoutes > 0) {
+                updateAffectationsList();
+                showRobiaNotification(`${compteurAjoutes} utilisateur(s) ajouté(s) automatiquement depuis les tâches`, 'success');
+
+                // Déclencher le rafraîchissement du calendrier
+                setTimeout(() => {
+                    const hidden = document.getElementById('affectationsData');
+                    if (hidden) {
+                        hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+
+                    document.dispatchEvent(new CustomEvent('affectations:changed', {
+                        detail: { action: 'bulk-add', count: compteurAjoutes }
+                    }));
+
+                    if (typeof window.__prsRefreshAbsences === 'function') {
+                        window.__prsRefreshAbsences();
+                    }
+                }, 100);
+            }
+        }
+
+        // ✅ FONCTION AUXILIAIRE : Obtenir les membres d'un groupe
+        async function obtenirMembresGroupe(groupId) {
+            try {
+                // Chercher le groupe dans les données déjà chargées
+                const groupSelect = document.getElementById('groupSelect');
+                if (!groupSelect) return null;
+
+                // Trouver l'option du groupe
+                const groupOption = Array.from(groupSelect.options).find(opt => parseInt(opt.value) === groupId);
+                if (!groupOption) return null;
+
+                // Pour obtenir les membres, on doit faire un appel API ou utiliser les données du Model
+                // Voici une approche via le backend
+                const response = await fetch(`?handler=GroupMembers&groupId=${groupId}`);
+                if (!response.ok) {
+                    console.warn(`Impossible de récupérer les membres du groupe ${groupId}`);
+                    return null;
+                }
+
+                const data = await response.json();
+                return {
+                    id: groupId,
+                    membres: data.membres || []
+                };
+            } catch (error) {
+                console.error(`Erreur lors de la récupération des membres du groupe ${groupId}:`, error);
+                return null;
+            }
+        }
           // Écouteurs
           if (selectAll) {
             selectAll.addEventListener('change', () => {
@@ -2814,6 +2993,8 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
             showRobiaNotification(`ROB.I.A prêt à optimiser vos planifications, ${currentUserLogin}!`, 'success');
         }, 1000);
 
+        
+
                 // Gestion des affectations
         document.addEventListener('DOMContentLoaded', function() {
             const userSelect = document.getElementById('userSelect');
@@ -2823,10 +3004,10 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
             const affectationsList = document.getElementById('affectationsList');
             const affectationsData = document.getElementById('affectationsData');
 
-            let selectedAffectations = [];
+        
 
             // Fonction pour mettre à jour la liste des affectations
-            function updateAffectationsList() {
+                      updateAffectationsList = function() {
                 affectationsList.innerHTML = '';
 
                 if (selectedAffectations.length === 0) {
@@ -3230,25 +3411,25 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
         let utilisateurs = [];
         let groupes = [];
 
-        // Charger les utilisateurs et groupes au démarrage
-        $(document).ready(function() {
-            chargerUtilisateursEtGroupes();
-        });
+        // // Charger les utilisateurs et groupes au démarrage
+        // $(document).ready(function() {
+        //     chargerUtilisateursEtGroupes();
+        // });
 
-        // Fonction pour charger les utilisateurs et groupes
-        function chargerUtilisateursEtGroupes() {
-            $.ajax({
-                url: '/api/checklist/utilisateurs-groupes',
-                type: 'GET',
-                success: function(data) {
-                    utilisateurs = data.utilisateurs;
-                    groupes = data.groupes;
-                },
-                error: function() {
-                    console.error('Erreur lors du chargement des utilisateurs et groupes');
-                }
-            });
-        }
+        // // Fonction pour charger les utilisateurs et groupes
+        // function chargerUtilisateursEtGroupes() {
+        //     $.ajax({
+        //         url: '/api/checklist/utilisateurs-groupes',
+        //         type: 'GET',
+        //         success: function(data) {
+        //             utilisateurs = data.utilisateurs;
+        //             groupes = data.groupes;
+        //         },
+        //         error: function() {
+        //             console.error('Erreur lors du chargement des utilisateurs et groupes');
+        //         }
+        //     });
+        // }
 
                 // Fonction appelée quand les éléments de checklist sont générés
         function genererAffectationsChecklist(checklistItems) {

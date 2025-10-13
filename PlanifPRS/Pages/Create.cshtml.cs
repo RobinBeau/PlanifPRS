@@ -1163,6 +1163,34 @@ namespace PlanifPRS.Pages.Prs
             }
         }
 
+        // ✅ NOUVEAU HANDLER : Récupérer les membres d'un groupe
+        public async Task<IActionResult> OnGetGroupMembersAsync(int groupId)
+        {
+            try
+            {
+                var groupe = await _context.GroupesUtilisateurs
+                    .Include(g => g.Membres)
+                    .ThenInclude(m => m.Utilisateur)
+                    .FirstOrDefaultAsync(g => g.Id == groupId && g.Actif);
+
+                if (groupe == null)
+                {
+                    return new JsonResult(new { membres = new List<int>() });
+                }
+
+                var membresIds = groupe.Membres
+                    .Where(m => m.Utilisateur != null && !m.Utilisateur.DateDeleted.HasValue)
+                    .Select(m => m.UtilisateurId)
+                    .ToList();
+
+                return new JsonResult(new { membres = membresIds });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Erreur lors de la récupération des membres du groupe {GroupId}", groupId);
+                return new JsonResult(new { membres = new List<int>() });
+            }
+        }
         public async Task<IActionResult> OnGetUtilisateursEtGroupesAsync()
         {
             try
