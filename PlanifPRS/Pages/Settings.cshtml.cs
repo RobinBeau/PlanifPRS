@@ -298,7 +298,7 @@ namespace PlanifPRS.Pages
             }
         }
 
-        // ---------- Checklists ----------
+        // ---------- tâches ----------
         public async Task<IActionResult> OnPostSaveChecklistModeleAsync(
             int checklistModeleId,
             string checklistNom,
@@ -313,7 +313,7 @@ namespace PlanifPRS.Pages
             }
             if (elements == null || !elements.Any())
             {
-                TempData["Error"] = "Au moins un élément de checklist est requis.";
+                TempData["Error"] = "Au moins une tâche est requise.";
                 return RedirectToPage(new { tab = "checklists" });
             }
 
@@ -355,7 +355,7 @@ namespace PlanifPRS.Pages
                         }
                     }
 
-                    TempData["Message"] = "Modèle de checklist créé avec succès.";
+                    TempData["Message"] = "Modèle de tâche créé avec succès.";
                 }
                 else
                 {
@@ -365,7 +365,7 @@ namespace PlanifPRS.Pages
 
                     if (modele == null)
                     {
-                        TempData["Error"] = "Modèle de checklist introuvable.";
+                        TempData["Error"] = "Modèle de tâche introuvable.";
                         return RedirectToPage(new { tab = "checklists" });
                     }
 
@@ -394,7 +394,7 @@ namespace PlanifPRS.Pages
                         }
                     }
 
-                    TempData["Message"] = "Modèle de checklist modifié avec succès.";
+                    TempData["Message"] = "Modèle de tâche modifié avec succès.";
                 }
 
                 await _context.SaveChangesAsync();
@@ -419,11 +419,11 @@ namespace PlanifPRS.Pages
                 {
                     modele.Actif = false;
                     await _context.SaveChangesAsync();
-                    TempData["Message"] = "Modèle de checklist désactivé avec succès.";
+                    TempData["Message"] = "Modèle de tâche désactivé avec succès.";
                 }
                 else
                 {
-                    TempData["Error"] = "Modèle de checklist introuvable.";
+                    TempData["Error"] = "Modèle de tâche introuvable.";
                 }
             }
             catch (Exception ex)

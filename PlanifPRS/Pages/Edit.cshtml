@@ -633,26 +633,26 @@
                     <div class="card-header bg-primary text-white d-flex align-items-center">
                         <i class="fas fa-tasks me-2 fs-4"></i>
                         <div>
-                            <h5 class="mb-0">📋 Checklist PRS</h5>
-                            <small>Associez une checklist à cette PRS</small>
+                            <h5 class="mb-0">📋 Tâches</h5>
+                            <small>Associez une tâche à cette PRS</small>
                         </div>
                         @if (hasChecklist)
                         {
-                            <span class="badge bg-success ms-auto">Checklist existante</span>
+                            <span class="badge bg-success ms-auto">Tâche existante</span>
                         }
                     </div>
                     <div class="card-body">
                         <div class="checklist-type-selector mb-4 row">
                             <div class="col-md-4">
-                                <label class="form-label fw-bold"><i class="fas fa-clipboard-list me-1 text-primary"></i>Type de checklist</label>
+                                <label class="form-label fw-bold"><i class="fas fa-clipboard-list me-1 text-primary"></i>Type de tâche</label>
                                 <select id="checklistTypeSelector" class="form-select" @(canEdit ? null : "disabled")>
                                     @if (!hasChecklist)
                                     {
-                                        <option value="" selected>-- Aucune checklist --</option>
+                                        <option value="" selected>-- Aucune tâche --</option>
                                     }
                                     else
                                     {
-                                        <option value="">-- Aucune checklist --</option>
+                                        <option value="">-- Aucune tâche --</option>
                                     }
                                     <option value="modele">🎯 Modèle prédéfini</option>
                                     <option value="copy">📋 Copier depuis PRS existante</option>
@@ -674,7 +674,7 @@
                                 <select id="prsSourceSelect" class="form-select" @(canEdit ? null : "disabled")>
                                     <option value="">-- Chargement des PRS... --</option>
                                 </select>
-                                <small class="text-muted mt-1 d-block">Sélectionnez une PRS existante avec une checklist à copier</small>
+                                <small class="text-muted mt-1 d-block">Sélectionnez une PRS existante avec une tâche à copier</small>
                             </div>
                         </div>
 
@@ -682,9 +682,9 @@
 
                         <div id="checklistEditor" class="checklist-editor" style="display:none;">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6 class="mb-0"><i class="fas fa-edit me-1"></i>Éléments de la checklist (<span id="checklistItemCount" class="badge-checklist">0</span> éléments)</h6>
+                                <h6 class="mb-0"><i class="fas fa-edit me-1"></i>Tâches (<span id="checklistItemCount" class="badge-checklist">0</span> tâches)</h6>
                                 <button type="button" class="btn btn-sm btn-checklist" id="addChecklistItem" @(canEdit ? null : "disabled")>
-                                    <i class="fas fa-plus-circle me-1"></i>Ajouter un élément
+                                    <i class="fas fa-plus-circle me-1"></i>Ajouter une tâche
                                 </button>
                             </div>
                             <div id="checklistItems" class="checklist-items-container"></div>

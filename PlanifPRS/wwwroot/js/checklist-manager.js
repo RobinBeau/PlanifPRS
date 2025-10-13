@@ -117,7 +117,7 @@
     }
 
     renderAssignmentInterface() {
-        console.log('Rendu de l\'interface d\'assignation avec les éléments existants');
+        console.log('Rendu de l\'interface d\'assignation avec les tâches existantes');
 
         // Remplir le select des utilisateurs
         const $usersSelect = $('#checklistUsers');
@@ -439,7 +439,7 @@
             prsWithChecklist.forEach(prs => {
                 const option = document.createElement('option');
                 option.value = prs.id;
-                option.textContent = `PRS-${prs.id} - ${prs.titre} (${prs.nombreElements} éléments, ${prs.pourcentageCompletion}% complété)`;
+                option.textContent = `PRS-${prs.id} - ${prs.titre} (${prs.nombreElements} tâches, ${prs.pourcentageCompletion}% complété)`;
                 selector.appendChild(option);
             });
 
@@ -607,13 +607,13 @@
     hideLoading() {
         const originalContent = `
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <h6 class="mb-0"><i class="fas fa-edit me-1"></i>Éléments de la checklist (<span id="checklistItemCount" class="badge-checklist">0</span> éléments)</h6>
+                <h6 class="mb-0"><i class="fas fa-edit me-1"></i>Tâches (<span id="checklistItemCount" class="badge-checklist">0</span> tâches)</h6>
                 <button type="button" class="btn btn-success btn-sm" id="addChecklistItem">
-                    <i class="fas fa-plus me-1"></i>Ajouter un élément
+                    <i class="fas fa-plus me-1"></i>Ajouter une tâche
                 </button>
             </div>
             <div id="checklistItems" class="checklist-items-container">
-                <!-- Les éléments seront ajoutés ici -->
+                <!-- Les tâches seront ajoutés ici -->
             </div>
         `;
         $(this.options.containerSelector).html(originalContent);
@@ -628,7 +628,7 @@
             container.html(`
                 <div class="alert alert-info text-center">
                     <i class="fas fa-info-circle me-2"></i>
-                    Aucun élément dans la checklist. Cliquez sur "Ajouter un élément" pour commencer.
+                    Aucune tâche dans la checklist. Cliquez sur "Ajouter une tâche" pour commencer.
                 </div>
             `);
             return;
@@ -688,7 +688,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Libellé</label>
                         <input type="text" class="form-control form-control-sm" name="libelle" 
-                               value="${element.libelle}" placeholder="Description de l'élément" required>
+                               value="${element.libelle}" placeholder="Description de la tâche" required>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">Priorité</label>
@@ -982,7 +982,7 @@
                     .html(this.renderAssignedGroups(selectedIds));
             }
 
-            console.log(`${field} mis à jour pour l'élément ${elementId}:`, selectedIds);
+            console.log(`${field} mis à jour pour la tâche ${elementId}:`, selectedIds);
         }
     }
 
@@ -1036,7 +1036,7 @@
     }
 
     addNewChecklistItem() {
-        console.log('Ajout d\'un nouvel élément');
+        console.log('Ajout d\'une nouvelle tâche ');
 
         const newElement = {
             id: ++this.elementIdCounter,
@@ -1054,7 +1054,7 @@
         this.renderChecklistItems();
         this.updateChecklistData();
 
-        console.log('Élément ajouté, total:', this.currentChecklist.elements.length);
+        console.log('Tâche ajouté, total:', this.currentChecklist.elements.length);
 
         $(this.options.itemsContainer).scrollTop(0);
         setTimeout(() => {
@@ -1064,19 +1064,19 @@
 
     removeChecklistItem(e) {
         const elementId = parseInt($(e.target).closest('.checklist-item').data('element-id'));
-        console.log('Suppression de l\'élément avec ID:', elementId);
+        console.log('Suppression de la tâche avec ID:', elementId);
 
-        if (confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
+        if (confirm('Êtes-vous sûr de vouloir supprimer cette tâche ?')) {
             const elementIndex = this.currentChecklist.elements.findIndex(el => el.id === elementId);
 
             if (elementIndex !== -1) {
                 this.currentChecklist.elements.splice(elementIndex, 1);
                 this.renderChecklistItems();
                 this.updateChecklistData();
-                this.showNotification('Élément supprimé', 'success');
-                console.log('Élément supprimé, total restant:', this.currentChecklist.elements.length);
+                this.showNotification('Tâche supprimé', 'success');
+                console.log('Tâche supprimée, total restant:', this.currentChecklist.elements.length);
             } else {
-                console.error('Élément non trouvé pour suppression, ID:', elementId);
+                console.error('Tâche non trouvée pour suppression, ID:', elementId);
             }
         }
     }
@@ -1115,7 +1115,7 @@
                 $item.find('.form-check-label').text(value ? 'Oui' : 'Non');
             }
 
-            console.log(`Champ ${field} mis à jour pour l'élément ${elementId}:`, value);
+            console.log(`Champ ${field} mis à jour pour la tâche ${elementId}:`, value);
         }
     }
 
@@ -1202,7 +1202,7 @@
 
         const invalidElements = this.currentChecklist.elements.filter(el => !el.libelle.trim());
         if (invalidElements.length > 0) {
-            return { isValid: false, message: 'Tous les éléments de la checklist doivent avoir un libellé.' };
+            return { isValid: false, message: 'Toutes les tâches doivent avoir un libellé.' };
         }
 
         return { isValid: true, message: '' };

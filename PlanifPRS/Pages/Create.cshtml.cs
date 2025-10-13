@@ -756,7 +756,7 @@ namespace PlanifPRS.Pages.Prs
 
                 if (checklistForm?.elements == null || !checklistForm.elements.Any())
                 {
-                    _logger.LogInformation("Aucun élément de checklist trouvé");
+                    _logger.LogInformation("Aucune tâche de checklist trouvé");
                     return;
                 }
 

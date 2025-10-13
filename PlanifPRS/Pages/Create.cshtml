@@ -974,18 +974,18 @@
                     <div class="card-header bg-primary text-white d-flex align-items-center">
                         <i class="fas fa-tasks me-2 fs-4"></i>
                         <div>
-                            <h5 class="mb-0">📋 Checklist PRS</h5>
-                            <small>Associez une checklist à cette PRS selon les standards qualité</small>
+                            <h5 class="mb-0">📋 Tâches</h5>
+                            <small>Associez une tâche à cette PRS selon les standards qualité</small>
                         </div>
                     </div>
                     <div class="card-body">
                         <div class="checklist-type-selector mb-4 row">
                             <div class="col-md-4">
                                 <label class="form-label fw-bold">
-                                    <i class="fas fa-clipboard-list me-1 text-primary"></i>Type de checklist
+                                    <i class="fas fa-clipboard-list me-1 text-primary"></i>Type de tâche
                                 </label>
                                 <select id="checklistTypeSelector" class="form-select">
-                                    <option value="">-- Aucune checklist --</option>
+                                    <option value="">-- Aucune tâche --</option>
                                     <option value="modele">🎯 Modèle prédéfini</option>
                                     <option value="copy">📋 Copier depuis PRS existante</option>
                                     <option value="custom">✏️ Personnalisée</option>
@@ -1008,7 +1008,7 @@
                                 <select id="prsSourceSelect" class="form-select">
                                     <option value="">-- Chargement des PRS... --</option>
                                 </select>
-                                <small class="text-muted mt-1 d-block">Sélectionnez une PRS existante avec une checklist à copier</small>
+                                <small class="text-muted mt-1 d-block">Sélectionnez une PRS existante avec une tâche à copier</small>
                             </div>
                         </div>
                         <div id="prsSearchResults" class="prs-search-results" style="display:none;"></div>
@@ -1017,11 +1017,11 @@
                             <div class="d-flex justify-content-between align-items-center mb-3">
                                 <h6 class="mb-0">
                                     <i class="fas fa-edit me-1"></i>
-                                    Éléments de la checklist (<span id="checklistItemCount" class="badge-checklist">0</span> éléments)
+                                    Tâches (<span id="checklistItemCount" class="badge-checklist">0</span> tâche)
                                 </h6>
                                 <!-- ID attendu par checklist-manager.js -->
                                 <button type="button" class="btn btn-sm btn-checklist" id="addChecklistItem">
-                                    <i class="fas fa-plus-circle me-1"></i>Ajouter un élément
+                                    <i class="fas fa-plus-circle me-1"></i>Ajouter une tâche
                                 </button>
                             </div>
                             <!-- ID attendu par checklist-manager.js -->
@@ -1037,7 +1037,7 @@
                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title" id="checklistModeleModalLabel">Sélectionner les éléments à importer</h5>
+                            <h5 class="modal-title" id="checklistModeleModalLabel">Sélectionner les tâches à importer</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
                         </div>
                         <div class="modal-body">
@@ -1052,7 +1052,7 @@
                             </div>
 
                             <div id="modeleItemsContainer" class="list-group border" style="max-height: 50vh; overflow:auto;"></div>
-                            <div id="modeleEmptyState" class="alert alert-warning d-none mt-3 mb-0">Aucun élément disponible pour ce modèle.</div>
+                            <div id="modeleEmptyState" class="alert alert-warning d-none mt-3 mb-0">Aucune tâche disponible pour ce modèle.</div>
                             <div id="categoryAssignmentsContainer" class="mt-3 border-top pt-3" style="display:none;">
                                 <h6 class="mb-2">
                                     <i class="fas fa-user-check me-1 text-primary"></i>
@@ -1077,14 +1077,14 @@
 
                                 <div id="categoryAssignmentsRows" class="row g-3"></div>
                                 <small class="text-muted d-block mt-1">
-                                    Chaque catégorie listée contient au moins un élément sans groupe – un responsable utilisateur est obligatoire.
+                                    Chaque catégorie listée contient au moins une tâche sans groupe – un responsable utilisateur est obligatoire.
                                 </small>
                             </div>
                         </div>
                         <div class="modal-footer">
                             <div class="text-muted me-auto small" id="modeleCountInfo"></div>
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                            <button type="button" class="btn btn-primary" id="confirmChecklistModele">Importer les éléments sélectionnés</button>
+                            <button type="button" class="btn btn-primary" id="confirmChecklistModele">Importer les tâches sélectionnées</button>
                         </div>
                     </div>
                 </div>
@@ -1093,9 +1093,9 @@
             <div id="checklistAffectationSection" style="display: none;">
                 <h5 class="mt-4 mb-3">
                     <i class="fas fa-user-check text-success"></i>
-                    Affectation des éléments de checklist
+                    Affectation des tâches
                 </h5>
-                <p class="text-muted">Vous pouvez affecter chaque élément de checklist à des utilisateurs ou groupes spécifiques.</p>
+                <p class="text-muted">Vous pouvez affecter chaque tâche à des utilisateurs ou groupes spécifiques.</p>
 
                 <div id="checklistItemsContainer"></div>
             </div>
@@ -1135,7 +1135,7 @@
                 <input type="text" class="form-control form-control-sm checklist-souscategorie" placeholder="Sous-catégorie" data-field="sousCategorie">
             </div>
             <div class="col-md-3">
-                <input type="text" class="form-control form-control-sm checklist-libelle" placeholder="Description de l'élément" data-field="libelle">
+                <input type="text" class="form-control form-control-sm checklist-libelle" placeholder="Description de la tâche" data-field="libelle">
             </div>
             <div class="col-md-1">
                 <div class="form-check">
@@ -1304,7 +1304,7 @@
             const baseUrl = '@Url.Page("./Create", "ChecklistModeleItems")';
             const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'id=' + encodeURIComponent(modeleId);
             const resp = await fetch(url, { headers: { 'Accept':'application/json' }});
-            if (!resp.ok) throw new Error('Erreur de chargement des éléments.');
+            if (!resp.ok) throw new Error('Erreur de chargement des tâches.');
             const json = await resp.json();
             if (!json || !Array.isArray(json.items)) return [];
             return json.items.map(x => ({
@@ -1500,7 +1500,7 @@
                     <span class="text-danger">*</span>
                   </label>
                   <span class="badge bg-light text-muted">
-                    ${catObj.items.filter(i => !i.groupeId).length} élément(s)
+                    ${catObj.items.filter(i => !i.groupeId).length} tâche(s)
                   </span>
                 </div>
                 <select class="form-select form-select-sm cat-user" data-cat="${cat}">
@@ -1580,7 +1580,7 @@
           function importSelected() {
             const selected = collectSelected();
             if (!selected.length) {
-              alert('Aucun élément sélectionné.');
+              alert('Aucune tâche sélectionné.');
               return;
             }
             if (!validateBeforeImport()) return;
@@ -3002,7 +3002,7 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
             container.innerHTML = '';
 
             if (!checklistItems || checklistItems.length === 0) {
-                container.innerHTML = '<p class="text-muted">Aucun élément de checklist à affecter.</p>';
+                container.innerHTML = '<p class="text-muted">Aucune tâche de checklist à affecter.</p>';
                 return;
             }
 
@@ -3012,7 +3012,7 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
                 itemDiv.innerHTML = `
                     <div class="d-flex justify-content-between align-items-start">
                         <div class="flex-grow-1">
-                            <h6 class="mb-1">${item.libelle || item.tache || 'Élément sans nom'}</h6>
+                            <h6 class="mb-1">${item.libelle || item.tache || 'Tâche sans nom'}</h6>
                             ${item.categorie ? `<small class="text-muted">Catégorie: ${item.categorie}</small><br>` : ''}
                             ${item.sousCategorie ? `<small class="text-muted">Sous-catégorie: ${item.sousCategorie}</small>` : ''}
                         </div>
@@ -3039,7 +3039,7 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
                 <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
-                            <h5 class="modal-title">Affecter cet élément de checklist</h5>
+                            <h5 class="modal-title">Affecter cette tâche</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                         </div>
                         <div class="modal-body">
@@ -3197,7 +3197,7 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
                             const checklistItems = Array.from(checklistContainer.querySelectorAll('.checklist-item, .form-check')).map((item, index) => {
                                 const label = item.querySelector('label, .checklist-label');
                                 return {
-                                    libelle: label ? label.textContent.trim() : `Élément ${index + 1}`,
+                                    libelle: label ? label.textContent.trim() : `Tâche ${index + 1}`,
                                     categorie: item.dataset.categorie || '',
                                     sousCategorie: item.dataset.sousCategorie || ''
                                 };

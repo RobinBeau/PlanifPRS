@@ -140,7 +140,7 @@ namespace PlanifPRS.Models
             get
             {
                 if (!AChecklist) return "Aucune checklist";
-                if (PourcentageCompletionObligatoire < 100) return "Éléments obligatoires manquants";
+                if (PourcentageCompletionObligatoire < 100) return "Tâches obligatoires manquants";
                 if (PourcentageCompletionChecklist == 100) return "Complète";
                 return "En cours";
             }

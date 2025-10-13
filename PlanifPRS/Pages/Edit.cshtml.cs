@@ -999,8 +999,8 @@ namespace PlanifPRS.Pages
                                 }
                                 else
                                 {
-                                    _logger.LogWarning("[EDIT] Type=copy mais aucun élément fourni par l'IHM.");
-                                    ErrorMessage += " Aucun élément de checklist à enregistrer.";
+                                    _logger.LogWarning("[EDIT] Type=copy mais Aucune tâche fourni par l'IHM.");
+                                    ErrorMessage += " Aucune tâche de checklist à enregistrer.";
                                 }
                                 break;
                             }

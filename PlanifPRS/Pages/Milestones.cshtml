@@ -1,7 +1,7 @@
 ﻿@page
 @model PlanifPRS.Pages.MilestonesModel
 @{
-    ViewData["Title"] = "Gestion des Checklists PRS";
+    ViewData["Title"] = "Gestion des Tâches";
     var today = DateTime.Today;
 }
 
@@ -11,10 +11,10 @@
         <div class="d-flex justify-content-between align-items-center">
             <div>
                 <h1 class="page-title">
-                    <i class="fas fa-flag-checkered me-3"></i>Gestion des Checklists PRS
+                    <i class="fas fa-flag-checkered me-3"></i>Gestion des Tâches
                 </h1>
                 <p class="page-subtitle">
-                    <i class="fas fa-info-circle me-1"></i>Suivez l'avancement des éléments de checklist et identifiez les retards
+                    <i class="fas fa-info-circle me-1"></i>Suivez l'avancement des tâches et identifiez les retards
                     <span class="ms-3"><i class="fas fa-calendar me-1"></i>Aujourd'hui : @today.ToString("dd/MM/yyyy")</span>
                 </p>
             </div>
@@ -54,7 +54,7 @@
         <div class="filters-section">
             <div class="filter-group">
                 <label class="filter-label">
-                    <i class="fas fa-filter me-1"></i>Filtrer par statut (éléments)
+                    <i class="fas fa-filter me-1"></i>Filtrer par statut (tâches)
                 </label>
                 <div class="filter-buttons">
                     <button class="filter-btn active" data-filter="all">
@@ -115,7 +115,7 @@
     <div class="jalons-table-container">
         <div class="p-3 border-bottom" style="background: rgba(248, 249, 250, 0.8);">
             <h3 class="m-0" style="font-weight:700;color:#495057;">
-                <i class="fas fa-tasks me-2"></i>Checklists PRS
+                <i class="fas fa-tasks me-2"></i>Tâches
             </h3>
             @if (Model.ChecklistItems != null)
             {
@@ -124,7 +124,7 @@
                 var late = Model.ChecklistItems.Count(i => i.IsLate);
                 var dueSoon = Model.ChecklistItems.Count(i => i.IsDueSoon);
                 <div class="mt-2 d-flex flex-wrap gap-2">
-                    <span class="badge" style="background:#e9ecef;color:#495057;">@total élément(s)</span>
+                    <span class="badge" style="background:#e9ecef;color:#495057;">@total tâche(s)</span>
                     <span class="badge" style="background:#198754;color:#fff;">@validated validé(s)</span>
                     <span class="badge" style="background:#ffc107;color:#212529;">@dueSoon à échéance proche</span>
                     <span class="badge" style="background:#dc3545;color:#fff;">@late en retard</span>
@@ -140,7 +140,7 @@
                         <tr>
                             <th style="width:32%">
                                 <i class="fas fa-project-diagram me-1"></i>
-                                PRS - Élément
+                                PRS - Tâche
                             </th>
                             <th style="width:15%">
                                 <i class="fas fa-tags me-1"></i>
@@ -284,8 +284,8 @@
                 <div class="empty-icon">
                     <i class="fas fa-tasks"></i>
                 </div>
-                <h4>Aucun élément de checklist</h4>
-                <p>Aucun élément de checklist n'a été trouvé.</p>
+                <h4>Aucune tâche</h4>
+                <p>Aucune tâche n'a été trouvée.</p>
             </div>
         }
     </div>
@@ -356,7 +356,7 @@
                     }
                 });
 
-                console.log(`${visibleCount} élément(s) visible(s)`);
+                console.log(`${visibleCount} tâche(s) visible(s)`);
             }
 
             // Animation des barres de progression

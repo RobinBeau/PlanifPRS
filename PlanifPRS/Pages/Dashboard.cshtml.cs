@@ -851,7 +851,7 @@ namespace PlanifPRS.Pages
                 if (user == null) { ErrorMessage = "Utilisateur inconnu."; return RedirectToPage(); }
 
                 var item = await _context.PrsChecklists.FirstOrDefaultAsync(c => c.Id == checklistId);
-                if (item == null) { ErrorMessage = "Élément introuvable."; return RedirectToPage(); }
+                if (item == null) { ErrorMessage = "tâche introuvable."; return RedirectToPage(); }
 
                 item.EstCoche = true;
                 item.DateValidation = DateTime.Now;
@@ -859,7 +859,7 @@ namespace PlanifPRS.Pages
                 item.Statut = true;
 
                 await _context.SaveChangesAsync();
-                Flash = "Élément validé.";
+                Flash = "tâche validé.";
             }
             catch (Exception ex)
             {
@@ -879,7 +879,7 @@ namespace PlanifPRS.Pages
                 if (user == null) { ErrorMessage = "Utilisateur inconnu."; return RedirectToPage(); }
 
                 var item = await _context.PrsChecklists.FirstOrDefaultAsync(c => c.Id == checklistId);
-                if (item == null) { ErrorMessage = "Élément introuvable."; return RedirectToPage(); }
+                if (item == null) { ErrorMessage = "tâche introuvable."; return RedirectToPage(); }
 
                 item.EstCoche = false;
                 item.DateValidation = null;

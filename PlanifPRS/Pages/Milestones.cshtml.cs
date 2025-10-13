@@ -137,7 +137,7 @@ namespace PlanifPRS.Pages
             }
             catch (Exception ex)
             {
-                TempData["ErrorMessage"] = $"❌ Erreur lors du chargement des checklists: {ex.Message}";
+                TempData["ErrorMessage"] = $"❌ Erreur lors du chargement des tâches: {ex.Message}";
                 ChecklistItems = new List<ChecklistItemVM>();
             }
 
@@ -153,7 +153,7 @@ namespace PlanifPRS.Pages
                 var item = await _context.PrsChecklists.FirstOrDefaultAsync(c => c.Id == checklistId);
                 if (item == null)
                 {
-                    TempData["ErrorMessage"] = "❌ Élément de checklist introuvable.";
+                    TempData["ErrorMessage"] = "❌ Tâche introuvable.";
                     return RedirectToPage();
                 }
 
@@ -164,7 +164,7 @@ namespace PlanifPRS.Pages
                 item.Statut = true;
 
                 await _context.SaveChangesAsync();
-                TempData["SuccessMessage"] = "✅ Élément de checklist validé.";
+                TempData["SuccessMessage"] = "✅ Tâche validée.";
             }
             catch (Exception ex)
             {
@@ -183,7 +183,7 @@ namespace PlanifPRS.Pages
                 var item = await _context.PrsChecklists.FirstOrDefaultAsync(c => c.Id == checklistId);
                 if (item == null)
                 {
-                    TempData["ErrorMessage"] = "❌ Élément de checklist introuvable.";
+                    TempData["ErrorMessage"] = "❌ Tâche introuvable.";
                     return RedirectToPage();
                 }
 

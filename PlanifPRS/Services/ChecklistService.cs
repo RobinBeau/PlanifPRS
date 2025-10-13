@@ -130,7 +130,7 @@ namespace PlanifPRS.Services
 
                 if (existingItems.Any())
                 {
-                    _logger.LogInformation("[ApplyModele] Suppression éléments checklist: {count}", existingItems.Count);
+                    _logger.LogInformation("[ApplyModele] Suppression tâches: {count}", existingItems.Count);
                     _context.PrsChecklists.RemoveRange(existingItems);
                     await _context.SaveChangesAsync();
                 }
@@ -207,7 +207,7 @@ namespace PlanifPRS.Services
 
                 if (existingItems.Any())
                 {
-                    _logger.LogInformation("[CopyFromPrs] Suppression éléments checklist cible: {count}", existingItems.Count);
+                    _logger.LogInformation("[CopyFromPrs] Suppression tâches cible: {count}", existingItems.Count);
                     _context.PrsChecklists.RemoveRange(existingItems);
                     await _context.SaveChangesAsync();
                 }
@@ -311,7 +311,7 @@ namespace PlanifPRS.Services
 
                 if (existingItems.Any())
                 {
-                    _logger.LogInformation("[CreateCustomChecklist] Suppression éléments checklist: {count}", existingItems.Count);
+                    _logger.LogInformation("[CreateCustomChecklist] Suppression tâches: {count}", existingItems.Count);
                     _context.PrsChecklists.RemoveRange(existingItems);
                     await _context.SaveChangesAsync();
                 }
@@ -327,7 +327,7 @@ namespace PlanifPRS.Services
 
                 if (elements == null || elements.Count == 0)
                 {
-                    _logger.LogWarning("[CreateCustomChecklist] Aucun élément à créer -> return true");
+                    _logger.LogWarning("[CreateCustomChecklist] Aucune tâche à créer -> return true");
                     await tx.CommitAsync();
                     return true;
                 }
@@ -364,7 +364,7 @@ namespace PlanifPRS.Services
                     added++;
                 }
 
-                _logger.LogInformation("[CreateCustomChecklist] Insertion éléments: {added}", added);
+                _logger.LogInformation("[CreateCustomChecklist] Insertion tâches: {added}", added);
 
                 await _context.SaveChangesAsync();
                 await tx.CommitAsync();

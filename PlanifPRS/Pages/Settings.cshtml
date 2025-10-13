@@ -21,7 +21,7 @@
         </li>
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="checklists-tab" data-bs-toggle="tab" data-bs-target="#checklists" type="button" role="tab">
-                <i class="fas fa-list-check"></i> Checklists Prédéfinies
+                <i class="fas fa-list-check"></i> Tâches Prédéfinies
             </button>
         </li>
     </ul>
@@ -289,15 +289,15 @@
             </div>
         </div>
 
-        <!-- Onglet Checklists Prédéfinies -->
+        <!-- Onglet tâches Prédéfinies -->
         <div class="tab-pane fade" id="checklists" role="tabpanel">
             <div class="card mt-3">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
-                        <i class="fas fa-list-check"></i> Gestion des Checklists Prédéfinies
+                        <i class="fas fa-list-check"></i> Gestion des Tâches Prédéfinies
                     </h5>
                     <button type="button" class="btn btn-primary" onclick="showChecklistForm()">
-                        <i class="fas fa-plus"></i> Créer un modèle de checklist
+                        <i class="fas fa-plus"></i> Créer un modèle de tâche
                     </button>
                 </div>
                 <div class="card-body">
@@ -305,7 +305,7 @@
                     <div id="checklistFormContainer" class="mb-4" style="display: none;">
                         <div class="card border-success">
                             <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                                <h6 class="mb-0" id="checklistFormTitle">Créer un modèle de checklist</h6>
+                                <h6 class="mb-0" id="checklistFormTitle">Créer un modèle de tâche</h6>
                                 <button type="button" class="btn-close btn-close-white" onclick="hideChecklistForm()"></button>
                             </div>
                             <div class="card-body">
@@ -340,12 +340,12 @@
                                     </div>
 
                                     <div class="mb-3">
-                                        <h6>Éléments de la checklist</h6>
+                                        <h6>Tâches</h6>
                                         <div id="checklistElementsContainer">
                                             <!-- Les éléments seront ajoutés dynamiquement ici -->
                                         </div>
                                         <button type="button" class="btn btn-outline-secondary btn-sm" onclick="addChecklistElement()">
-                                            <i class="fas fa-plus"></i> Ajouter un élément
+                                            <i class="fas fa-plus"></i> Ajouter une tâche
                                         </button>
                                     </div>
 
@@ -410,7 +410,7 @@
                                             <div class="d-flex justify-content-between align-items-center mb-2">
                                                 <span class="badge bg-primary">@modele.FamilleEquipement</span>
                                                 <small class="text-muted">
-                                                    <i class="fas fa-list"></i> @modele.NombreElements élément(s)
+                                                    <i class="fas fa-list"></i> @modele.NombreElements tâche(s)
                                                 </small>
                                             </div>
                                             <div class="mb-2">
@@ -968,7 +968,7 @@
     // =========================
     function showChecklistForm() {
         document.getElementById('checklistFormContainer').style.display = 'block';
-        document.getElementById('checklistFormTitle').textContent = 'Créer un modèle de checklist';
+        document.getElementById('checklistFormTitle').textContent = 'Créer un modèle de tâche';
         document.getElementById('checklistModeleId').value = '0';
         document.getElementById('checklistNom').value = '';
         document.getElementById('checklistFamille').value = '';
@@ -1054,7 +1054,7 @@
                 <p><strong>Description:</strong> ${data.description || 'Aucune description'}</p>
                 <p><strong>Famille:</strong> <span class="badge bg-primary">${data.familleEquipement}</span></p>
                 <p><strong>Créé par:</strong> ${data.createdByLogin} le ${new Date(data.dateCreation).toLocaleDateString('fr-FR')}</p>
-                <h6 class="mt-3">Éléments de la checklist (${data.elements.length})</h6>
+                <h6 class="mt-3">Tâches (${data.elements.length})</h6>
                 <div class="table-responsive">
                 <table class="table table-sm">
                     <thead>
@@ -1097,7 +1097,7 @@
             checklistDetailsModal.show();
         } catch (e) {
             console.error(e);
-            alert('Erreur lors du chargement des détails de la checklist');
+            alert('Erreur lors du chargement des détails de la tâche');
         }
     }
 
@@ -1108,7 +1108,7 @@
             const data = await response.json();
 
             document.getElementById('checklistFormContainer').style.display = 'block';
-            document.getElementById('checklistFormTitle').textContent = 'Modifier le modèle de checklist';
+            document.getElementById('checklistFormTitle').textContent = 'Modifier le modèle de tâche';
             document.getElementById('checklistModeleId').value = data.id;
             document.getElementById('checklistNom').value = data.nom;
             document.getElementById('checklistFamille').value = data.familleEquipement;
@@ -1189,7 +1189,7 @@
             const data = await response.json();
 
             document.getElementById('checklistFormContainer').style.display = 'block';
-            document.getElementById('checklistFormTitle').textContent = 'Dupliquer le modèle de checklist';
+            document.getElementById('checklistFormTitle').textContent = 'Dupliquer le modèle de tâche';
             document.getElementById('checklistModeleId').value = '0';
             document.getElementById('checklistNom').value = 'Copie de ' + data.nom;
             document.getElementById('checklistFamille').value = data.familleEquipement || '';

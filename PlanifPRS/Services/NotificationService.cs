@@ -314,7 +314,7 @@ namespace PlanifPRS.Services
   <p><strong>Période :</strong> {prs.DateDebut:dd/MM/yyyy HH:mm} → {prs.DateFin:dd/MM/yyyy HH:mm}</p>
   <p><strong>Ligne :</strong> {EscapeHtml(prs.Ligne?.Nom)}</p>
   <hr />
-  <h4>Vos éléments :</h4>
+  <h4>Vos tâches :</h4>
   {checklistDetailsFull}
   <hr />
   <p style='color:#888'>Mail automatique - Ne pas répondre.</p>
@@ -633,7 +633,7 @@ namespace PlanifPRS.Services
                 .OrderBy(c => c.DateEcheance)
                 .ToListAsync();
 
-            if (!elements.Any()) return "<p><em>Aucun élément de checklist assigné.</em></p>";
+            if (!elements.Any()) return "<p><em>Aucune tâche assignés.</em></p>";
 
             var sb = new StringBuilder();
             sb.Append("<h4>Checklist assignée :</h4><ul style='padding-left:16px'>");
@@ -657,7 +657,7 @@ namespace PlanifPRS.Services
                 .OrderBy(c => c.DateEcheance)
                 .ToListAsync();
 
-            if (!elements.Any()) return "<p><em>Aucun élément de checklist assigné.</em></p>";
+            if (!elements.Any()) return "<p><em>Aucune tâche assignée.</em></p>";
 
             var sb = new StringBuilder();
             sb.Append("<table style='border-collapse:collapse;width:100%;font-size:12px' border='1'>");
