@@ -561,7 +561,7 @@
         // Token "dernier appel gagne"
         const token = ++__absencesLoadToken;
 
-        // Toujours retirer TOUTES les anciennes sources d’abord
+        // Toujours retirer TOUTES les anciennes sources d'abord
         calendarInstance.getEventSources()
             .filter(src => src.id === 'absences-assignees')
             .forEach(src => src.remove());
@@ -585,7 +585,7 @@
         const absenceEvents = buildAbsenceEvents(absencesJson, assigned);
         if (!absenceEvents.length) return;
 
-        // Encore un check avant d’ajouter (en cas de nouvelle course)
+        // Encore un check avant d'ajouter (en cas de nouvelle course)
         if (token !== __absencesLoadToken) return;
 
         calendarInstance.addEventSource({ id: 'absences-assignees', events: absenceEvents });
@@ -714,7 +714,7 @@
       // Absence → garde logique existante
           const typeEvt = info.event.extendedProps.type;
     if (typeEvt === 'Absence') {
-      // Absence : garde ta logique d’origine si nécessaire
+      // Absence : garde ta logique d'origine si nécessaire
          // Fond externe = couleur équipement (déjà fixée en backgroundColor)
     if (info.event.backgroundColor) {
         info.el.style.backgroundColor = info.event.backgroundColor;
@@ -756,7 +756,7 @@
 
                 let couleurPrsDisplay = '';
                 const couleurPRS = info.event.extendedProps.couleurPRS;
-                if (hasColorViewRights && couleurPRS && couleurPRS.trim() !== '') {
+                if (couleurPRS && couleurPRS.trim() !== '') {
                     couleurPrsDisplay = `
                         <div style="margin-top: 8px; text-align: center;">
                             <span style="font-size: 0.85em; color: #666;">Couleur PRS: </span>
@@ -831,12 +831,10 @@
                 });
                 // -------------------------------------------------------------
 
-                if (hasColorViewRights) {
-                    const eventsWithPrsColor = filteredData.filter(ev =>
-                        ev.extendedProps && ev.extendedProps.couleurPRS);
-                    if (eventsWithPrsColor.length > 0) {
-                        console.log(`${eventsWithPrsColor.length} événement(s) avec couleur PRS (hors Supprimé)`);
-                    }
+                const eventsWithPrsColor = filteredData.filter(ev =>
+                    ev.extendedProps && ev.extendedProps.couleurPRS);
+                if (eventsWithPrsColor.length > 0) {
+                    console.log(`${eventsWithPrsColor.length} événement(s) avec couleur PRS (hors Supprimé)`);
                 }
 
                 const pendingEvents = filteredData.filter(ev =>
@@ -865,7 +863,7 @@
                         ev.allDay = diff >= 86400000 && start.getHours() === 0 && end.getHours() === 0;
                     }
                         // === COULEURS ===
-    // Couleur famille (on suppose qu’avant c’était couleurPRS)
+    // Couleur famille (on suppose qu'avant c'était couleurPRS)
     const familyColor =
         ev.extendedProps.couleurFamille ||
         ev.couleurFamille ||
@@ -874,7 +872,7 @@
         null;
 
      // === Couleurs ===
-    // NE PAS toucher à ev.extendedProps.couleurPRS : c’est la couleur famille (déjà envoyée par l’API)
+    // NE PAS toucher à ev.extendedProps.couleurPRS : c'est la couleur famille (déjà envoyée par l'API)
     // Déterminer couleur équipement
     const ext = ev.extendedProps;
     const equip = ext.equipement || ext.Equipement || ev.equipement || ev.Equipement || '';
@@ -974,8 +972,8 @@
                    function createColorBackground(content) {
         const ext = arg.event.extendedProps || {};
         const equipColor = ext.equipementColor || arg.event.backgroundColor || '#5a6b7c';
-        // Afficher la couleur famille (couleurPRS / famille) uniquement pour les admins / validateurs
-const familyBgRaw = hasColorViewRights ? (familyColor || couleurPRS || '').trim() : '';
+        // Afficher la couleur famille (couleurPRS / famille) pour TOUT LE MONDE maintenant
+        const familyBgRaw = (familyColor || couleurPRS || '').trim();
         const innerBg = familyBgRaw || equipColor;
 
         // Normalisation hex
@@ -1089,7 +1087,7 @@ const familyBgRaw = hasColorViewRights ? (familyColor || couleurPRS || '').trim(
 
         calendar.render();
 
-            // Force le bouton “Jour” standard à recentrer sur aujourd’hui après son action
+            // Force le bouton "Jour" standard à recentrer sur aujourd'hui après son action
     setTimeout(() => {
       const dayBtn = document.querySelector('.fc-timeGridDay-button');
       if (dayBtn) {

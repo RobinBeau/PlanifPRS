@@ -9,7 +9,7 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, Je suis de retour le 23/10 au matin Pour toute demande, merci de bien vouloir contacter Florence Balut ou Thomas Boursin Cordialement. Agn\u00E8s Lancelot."
     },
     "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:19.0458656+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:05.9939517+00:00"
   },
   {
     "Email": "allan.zbik@allcircuits.com",
@@ -29,7 +29,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:19.4876131+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:06.4388391+00:00"
   },
   {
     "Email": "amelie.roy@allcircuits.com",
@@ -70,7 +70,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:19.8841004+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:06.6388917+00:00"
   },
   {
     "Email": "antoine.sureau@allcircuits.com",
@@ -104,7 +104,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:20.077102+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:06.986339+00:00"
   },
   {
     "Email": "arnaud.lasne@allcircuits.com",
@@ -124,7 +124,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:20.3778138+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:07.4485056+00:00"
   },
   {
     "Email": "aurelien.erdeven@allcircuits.com",
@@ -136,6 +136,13 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Trebuchet MS\u0022; panose-1:2 11 6 3 2 2 2 2 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Trebuchet MS\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour Je suis actuellement absent et je serai de retour le Lundi 1er Septembre Vous pouvez contacter Thierry au 23697 Merci de votre compr\u00E9hension Cdlt Aur\u00E9lien"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-09T22:00:00+02:00",
+        "End": "2025-10-10T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-12T22:00:00+02:00",
@@ -151,7 +158,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:20.5928623+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:07.9012157+00:00"
   },
   {
     "Email": "aurelien.petit@allcircuits.com",
@@ -185,7 +192,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:20.8788982+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:08.2994631+00:00"
   },
   {
     "Email": "beni-kevin.gakuba@allcircuits.com",
@@ -197,6 +204,13 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:Verdana; panose-1:2 11 6 4 3 5 4 4 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} @font-face {font-family:Webdings; panose-1:5 3 1 2 1 5 9 6 7 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Segoe UI\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, Je suis absent du bureau. Je prendrais connaissance de votre mail \u00E0 mon retour le 29/09/2025. Cordialement, Best regards, Kevin GAKUBA Global Purchasing Apprentice Mail: beni-kevin.gakuba@allcircuits.com Tel : 02 38 46 36 68 Address : 6, Parc Synergie Val de Loire, 3\u00E8me Avenue, CS 50028 45130, MEUNG-SUR-LOIRE FRANCE www.allcircuits.com Please refer to GPC/CGA on web site http://www.allcircuits.com/documentation.html P Please consider your environmental responsibility before printing this e-mail."
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T10:00:00+02:00",
+        "End": "2025-10-10T16:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-17T10:00:00+02:00",
@@ -268,7 +282,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:21.1194484+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:09.0015839+00:00"
   },
   {
     "Email": "Benjamin.lambert@allcircuits.com",
@@ -295,7 +309,19 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:21.3506141+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:09.3655426+00:00"
+  },
+  {
+    "Email": "bruno.leythienne@allcircuits.com",
+    "Presence": {
+      "Email": "bruno.leythienne@allcircuits.com",
+      "Activity": "PresenceUnknown",
+      "Availability": "PresenceUnknown",
+      "IsOutOfOffice": false,
+      "OoOMessage": "\u0026#65279; Bonjour, Je suis d\u00E9placement ce jour et serai de retour demain vendredi 10 octobre. Salutations sinc\u00E8res"
+    },
+    "Events": [],
+    "GeneratedAtUtc": "2025-10-10T07:57:09.6627272+00:00"
   },
   {
     "Email": "carine.boucher@allcircuits.com",
@@ -315,7 +341,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:21.6239302+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:09.9447335+00:00"
   },
   {
     "Email": "christophe.lefevre@allcircuits.com",
@@ -335,7 +361,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:21.8042131+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:10.3091272+00:00"
   },
   {
     "Email": "cindy.gorse@allcircuits.com",
@@ -347,7 +373,7 @@
       "OoOMessage": "Bonjour, Je suis absente , si besoin merci de contacter Annick LAPORTE au 23572 (annick.laporte@allcircuits.fr) ou Karine GRUET au 23506 (karine.gruet@allcircuits.com). Bonne journ\u00E9e Cordialement, Cindy GORSE"
     },
     "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:22.0021357+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:10.5680908+00:00"
   },
   {
     "Email": "claire.derquenne@allcircuits.com",
@@ -359,6 +385,13 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, En cong\u00E9s, de retour le 26 aout; merci de contacter C\u00E9lia Gour\u00E9 ou Fr\u00E9d\u00E9ric Gauthier pour la partie Achat et Robin Kerros pour les appros Bontaz et Fatima pour les appros MEB HUD Cordialement Claire"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-09T14:30:00+02:00",
+        "End": "2025-10-10T04:30:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-10T13:30:00+02:00",
@@ -375,8 +408,8 @@
       },
       {
         "Subject": "OOF",
-        "Start": "2025-10-13T09:30:00+02:00",
-        "End": "2025-10-13T11:00:00+02:00",
+        "Start": "2025-10-13T10:00:00+02:00",
+        "End": "2025-10-13T11:30:00+02:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
       },
@@ -402,7 +435,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:22.2804578+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:10.8073455+00:00"
   },
   {
     "Email": "coline.charles@allcircuits.com",
@@ -443,7 +476,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:22.4940753+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:11.2347467+00:00"
   },
   {
     "Email": "cyrielle.joubert@allcircuits.com",
@@ -484,7 +517,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:22.7940407+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:11.6258995+00:00"
   },
   {
     "Email": "cyril.parrot@allcircuits.com",
@@ -496,6 +529,20 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Aptos;} @font-face {font-family:Tahoma; panose-1:2 11 6 4 3 5 4 4 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:12.0pt; font-family:\u0022Aptos\u0022,sans-serif; mso-ligatures:standardcontextual; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Tahoma\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E \uFEFF Bonjour, Absent du bureau, je serais de retour mardi 22 juillet 2025. Salutations, Cyril"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T14:30:00+02:00",
+        "End": "2025-10-10T16:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-13T06:00:00+02:00",
+        "End": "2025-10-13T07:30:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-13T15:00:00+02:00",
@@ -691,16 +738,9 @@
         "End": "2025-12-08T17:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T16:30:00+01:00",
-        "End": "2025-12-10T17:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:23.0408241+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:12.0350238+00:00"
   },
   {
     "Email": "diane.schneider@allcircuits.com",
@@ -712,7 +752,7 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Segoe UI\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, Ayant quitt\u00E9 la structure, veuillez de contacter Lucile JOURDAIN pour le traitement de vos demandes Bien cordialement, Diane"
     },
     "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:23.1069228+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:12.1497011+00:00"
   },
   {
     "Email": "eliott.lebosse@allcircuits.com",
@@ -720,8 +760,8 @@
       "Email": "eliott.lebosse@allcircuits.com",
       "Activity": "PresenceUnknown",
       "Availability": "PresenceUnknown",
-      "IsOutOfOffice": true,
-      "OoOMessage": "Bonjour, Actuellement absent jusqu\u0027au 20/10 exclu et sans acc\u00E8s \u00E0 ma boite mail, je verrais votre message \u00E0 mon retour. En cas d\u0027urgence merci de faire un ticket GLPI Cordialement, Eliott"
+      "IsOutOfOffice": false,
+      "OoOMessage": "Bonjour, Actuellement absent jusqu\u0027au 01/09 exclu et sans acc\u00E8s \u00E0 ma boite mail, je verrais votre message \u00E0 mon retour. En cas d\u0027urgence merci de faire un ticket GLPI Cordialement, Eliott"
     },
     "Events": [
       {
@@ -746,7 +786,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:23.2765852+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:12.4085726+00:00"
   },
   {
     "Email": "elodie.nivard@allcircuits.com",
@@ -801,7 +841,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:23.5626147+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:12.7614307+00:00"
   },
   {
     "Email": "emma.alleaume@allcircuits.com",
@@ -813,7 +853,7 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif; color:black;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, N\u0027\u00E9tant plus dans la structure, je vous remercie de contacter Madame Maud GUERIN, Charg\u00E9e de d\u00E9veloppement RH : maud.guerin@allcircuits.com Emma ALLEAUME (Ancienne) Alternante RH ;)"
     },
     "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:23.6351059+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:12.8333414+00:00"
   },
   {
     "Email": "emmanuel.pecault@allcircuits.com",
@@ -903,7 +943,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:23.7953148+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:13.1122188+00:00"
   },
   {
     "Email": "emmanuel.tran-ap@allcircuits.com",
@@ -911,10 +951,17 @@
       "Email": "emmanuel.tran-ap@allcircuits.com",
       "Activity": "PresenceUnknown",
       "Availability": "PresenceUnknown",
-      "IsOutOfOffice": false,
+      "IsOutOfOffice": true,
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:Verdana; panose-1:2 11 6 4 3 5 4 4 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E En cong\u00E9s, de retour lundi 13/10. Cordialement, Emmanuel TRAN-AP\uFEFF"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-09T22:00:00+02:00",
+        "End": "2025-10-10T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-15T16:30:00+02:00",
@@ -991,16 +1038,9 @@
         "End": "2025-12-03T19:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T17:30:00+01:00",
-        "End": "2025-12-10T19:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:24.0717608+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:13.3285638+00:00"
   },
   {
     "Email": "enzo.melgueira@allcircuits.com",
@@ -1027,7 +1067,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:24.2826816+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:13.4950022+00:00"
   },
   {
     "Email": "fabien.belouet@allcircuits.com",
@@ -1054,7 +1094,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:24.7028935+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:13.6308385+00:00"
   },
   {
     "Email": "fabien.lesage@allcircuits.com",
@@ -1095,7 +1135,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:24.8980256+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:13.8495942+00:00"
   },
   {
     "Email": "fabienne.tsouri@allcircuits.com",
@@ -1115,7 +1155,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:24.976737+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:13.8994572+00:00"
   },
   {
     "Email": "fabrice.brette@allcircuits.com",
@@ -1129,13 +1169,20 @@
     "Events": [
       {
         "Subject": "OOF",
+        "Start": "2025-10-09T22:00:00+02:00",
+        "End": "2025-10-10T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
+      {
+        "Subject": "OOF",
         "Start": "2025-11-09T23:00:00+01:00",
         "End": "2025-11-10T23:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:36.8513759+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:14.2655451+00:00"
   },
   {
     "Email": "fabrice.menard@allcircuits.com",
@@ -1162,7 +1209,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:37.0618338+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:14.4711609+00:00"
   },
   {
     "Email": "fanchon.menager@allcircuits.com",
@@ -1180,16 +1227,9 @@
         "End": "2025-11-10T23:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-11-11T07:00:00+01:00",
-        "End": "2025-11-11T16:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:37.2284673+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:14.649226+00:00"
   },
   {
     "Email": "francois.bernard@allcircuits.com",
@@ -1210,13 +1250,6 @@
       },
       {
         "Subject": "OOF",
-        "Start": "2025-10-22T06:00:00+02:00",
-        "End": "2025-10-24T16:00:00+02:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
         "Start": "2025-10-22T15:00:00+02:00",
         "End": "2025-10-22T16:30:00+02:00",
         "IsOutOfOffice": true,
@@ -1224,8 +1257,8 @@
       },
       {
         "Subject": "OOF",
-        "Start": "2025-10-27T07:00:00+01:00",
-        "End": "2025-10-29T17:00:00+01:00",
+        "Start": "2025-10-29T16:00:00+01:00",
+        "End": "2025-10-29T17:30:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
       },
@@ -1246,7 +1279,7 @@
       {
         "Subject": "OOF",
         "Start": "2025-11-13T09:00:00+01:00",
-        "End": "2025-11-13T11:30:00+01:00",
+        "End": "2025-11-13T11:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
       },
@@ -1270,16 +1303,9 @@
         "End": "2025-12-03T17:30:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T16:00:00+01:00",
-        "End": "2025-12-10T17:30:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:37.4500594+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:14.8743089+00:00"
   },
   {
     "Email": "frederic.castano@allcircuits.com",
@@ -1291,7 +1317,7 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI Light\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E \uFEFF MERCI POUR TOUT , MAIS DESOLE, VOTRE MAIL NE SERA VUE QUE PAR VOUS AU REVOIR. JE SUIS EN RETRAITE! Tr\u00E8s cordialement Fred"
     },
     "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:37.6666985+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:15.1904579+00:00"
   },
   {
     "Email": "georges.gasquet@allcircuits.com",
@@ -1381,7 +1407,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:37.7577885+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:15.4150793+00:00"
   },
   {
     "Email": "gregory.poclet@allcircuits.com",
@@ -1393,6 +1419,13 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, Je suis indisponible jusqu\u0027au 04 Aout. Cordialement Hello I am not available until 4th August. Regards"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T10:00:00+02:00",
+        "End": "2025-10-10T12:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-13T10:00:00+02:00",
@@ -1707,30 +1740,9 @@
         "End": "2025-12-08T13:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-09T11:00:00+01:00",
-        "End": "2025-12-09T13:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T11:00:00+01:00",
-        "End": "2025-12-10T13:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-11T11:00:00+01:00",
-        "End": "2025-12-11T13:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:37.9879242+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:15.6988422+00:00"
   },
   {
     "Email": "jean.pigat@allcircuits.com",
@@ -1742,7 +1754,7 @@
       "OoOMessage": "Absent jusqu\u2019au 29/09. Cdlt Jean"
     },
     "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:38.2679102+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:16.0237301+00:00"
   },
   {
     "Email": "jean-marc.robin@allcircuits.com",
@@ -1754,6 +1766,13 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:Tahoma; panose-1:2 11 6 4 3 5 4 4 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E \uFEFF \uFEFF \uFEFF Bonjour, Hello Je suis absent jusqu\u0027au 06/10/2025 I am out of the office until October 6 2025 without email access JM ROBIN"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T13:00:00+02:00",
+        "End": "2025-10-10T16:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-17T13:00:00+02:00",
@@ -1811,7 +1830,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:38.5207612+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:16.2486505+00:00"
   },
   {
     "Email": "jean-philippe.jamet@allcircuits.com",
@@ -1948,23 +1967,9 @@
         "End": "2025-12-04T18:30:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-09T16:00:00+01:00",
-        "End": "2025-12-09T18:30:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-11T16:00:00+01:00",
-        "End": "2025-12-11T18:30:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:38.7005304+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:16.5037399+00:00"
   },
   {
     "Email": "jerome.serret@allcircuits.com",
@@ -1975,8 +1980,16 @@
       "IsOutOfOffice": false,
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Arial\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, Merci pour votre email. Je suis en deplacement cette semaine. De retour au bureau le 10 Octobre. Cordialement, Jerome"
     },
-    "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:39.0123019+00:00"
+    "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-05T22:00:00+02:00",
+        "End": "2025-10-09T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      }
+    ],
+    "GeneratedAtUtc": "2025-10-10T07:57:17.1159373+00:00"
   },
   {
     "Email": "karine.gruet@allcircuits.com",
@@ -2032,13 +2045,6 @@
       },
       {
         "Subject": "OOF",
-        "Start": "2025-10-31T07:00:00+01:00",
-        "End": "2025-10-31T17:30:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
         "Start": "2025-11-03T18:00:00+01:00",
         "End": "2025-11-03T20:30:00+01:00",
         "IsOutOfOffice": true,
@@ -2048,13 +2054,6 @@
         "Subject": "OOF",
         "Start": "2025-11-04T17:30:00+01:00",
         "End": "2025-11-04T20:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-11-10T07:00:00+01:00",
-        "End": "2025-11-10T17:30:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
       },
@@ -2102,13 +2101,6 @@
       },
       {
         "Subject": "OOF",
-        "Start": "2025-11-28T07:00:00+01:00",
-        "End": "2025-11-28T18:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
         "Start": "2025-12-01T18:00:00+01:00",
         "End": "2025-12-01T20:30:00+01:00",
         "IsOutOfOffice": true,
@@ -2123,27 +2115,13 @@
       },
       {
         "Subject": "OOF",
-        "Start": "2025-12-05T07:00:00+01:00",
-        "End": "2025-12-05T17:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
         "Start": "2025-12-08T18:00:00+01:00",
         "End": "2025-12-08T20:30:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-09T17:30:00+01:00",
-        "End": "2025-12-09T20:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:39.1871842+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:17.3668383+00:00"
   },
   {
     "Email": "karine.ruet@allcircuits.com",
@@ -2170,7 +2148,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:39.2681419+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:17.5507482+00:00"
   },
   {
     "Email": "laurent.rodrigues@allcircuits.com",
@@ -2182,6 +2160,13 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Segoe UI\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, je serais de retour lundi 29 septembre. Cordialement."
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T13:00:00+02:00",
+        "End": "2025-10-10T16:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-17T13:00:00+02:00",
@@ -2239,7 +2224,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:39.4335612+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:17.7920887+00:00"
   },
   {
     "Email": "loic.boutillier@allcircuits.com",
@@ -2350,7 +2335,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:39.7048904+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:18.0124252+00:00"
   },
   {
     "Email": "lucie.leberre@allcircuits.com",
@@ -2370,7 +2355,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:39.8927458+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:18.3401608+00:00"
   },
   {
     "Email": "lucile.jourdain@allcircuits.com",
@@ -2425,7 +2410,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:40.0885219+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:18.5528618+00:00"
   },
   {
     "Email": "maelle.benayon@allcircuits.com",
@@ -2437,7 +2422,7 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Segoe UI\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, Je serai absente du 15/09 jusqu\u0027au 17/10 compris. Je prendrai connaissance de votre message \u00E0 mon retour. Cordialement, Ma\u00EBlle BENAYON"
     },
     "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:40.1956061+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:18.658218+00:00"
   },
   {
     "Email": "marion.pelle@allcircuits.com",
@@ -2520,7 +2505,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:40.5326188+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:19.0257599+00:00"
   },
   {
     "Email": "maud.guerin@allcircuits.com",
@@ -2692,23 +2677,9 @@
         "End": "2025-12-04T08:45:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T17:00:00+01:00",
-        "End": "2025-12-10T19:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-11T07:30:00+01:00",
-        "End": "2025-12-11T08:45:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:40.7486361+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:19.3775168+00:00"
   },
   {
     "Email": "maxime.aussant@allcircuits.com",
@@ -2749,7 +2720,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:41.0221494+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:19.5633568+00:00"
   },
   {
     "Email": "michael.vigier@allcircuits.com",
@@ -2761,6 +2732,34 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Segoe UI\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, Je suis actuellement absent. De retour le 10/09/25 Bien Cordialement Michael Vigier"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T13:30:00+02:00",
+        "End": "2025-10-10T15:30:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T15:00:00+02:00",
+        "End": "2025-10-10T17:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-11T15:00:00+02:00",
+        "End": "2025-10-11T17:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-12T15:00:00+02:00",
+        "End": "2025-10-12T17:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-13T15:00:00+02:00",
@@ -3008,13 +3007,6 @@
       },
       {
         "Subject": "OOF",
-        "Start": "2025-11-13T15:00:00+01:00",
-        "End": "2025-11-13T16:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
         "Start": "2025-11-13T16:00:00+01:00",
         "End": "2025-11-13T18:00:00+01:00",
         "IsOutOfOffice": true,
@@ -3222,30 +3214,9 @@
         "End": "2025-12-08T18:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-09T16:00:00+01:00",
-        "End": "2025-12-09T18:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T16:00:00+01:00",
-        "End": "2025-12-10T18:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-11T16:00:00+01:00",
-        "End": "2025-12-11T18:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:41.2514906+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:19.7742112+00:00"
   },
   {
     "Email": "michel.tranchant@allcircuits.com",
@@ -3272,7 +3243,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:41.4182451+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:19.9289626+00:00"
   },
   {
     "Email": "michele.masson@allcircuits.com",
@@ -3292,7 +3263,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:41.6108446+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:20.0761591+00:00"
   },
   {
     "Email": "mickael.aubry@allcircuits.com",
@@ -3304,13 +3275,6 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, Je suis en d\u00E9placement avec acc\u00E8s limit\u00E9 \u00E0 mes mail. De retour le 22/09. Pour tout besoin urgent, merci de contacter Fran\u00E7ois Bernard. Cordialement, Mika\u00EBl"
     },
     "Events": [
-      {
-        "Subject": "OOF",
-        "Start": "2025-10-16T14:30:00+02:00",
-        "End": "2025-10-16T16:30:00+02:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
       {
         "Subject": "OOF",
         "Start": "2025-10-26T23:00:00+01:00",
@@ -3326,7 +3290,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:41.8054704+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:20.2316955+00:00"
   },
   {
     "Email": "murielle.gombeau@allcircuits.com",
@@ -3346,7 +3310,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:42.2086966+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:20.7043684+00:00"
   },
   {
     "Email": "nathalie.miard@allcircuits.com",
@@ -3354,10 +3318,17 @@
       "Email": "nathalie.miard@allcircuits.com",
       "Activity": "PresenceUnknown",
       "Availability": "PresenceUnknown",
-      "IsOutOfOffice": true,
-      "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E je suis actuellement absente, de retour le 06/11 // I am currently out of the office , back on 06/11"
+      "IsOutOfOffice": false,
+      "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E je suis actuellement absente, de retour le 10/10 // I am currently out of the office , back on 10/10"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-08T22:00:00+02:00",
+        "End": "2025-10-09T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-15T10:00:00+02:00",
@@ -3374,13 +3345,6 @@
       },
       {
         "Subject": "OOF",
-        "Start": "2025-10-24T06:30:00+02:00",
-        "End": "2025-10-24T08:30:00+02:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
         "Start": "2025-10-29T11:00:00+01:00",
         "End": "2025-10-29T12:30:00+01:00",
         "IsOutOfOffice": true,
@@ -3389,7 +3353,7 @@
       {
         "Subject": "OOF",
         "Start": "2025-11-05T11:00:00+01:00",
-        "End": "2025-11-05T18:00:00+01:00",
+        "End": "2025-11-05T12:30:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
       },
@@ -3437,27 +3401,13 @@
       },
       {
         "Subject": "OOF",
-        "Start": "2025-12-04T11:00:00+01:00",
-        "End": "2025-12-04T19:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T11:00:00+01:00",
-        "End": "2025-12-10T12:30:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T23:00:00+01:00",
-        "End": "2025-12-11T23:00:00+01:00",
+        "Start": "2025-12-03T23:00:00+01:00",
+        "End": "2025-12-04T23:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:42.5164856+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:21.0223591+00:00"
   },
   {
     "Email": "nicolas.cochon@allcircuits.com",
@@ -3471,13 +3421,20 @@
     "Events": [
       {
         "Subject": "OOF",
+        "Start": "2025-10-08T22:00:00+02:00",
+        "End": "2025-10-09T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
+      {
+        "Subject": "OOF",
         "Start": "2025-10-26T23:00:00+01:00",
         "End": "2025-10-31T23:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:42.7132225+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:21.19292+00:00"
   },
   {
     "Email": "olivier.bury@allcircuits.com",
@@ -3485,10 +3442,17 @@
       "Email": "olivier.bury@allcircuits.com",
       "Activity": "PresenceUnknown",
       "Availability": "PresenceUnknown",
-      "IsOutOfOffice": false,
+      "IsOutOfOffice": true,
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Segoe UI\u0022,sans-serif; color:blue;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Absent le 10/10/25 Merci de contacter Renaud B. au 2 3569"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-09T22:00:00+02:00",
+        "End": "2025-10-10T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-30T23:00:00+01:00",
@@ -3511,7 +3475,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:42.9283232+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:21.3640573+00:00"
   },
   {
     "Email": "olivier.prudhomme@allcircuits.com",
@@ -3606,16 +3570,9 @@
         "End": "2025-12-08T23:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T16:30:00+01:00",
-        "End": "2025-12-10T18:30:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:43.1347136+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:21.5434765+00:00"
   },
   {
     "Email": "patrice.roland@allcircuits.com",
@@ -3627,6 +3584,13 @@
       "OoOMessage": "\uFEFF Je suis en absent l\u0027apr\u00E8s midi du 08/10 En cas de besoin merci de contacter : MSL_Qualite_Finition"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T13:00:00+02:00",
+        "End": "2025-10-10T15:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-17T13:00:00+02:00",
@@ -3684,7 +3648,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:43.3197716+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:21.7463823+00:00"
   },
   {
     "Email": "patrick.dupuit@allcircuits.com",
@@ -3760,7 +3724,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:43.5699902+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:21.9283596+00:00"
   },
   {
     "Email": "patrick.lebosse@allcircuits.com",
@@ -3772,6 +3736,13 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Helvetica Neue\u0022;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Helvetica Neue\u0022; color:#424242;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Thank you for your email. I am currently out of the office on vacation and will be back on Sept 22. I will respond to your message upon my return. If your matter is urgent, please contact bruno.leythienne@allcircuits.com"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-07T22:00:00+02:00",
+        "End": "2025-10-10T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-11-09T23:00:00+01:00",
@@ -3787,7 +3758,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:43.7746351+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:22.1115296+00:00"
   },
   {
     "Email": "perrine.vukovic@allcircuits.com",
@@ -3798,8 +3769,16 @@
       "IsOutOfOffice": false,
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E \uFEFF Bonjour, Absente ce jour, je serai de retour le 10/10. Bonne journ\u00E9e"
     },
-    "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:43.9089945+00:00"
+    "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-08T22:00:00+02:00",
+        "End": "2025-10-09T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      }
+    ],
+    "GeneratedAtUtc": "2025-10-10T07:57:22.4349959+00:00"
   },
   {
     "Email": "pierre-loup.chaudron@allcircuits.com",
@@ -3811,6 +3790,13 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, En cong\u00E9s. De retour le 17 juillet. Cdt PL"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T10:00:00+02:00",
+        "End": "2025-10-10T11:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-12T22:00:00+02:00",
@@ -4104,30 +4090,9 @@
         "End": "2025-12-08T12:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-09T11:00:00+01:00",
-        "End": "2025-12-09T12:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T11:00:00+01:00",
-        "End": "2025-12-10T12:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-11T11:00:00+01:00",
-        "End": "2025-12-11T12:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:44.1468193+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:22.6923635+00:00"
   },
   {
     "Email": "robin.beaulinette@allcircuits.com",
@@ -4141,13 +4106,20 @@
     "Events": [
       {
         "Subject": "OOF",
+        "Start": "2025-10-10T13:30:00+02:00",
+        "End": "2025-10-10T15:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
+      {
+        "Subject": "OOF",
         "Start": "2025-10-23T22:00:00+02:00",
         "End": "2025-10-24T22:00:00+02:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:44.3029651+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:22.8671497+00:00"
   },
   {
     "Email": "romain.olland@allcircuits.com",
@@ -4158,8 +4130,16 @@
       "IsOutOfOffice": false,
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Segoe UI\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour, Je suis absent avec un acc\u00E8s limit\u00E9 \u00E0 ma boite mail, de retour le lundi 14 avril. Si urgent, merci de contacter Michele MASSON (25934). Cordialement, Romain OLLAND"
     },
-    "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:44.4511058+00:00"
+    "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-09T22:00:00+02:00",
+        "End": "2025-10-10T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      }
+    ],
+    "GeneratedAtUtc": "2025-10-10T07:57:23.0460634+00:00"
   },
   {
     "Email": "salome.blondeau@allcircuits.com",
@@ -4186,7 +4166,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:44.5096196+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:23.1237186+00:00"
   },
   {
     "Email": "sam.chauviere@allcircuits.com",
@@ -4213,7 +4193,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:44.7755491+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:23.3679461+00:00"
   },
   {
     "Email": "samuel.dreux@allcircuits.com",
@@ -4247,7 +4227,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:44.9729338+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:23.5560157+00:00"
   },
   {
     "Email": "sandra.barragan@allcircuits.com",
@@ -4279,16 +4259,9 @@
         "End": "2025-11-11T23:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-11T11:00:00+01:00",
-        "End": "2025-12-11T12:30:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:45.1445486+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:23.7253366+00:00"
   },
   {
     "Email": "sandra.negro@allcircuits.com",
@@ -4300,7 +4273,7 @@
       "OoOMessage": "I m currently out of the office, and I will be back on the 19st of october. Please forward your email to: msl_adv@allcircuits.com regards"
     },
     "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:45.3659846+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:23.9545963+00:00"
   },
   {
     "Email": "sarah.saighe@allcircuits.com",
@@ -4327,7 +4300,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:51.0669758+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:24.0359748+00:00"
   },
   {
     "Email": "sebastien.baudinet@allcircuits.com",
@@ -4339,6 +4312,13 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Je suis absent jusqu\u0027au 10.09.2025 inclu. En cas de besoin, contactez les interlocuteurs projets habituels Cordialement, S\u00E9bastien Baudinet"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T14:00:00+02:00",
+        "End": "2025-10-10T18:30:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-14T14:30:00+02:00",
@@ -4506,16 +4486,9 @@
         "End": "2025-12-05T19:30:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-09T15:30:00+01:00",
-        "End": "2025-12-09T20:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:51.2414911+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:24.3991259+00:00"
   },
   {
     "Email": "sophie.laveau@allcircuits.com",
@@ -4535,7 +4508,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:51.3141073+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:24.6959766+00:00"
   },
   {
     "Email": "stephane.guay@allcircuits.com",
@@ -4547,6 +4520,20 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Times New Roman\u0022,serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E Bonjour Je suis en cong\u00E9 du 28 07 2025 au 17 08 2025 Bon courage !!"
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T13:00:00+02:00",
+        "End": "2025-10-10T16:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T16:30:00+02:00",
+        "End": "2025-10-10T20:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-16T22:00:00+02:00",
@@ -4600,13 +4587,6 @@
         "Subject": "OOF",
         "Start": "2025-10-29T07:00:00+01:00",
         "End": "2025-10-29T08:30:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-10-29T16:00:00+01:00",
-        "End": "2025-10-29T17:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
       },
@@ -4674,7 +4654,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:51.5063699+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:25.4192478+00:00"
   },
   {
     "Email": "syldras.moussimbou@allcircuits.com",
@@ -4701,7 +4681,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:51.7412443+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:25.7573866+00:00"
   },
   {
     "Email": "thanh.roches-nguyen@allcircuits.com",
@@ -4721,7 +4701,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:51.9132959+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:25.9189837+00:00"
   },
   {
     "Email": "thierry.guesney@allcircuits.com",
@@ -4748,7 +4728,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:58.1905156+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:26.1658475+00:00"
   },
   {
     "Email": "thierry.palud@allcircuits.com",
@@ -4768,7 +4748,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:58.3333138+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:26.3707352+00:00"
   },
   {
     "Email": "thomas.cocquempot@allcircuits.com",
@@ -4795,7 +4775,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:58.4891044+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:26.5651997+00:00"
   },
   {
     "Email": "thomas.esteves@allcircuits.com",
@@ -4806,8 +4786,23 @@
       "IsOutOfOffice": false,
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Segoe UI\u0022; panose-1:2 11 5 2 4 2 4 2 2 3;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; text-autospace:none; font-size:12.0pt; font-family:\u0022Segoe UI\u0022,sans-serif; mso-fareast-language:EN-US;} h3 {mso-style-priority:99; mso-style-link:\u0022Titre 3 Car\u0022; margin:0cm; text-autospace:none; font-size:12.0pt; font-family:\u0022Segoe UI\u0022,sans-serif; mso-fareast-language:EN-US; font-weight:normal;} span.Titre3Car {mso-style-name:\u0022Titre 3 Car\u0022; mso-style-priority:9; mso-style-link:\u0022Titre 3\u0022; font-family:\u0022Calibri Light\u0022,sans-serif; color:#1F3763;} span.EmailStyle20 {mso-style-type:personal-compose;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} /* List Definitions */ @list l0 {mso-list-id:1; mso-list-type:hybrid; mso-list-template-ids:0 -1 -1 -1 -1 -1 -1 -1 -1 -1;} @list l0:level1 {mso-level-start-at:0; mso-level-number-format:bullet; mso-level-text:\u00B7; mso-level-tab-stop:0cm; mso-level-number-position:left; margin-left:0cm; text-indent:0cm; mso-ascii-font-family:Symbol; mso-hansi-font-family:Symbol; mso-bidi-font-family:Symbol;} @list l0:level2 {mso-level-start-at:0; mso-level-number-format:bullet; mso-level-text:\u00B7; mso-level-tab-stop:0cm; mso-level-number-position:left; margin-left:0cm; text-indent:0cm; mso-ascii-font-family:Symbol; mso-hansi-font-family:Symbol; mso-bidi-font-family:Symbol;} @list l0:level3 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l0:level4 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l0:level5 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l0:level6 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l0:level7 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l0:level8 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l0:level9 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l1 {mso-list-id:2; mso-list-type:hybrid; mso-list-template-ids:0 -1 -1 -1 -1 -1 -1 -1 -1 -1;} @list l1:level1 {mso-level-start-at:0; mso-level-number-format:bullet; mso-level-text:\u00B7; mso-level-tab-stop:0cm; mso-level-number-position:left; margin-left:0cm; text-indent:0cm; mso-ascii-font-family:Symbol; mso-hansi-font-family:Symbol; mso-bidi-font-family:Symbol;} @list l1:level2 {mso-level-start-at:0; mso-level-number-format:bullet; mso-level-text:\u00B7; mso-level-tab-stop:0cm; mso-level-number-position:left; margin-left:0cm; text-indent:0cm; mso-ascii-font-family:Symbol; mso-hansi-font-family:Symbol; mso-bidi-font-family:Symbol;} @list l1:level3 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l1:level4 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l1:level5 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l1:level6 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l1:level7 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l1:level8 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} @list l1:level9 {mso-level-start-at:0; mso-level-text:\u0022\u0022; mso-level-tab-stop:none; mso-level-number-position:left; margin-left:0cm; text-indent:0cm;} ol {margin-bottom:0cm;} ul {margin-bottom:0cm;} --\u003E Bonjour, Je serai absent du 1er au 25 ao\u00FBt 2025 inclus. En cas de besoin urgent : \u00B7 Pour les pannes ou demandes de service : Veuillez contacter Emmanuel TOUCHARD (poste 5959) ou Tarrik SOULHI (poste 5903). \u00B7 Attention : Emmanuel sera absent les semaines 33, 34 et 35. \u00B7 Pour les demandes concernant le pr\u00E9ventif, Corim ou les t\u00EAtes de report FUJI : Merci de contacter Thierry BIGOT (poste 23484) ou Merick DARDONVILLE (poste 5937). \u00B7 Attention : Merick sera absent les semaines 33, 34 et 35. Cordialement, Thomas Esteves"
     },
-    "Events": [],
-    "GeneratedAtUtc": "2025-10-13T07:43:58.6084782+00:00"
+    "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-01T22:00:00+02:00",
+        "End": "2025-10-09T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T11:00:00+02:00",
+        "End": "2025-10-10T16:30:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      }
+    ],
+    "GeneratedAtUtc": "2025-10-10T07:57:26.7893791+00:00"
   },
   {
     "Email": "valerie.vibert@allcircuits.com",
@@ -4855,7 +4850,7 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:58.7817718+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:27.0830897+00:00"
   },
   {
     "Email": "vincent.girard@allcircuits.com",
@@ -4867,6 +4862,20 @@
       "OoOMessage": "\uFEFF \u003C!-- /* Font Definitions */ @font-face {font-family:\u0022Cambria Math\u0022; panose-1:2 4 5 3 5 4 6 3 2 4;} @font-face {font-family:Calibri; panose-1:2 15 5 2 2 2 4 3 2 4;} @font-face {font-family:\u0022Comic Sans MS\u0022; panose-1:3 15 7 2 3 3 2 2 2 4;} /* Style Definitions */ p.MsoNormal, li.MsoNormal, div.MsoNormal {margin:0cm; font-size:11.0pt; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} span.EmailStyle17 {mso-style-type:personal-compose; font-family:\u0022Calibri\u0022,sans-serif;} .MsoChpDefault {mso-style-type:export-only; font-family:\u0022Calibri\u0022,sans-serif; mso-fareast-language:EN-US;} @page WordSection1 {size:612.0pt 792.0pt; margin:70.85pt 70.85pt 70.85pt 70.85pt;} div.WordSection1 {page:WordSection1;} --\u003E \uFEFF \uFEFF\uFEFF Actuellement en cong\u00E9s (avec acc\u00E8s limit\u00E9 \u00E0 mes mails), je serai de retour le 7 octobre 2025 ."
     },
     "Events": [
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T10:00:00+02:00",
+        "End": "2025-10-10T12:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
+      {
+        "Subject": "OOF",
+        "Start": "2025-10-10T22:00:00+02:00",
+        "End": "2025-10-11T22:00:00+02:00",
+        "IsOutOfOffice": true,
+        "Source": "schedule"
+      },
       {
         "Subject": "OOF",
         "Start": "2025-10-11T22:00:00+02:00",
@@ -5293,30 +5302,9 @@
         "End": "2025-12-08T13:00:00+01:00",
         "IsOutOfOffice": true,
         "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-09T11:00:00+01:00",
-        "End": "2025-12-09T13:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-10T11:00:00+01:00",
-        "End": "2025-12-10T13:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
-      },
-      {
-        "Subject": "OOF",
-        "Start": "2025-12-11T11:00:00+01:00",
-        "End": "2025-12-11T13:00:00+01:00",
-        "IsOutOfOffice": true,
-        "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:58.9260225+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:27.3462843+00:00"
   },
   {
     "Email": "virginie.boutet@allcircuits.com",
@@ -5350,6 +5338,6 @@
         "Source": "schedule"
       }
     ],
-    "GeneratedAtUtc": "2025-10-13T07:43:59.0701014+00:00"
+    "GeneratedAtUtc": "2025-10-10T07:57:27.5672787+00:00"
   }
 ]
