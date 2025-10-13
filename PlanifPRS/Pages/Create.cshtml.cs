@@ -1191,6 +1191,89 @@ namespace PlanifPRS.Pages.Prs
                 return new JsonResult(new { membres = new List<int>() });
             }
         }
+        // ✅ NOUVEAU HANDLER : Récupérer checklist + affectations d'une PRS existante
+        public async Task<IActionResult> OnGetPrsChecklistWithAffectationsAsync(int prsId)
+        {
+            try
+            {
+                _logger.LogInformation("[CREATE] Chargement checklist+affectations pour PRS {PrsId}", prsId);
+
+                // Récupérer la checklist avec ses affectations
+                var checklist = await _context.PrsChecklists
+                    .Where(c => c.PRSId == prsId)
+                    .Select(c => new
+                    {
+                        id = c.Id,
+                        libelle = c.Libelle,
+                        categorie = c.Categorie,
+                        sousCategorie = c.SousCategorie,
+                        priorite = c.Priorite,
+                        delaiDefautJours = c.DelaiDefautJours,
+                        obligatoire = c.Obligatoire,
+                        // Affectations de la tâche
+                        affectations = _context.ChecklistAffectations
+                            .Where(a => a.ChecklistId == c.Id)
+                            .Select(a => new
+                            {
+                                utilisateurId = a.UtilisateurId,
+                                groupeId = a.GroupeId,
+                                type = a.TypeAffectation
+                            })
+                            .ToList()
+                    })
+                    .ToListAsync();
+
+                // Récupérer les affectations PRS globales
+                var prsAffectations = await _context.PrsAffectations
+                    .Where(a => a.PrsId == prsId)
+                    .Select(a => new
+                    {
+                        utilisateurId = a.UtilisateurId,
+                        groupeId = a.GroupeId,
+                        type = a.TypeAffectation,
+                        // Infos utilisateur
+                        utilisateurNom = a.Utilisateur != null
+                            ? a.Utilisateur.Prenom + " " + a.Utilisateur.Nom
+                            : null,
+                        utilisateurEmail = a.Utilisateur != null
+                            ? a.Utilisateur.Mail
+                            : null,
+                        utilisateurService = a.Utilisateur != null
+                            ? a.Utilisateur.Service
+                            : null,
+                        // Infos groupe
+                        groupeNom = a.Groupe != null
+                            ? a.Groupe.NomGroupe
+                            : null,
+                        groupeMembresCount = a.Groupe != null
+                            ? a.Groupe.Membres.Count
+                            : 0
+                    })
+                    .ToListAsync();
+
+                _logger.LogInformation("[CREATE] Trouvé {Count} tâches et {AffCount} affectations PRS",
+                    checklist.Count, prsAffectations.Count);
+
+                return new JsonResult(new
+                {
+                    success = true,
+                    checklist = checklist,
+                    prsAffectations = prsAffectations
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[CREATE] Erreur chargement checklist PRS {PrsId}", prsId);
+                return new JsonResult(new
+                {
+                    success = false,
+                    message = ex.Message,
+                    checklist = new List<object>(),
+                    prsAffectations = new List<object>()
+                });
+            }
+        }
+
         public async Task<IActionResult> OnGetUtilisateursEtGroupesAsync()
         {
             try

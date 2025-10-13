@@ -889,7 +889,7 @@
             </div>
 
             <!-- Section Affectations -->
-<div class="form-section">
+            <div class="form-section" style="display: none;">
     <div class="section-header">
         <h4>
             <i class="fas fa-users text-info"></i>
@@ -1209,7 +1209,7 @@
     <script src="~/js/checklist-manager.js" asp-append-version="true"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-                // ===== DÉCLARATIONS GLOBALES (ligne ~1710) =====
+                // ===== DÉCLARATIONS GLOBALES =====
                 let selectedAffectations = [];
                 let updateAffectationsList;
                 function cleanServiceName(s) { return (s || '').replace(/^[A-Z]+_[0-9]+\s+/, '').trim(); }
@@ -1218,6 +1218,409 @@
                     try { $('#checklistModele').off('change'); } catch {}
                 });
 
+                // ===== FONCTIONS GLOBALES POUR AFFECTATIONS =====
+
+                // ✅ FONCTION : Ajouter les utilisateurs des tâches et groupes
+                async function ajouterUtilisateursDesGroupesEtTaches(mappedElements) {
+                    if (!mappedElements || mappedElements.length === 0) return;
+
+                    const utilisateursAjoutes = new Set();
+                    const groupesAjoutes = new Set();
+
+                    // Collecter tous les utilisateurs et groupes des tâches
+                    mappedElements.forEach(element => {
+                        // Utilisateurs directs
+                        if (element.assignedUsers && element.assignedUsers.length > 0) {
+                            element.assignedUsers.forEach(userId => utilisateursAjoutes.add(userId));
+                        }
+
+                        // Groupes
+                        if (element.assignedGroups && element.assignedGroups.length > 0) {
+                            element.assignedGroups.forEach(groupId => groupesAjoutes.add(groupId));
+                        }
+                    });
+
+                    // Récupérer les détails des groupes pour extraire leurs membres
+                    const groupesDetails = await Promise.all(
+                        Array.from(groupesAjoutes).map(async (groupId) => {
+                            return await obtenirMembresGroupe(groupId);
+                        })
+                    );
+
+                    // Ajouter tous les membres des groupes
+                    groupesDetails.forEach(groupe => {
+                        if (groupe && groupe.membres) {
+                            groupe.membres.forEach(membreId => utilisateursAjoutes.add(membreId));
+                        }
+                    });
+
+                    // Ajouter les utilisateurs dans la section "Affectation des personnes"
+                    const userSelect = document.getElementById('userSelect');
+                    const addUserBtn = document.getElementById('addUserBtn');
+
+                    if (!userSelect || !addUserBtn) {
+                        console.warn('userSelect ou addUserBtn introuvable');
+                        return;
+                    }
+
+                    let compteurAjoutes = 0;
+
+                    // Parcourir tous les utilisateurs à ajouter
+                    for (const userId of utilisateursAjoutes) {
+                        // Trouver l'option correspondante dans le select
+                        const option = Array.from(userSelect.options).find(opt => parseInt(opt.value) === userId);
+
+                        if (option && option.value) {
+                            // Vérifier s'il n'est pas déjà dans la liste
+                            const userName = option.dataset.name || option.textContent.trim();
+                            const userEmail = (option.dataset.email || '').trim();
+
+                            const exists = selectedAffectations.some(a =>
+                                a.type === 'Utilisateur' && (a.id === userId || (userEmail && a.email === userEmail))
+                            );
+
+                            if (!exists) {
+                                // Ajouter l'utilisateur
+                                const userService = option.dataset.service || '';
+                                const userServiceClean = option.dataset.serviceClean || cleanServiceName(userService);
+
+                                selectedAffectations.push({
+                                    id: userId,
+                                    type: 'Utilisateur',
+                                    name: userName,
+                                    info: userServiceClean,
+                                    email: userEmail
+                                });
+
+                                compteurAjoutes++;
+                            }
+                        }
+                    }
+
+                    // Mettre à jour l'affichage
+                    if (compteurAjoutes > 0) {
+                        updateAffectationsList();
+                        showRobiaNotification(`${compteurAjoutes} utilisateur(s) ajouté(s) automatiquement depuis les tâches`, 'success');
+
+                        // Déclencher le rafraîchissement du calendrier
+                        setTimeout(() => {
+                            const hidden = document.getElementById('affectationsData');
+                            if (hidden) {
+                                hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
+
+                            document.dispatchEvent(new CustomEvent('affectations:changed', {
+                                detail: { action: 'bulk-add', count: compteurAjoutes }
+                            }));
+
+                            if (typeof window.__prsRefreshAbsences === 'function') {
+                                window.__prsRefreshAbsences();
+                            }
+                        }, 100);
+                    }
+                }
+
+                // ✅ FONCTION : Obtenir les membres d'un groupe
+                async function obtenirMembresGroupe(groupId) {
+                    try {
+                        // Chercher le groupe dans les données déjà chargées
+                        const groupSelect = document.getElementById('groupSelect');
+                        if (!groupSelect) return null;
+
+                        // Trouver l'option du groupe
+                        const groupOption = Array.from(groupSelect.options).find(opt => parseInt(opt.value) === groupId);
+                        if (!groupOption) return null;
+
+                        // Appel API pour récupérer les membres
+                        const response = await fetch(`?handler=GroupMembers&groupId=${groupId}`);
+                        if (!response.ok) {
+                            console.warn(`Impossible de récupérer les membres du groupe ${groupId}`);
+                            return null;
+                        }
+
+                        const data = await response.json();
+                        return {
+                            id: groupId,
+                            membres: data.membres || []
+                        };
+                    } catch (error) {
+                        console.error(`Erreur lors de la récupération des membres du groupe ${groupId}:`, error);
+                        return null;
+                    }
+                }
+
+                                // ===== AJOUT AUTOMATIQUE DEPUIS LES MODAUX D'AFFECTATION =====
+                document.addEventListener('DOMContentLoaded', function() {
+
+                    // ✅ BOUTON : Confirmer sélection utilisateur
+                    document.addEventListener('click', function(e) {
+                        const btn = e.target.closest('#confirmUserSelection');
+                        if (!btn) return;
+
+                        e.preventDefault();
+                        console.log('[CONFIRM-USER] Bouton cliqué');
+
+                        const modal = document.getElementById('userSelectionModal');
+                        if (!modal) {
+                            console.warn('[CONFIRM-USER] Modal introuvable');
+                            return;
+                        }
+
+                        console.log('[CONFIRM-USER] Modal trouvé');
+
+                        // ✅ RÉCUPÉRER LES CHECKBOXES COCHÉES
+                        const checkedCheckboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
+
+                        if (checkedCheckboxes.length === 0) {
+                            showRobiaNotification('Veuillez sélectionner au moins un utilisateur', 'warning');
+                            return;
+                        }
+
+                        console.log('[CONFIRM-USER] Utilisateurs sélectionnés:', checkedCheckboxes.length);
+                        let compteurAjoutes = 0;
+
+                        checkedCheckboxes.forEach(checkbox => {
+                            const userId = parseInt(checkbox.value, 10);
+                            if (isNaN(userId) || userId <= 0) return;
+
+                            // Récupérer le nom depuis le data-name du parent .user-item
+                            const userItem = checkbox.closest('.user-item');
+                            const userName = userItem?.dataset.name || checkbox.nextElementSibling?.textContent.trim() || `Utilisateur ${userId}`;
+
+                            console.log('[CONFIRM-USER] Traitement:', userId, userName);
+
+                            const mainUserSelect = document.getElementById('userSelect');
+                            const mainOption = mainUserSelect ?
+                                Array.from(mainUserSelect.options).find(opt => parseInt(opt.value) === userId) :
+                                null;
+
+                            const userService = mainOption?.dataset.service || '';
+                            const userServiceClean = mainOption?.dataset.serviceClean || (typeof cleanServiceName === 'function' ? cleanServiceName(userService) : userService);
+                            const userEmail = mainOption?.dataset.email || '';
+
+                            const exists = selectedAffectations.some(a =>
+                                a.type === 'Utilisateur' && (a.id === userId || (userEmail && a.email === userEmail))
+                            );
+
+                            if (!exists) {
+                                selectedAffectations.push({
+                                    id: userId,
+                                    type: 'Utilisateur',
+                                    name: userName,
+                                    info: userServiceClean,
+                                    email: userEmail
+                                });
+                                compteurAjoutes++;
+                                console.log('[CONFIRM-USER] ✅ Ajouté:', userName);
+                            } else {
+                                console.log('[CONFIRM-USER] ⚠️ Déjà présent:', userName);
+                            }
+                        });
+
+                        if (compteurAjoutes > 0) {
+                            console.log('[CONFIRM-USER] Total ajoutés:', compteurAjoutes);
+
+                            if (typeof updateAffectationsList === 'function') {
+                                updateAffectationsList();
+                                console.log('[CONFIRM-USER] Liste mise à jour');
+                            }
+
+                            showRobiaNotification(`${compteurAjoutes} utilisateur(s) ajouté(s) dans "Affectation des personnes"`, 'success');
+
+                            setTimeout(() => {
+                                const hidden = document.getElementById('affectationsData');
+                                if (hidden) hidden.dispatchEvent(new Event('change', { bubbles: true }));
+
+                                document.dispatchEvent(new CustomEvent('affectations:changed', {
+                                    detail: { action: 'bulk-add', count: compteurAjoutes }
+                                }));
+
+                                if (typeof window.__prsRefreshAbsences === 'function') {
+                                    window.__prsRefreshAbsences();
+                                }
+                            }, 100);
+                        } else {
+                            console.warn('[CONFIRM-USER] Aucun utilisateur ajouté');
+                            showRobiaNotification('Utilisateurs déjà présents dans la liste', 'info');
+                        }
+
+                        const bsModal = bootstrap.Modal.getInstance(modal);
+                        if (bsModal) bsModal.hide();
+                    });
+
+                        // ✅ BOUTON : Confirmer sélection groupe → AJOUTER LES UTILISATEURS DU GROUPE
+        document.addEventListener('click', async function(e) {
+            const btn = e.target.closest('#confirmGroupSelection');
+            if (!btn) return;
+
+            e.preventDefault();
+            console.log('[CONFIRM-GROUP] Bouton cliqué');
+
+            const modal = document.getElementById('groupSelectionModal');
+            if (!modal) {
+                console.warn('[CONFIRM-GROUP] Modal introuvable');
+                return;
+            }
+
+            console.log('[CONFIRM-GROUP] Modal trouvé');
+
+            const checkedCheckboxes = modal.querySelectorAll('input[type="checkbox"]:checked');
+
+            if (checkedCheckboxes.length === 0) {
+                showRobiaNotification('Veuillez sélectionner au moins un groupe', 'warning');
+                return;
+            }
+
+            console.log('[CONFIRM-GROUP] Groupes sélectionnés:', checkedCheckboxes.length);
+            let totalUsersAdded = 0;
+            const groupIds = [];
+
+            checkedCheckboxes.forEach(checkbox => {
+                const groupId = parseInt(checkbox.value, 10);
+                if (!isNaN(groupId) && groupId > 0) {
+                    groupIds.push(groupId);
+                }
+            });
+
+            console.log('[CONFIRM-GROUP] IDs des groupes:', groupIds);
+
+            for (const groupId of groupIds) {
+                console.log(`[CONFIRM-GROUP] Récupération des membres du groupe ${groupId}...`);
+
+                try {
+                    const response = await fetch(`/api/Groupes/${groupId}/members`);
+                    if (!response.ok) {
+                        console.error(`[CONFIRM-GROUP] Erreur HTTP ${response.status}`);
+                        continue;
+                    }
+
+                    const members = await response.json();
+                    console.log(`[CONFIRM-GROUP] Groupe ${groupId} : ${members.length} membres récupérés`);
+
+                    members.forEach(user => {
+                        const userId = user.id || user.utilisateurId || user.Id || user.UtilisateurId;
+
+                        // ✅ CORRECTION : Construire le nom complet correctement
+                        let userName = '';
+                        if (user.prenom && user.nom) {
+                            userName = `${user.prenom} ${user.nom}`;
+                        } else if (user.Prenom && user.Nom) {
+                            userName = `${user.Prenom} ${user.Nom}`;
+                        } else if (user.displayName) {
+                            userName = user.displayName;
+                        } else if (user.name) {
+                            userName = user.name;
+                        } else if (user.nom) {
+                            userName = user.nom;
+                        } else if (user.Nom) {
+                            userName = user.Nom;
+                        } else {
+                            userName = `Utilisateur ${userId}`;
+                        }
+
+                        const userService = user.service || user.Service || '';
+                        const userServiceClean = typeof cleanServiceName === 'function' ? cleanServiceName(userService) : userService;
+                        const userEmail = user.email || user.mail || user.Email || user.Mail || '';
+
+                        const exists = selectedAffectations.some(a =>
+                            a.type === 'Utilisateur' && (a.id === userId || (userEmail && a.email === userEmail))
+                        );
+
+                        if (!exists) {
+                            selectedAffectations.push({
+                                id: userId,
+                                type: 'Utilisateur',
+                                name: userName,
+                                info: userServiceClean,
+                                email: userEmail
+                            });
+                            totalUsersAdded++;
+                            console.log(`[CONFIRM-GROUP] ✅ Utilisateur ajouté: ${userName}`);
+                        } else {
+                            console.log(`[CONFIRM-GROUP] ⚠️ Utilisateur déjà présent: ${userName}`);
+                        }
+                    });
+
+                } catch (error) {
+                    console.error(`[CONFIRM-GROUP] Erreur lors de la récupération des membres du groupe ${groupId}:`, error);
+                }
+            }
+
+            if (totalUsersAdded > 0) {
+                console.log('[CONFIRM-GROUP] Total utilisateurs ajoutés:', totalUsersAdded);
+
+                if (typeof updateAffectationsList === 'function') {
+                    updateAffectationsList();
+                    console.log('[CONFIRM-GROUP] Liste mise à jour');
+                }
+
+                showRobiaNotification(`${totalUsersAdded} utilisateur(s) ajouté(s) depuis ${groupIds.length} groupe(s)`, 'success');
+
+                setTimeout(() => {
+                    const hidden = document.getElementById('affectationsData');
+                    if (hidden) hidden.dispatchEvent(new Event('change', { bubbles: true }));
+
+                    document.dispatchEvent(new CustomEvent('affectations:changed', {
+                        detail: { action: 'bulk-add-from-groups', count: totalUsersAdded }
+                    }));
+
+                    if (typeof window.__prsRefreshAbsences === 'function') {
+                        window.__prsRefreshAbsences();
+                    }
+                }, 100);
+            } else {
+                console.warn('[CONFIRM-GROUP] Aucun utilisateur ajouté');
+                showRobiaNotification('Aucun nouvel utilisateur ajouté', 'info');
+            }
+
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            if (bsModal) bsModal.hide();
+        });
+                });
+
+                        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[AFFECTATIONS-CLEAR] Initialisation...');
+
+            // ✅ Fonction pour vider les affectations
+            function clearAffectations(reason) {
+                console.log(`[AFFECTATIONS-CLEAR] Vidage des affectations : ${reason}`);
+
+                if (typeof selectedAffectations !== 'undefined' && selectedAffectations.length > 0) {
+                    selectedAffectations.length = 0;
+
+                    if (typeof updateAffectationsList === 'function') {
+                        updateAffectationsList();
+                    }
+
+                    console.log('[AFFECTATIONS-CLEAR] ✅ Liste vidée');
+                    showRobiaNotification('Liste des personnes affectées vidée', 'info');
+                } else {
+                    console.log('[AFFECTATIONS-CLEAR] Liste déjà vide');
+                }
+            }
+
+            // ✅ 1. Select du modèle
+            const modeleSelect = document.getElementById('checklistModele');
+            if (modeleSelect) {
+                console.log('[AFFECTATIONS-CLEAR] ✅ Select modèle trouvé : #checklistModele');
+                modeleSelect.addEventListener('change', function() {
+                    clearAffectations('Changement de modèle');
+                });
+            } else {
+                console.warn('[AFFECTATIONS-CLEAR] ⚠️ Select modèle (#checklistModele) non trouvé');
+            }
+
+            // ✅ 2. Select du PRS source
+            const sourceSelect = document.getElementById('prsSourceSelect');
+            if (sourceSelect) {
+                console.log('[AFFECTATIONS-CLEAR] ✅ Select PRS source trouvé : #prsSourceSelect');
+                sourceSelect.addEventListener('change', function() {
+                    clearAffectations('Changement de PRS source');
+                });
+            } else {
+                console.warn('[AFFECTATIONS-CLEAR] ⚠️ Select PRS source (#prsSourceSelect) non trouvé');
+            }
+        });
                 // ====== AJOUT : Filtrage dynamique des lignes selon l'équipement ======
                 document.addEventListener('DOMContentLoaded', function () {
         const equipSel = document.getElementById('Prs_Equipement'); // select équipement
@@ -1673,135 +2076,7 @@
             }
         });
 
-                // ✅ NOUVELLE FONCTION : Ajouter les utilisateurs des tâches et groupes dans "Affectation des personnes"
-        async function ajouterUtilisateursDesGroupesEtTaches(mappedElements) {
-            if (!mappedElements || mappedElements.length === 0) return;
-
-            const utilisateursAjoutes = new Set();
-            const groupesAjoutes = new Set();
-
-            // Collecter tous les utilisateurs et groupes des tâches
-            mappedElements.forEach(element => {
-                // Utilisateurs directs
-                if (element.assignedUsers && element.assignedUsers.length > 0) {
-                    element.assignedUsers.forEach(userId => utilisateursAjoutes.add(userId));
-                }
-
-                // Groupes
-                if (element.assignedGroups && element.assignedGroups.length > 0) {
-                    element.assignedGroups.forEach(groupId => groupesAjoutes.add(groupId));
-                }
-            });
-
-            // Récupérer les détails des groupes pour extraire leurs membres
-            const groupesDetails = await Promise.all(
-                Array.from(groupesAjoutes).map(async (groupId) => {
-                    return await obtenirMembresGroupe(groupId);
-                })
-            );
-
-            // Ajouter tous les membres des groupes
-            groupesDetails.forEach(groupe => {
-                if (groupe && groupe.membres) {
-                    groupe.membres.forEach(membreId => utilisateursAjoutes.add(membreId));
-                }
-            });
-
-            // Ajouter les utilisateurs dans la section "Affectation des personnes"
-            const userSelect = document.getElementById('userSelect');
-            const addUserBtn = document.getElementById('addUserBtn');
-
-            if (!userSelect || !addUserBtn) {
-                console.warn('userSelect ou addUserBtn introuvable');
-                return;
-            }
-
-            let compteurAjoutes = 0;
-
-            // Parcourir tous les utilisateurs à ajouter
-            for (const userId of utilisateursAjoutes) {
-                // Trouver l'option correspondante dans le select
-                const option = Array.from(userSelect.options).find(opt => parseInt(opt.value) === userId);
-
-                if (option && option.value) {
-                    // Vérifier s'il n'est pas déjà dans la liste
-                    const userName = option.dataset.name || option.textContent.trim();
-                    const userEmail = (option.dataset.email || '').trim();
-
-                    const exists = selectedAffectations.some(a =>
-                        a.type === 'Utilisateur' && (a.id === userId || (userEmail && a.email === userEmail))
-                    );
-
-                    if (!exists) {
-                        // Ajouter l'utilisateur
-                        const userService = option.dataset.service || '';
-                        const userServiceClean = option.dataset.serviceClean || cleanServiceName(userService);
-
-                        selectedAffectations.push({
-                            id: userId,
-                            type: 'Utilisateur',
-                            name: userName,
-                            info: userServiceClean,
-                            email: userEmail
-                        });
-
-                        compteurAjoutes++;
-                    }
-                }
-            }
-
-            // Mettre à jour l'affichage
-            if (compteurAjoutes > 0) {
-                updateAffectationsList();
-                showRobiaNotification(`${compteurAjoutes} utilisateur(s) ajouté(s) automatiquement depuis les tâches`, 'success');
-
-                // Déclencher le rafraîchissement du calendrier
-                setTimeout(() => {
-                    const hidden = document.getElementById('affectationsData');
-                    if (hidden) {
-                        hidden.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-
-                    document.dispatchEvent(new CustomEvent('affectations:changed', {
-                        detail: { action: 'bulk-add', count: compteurAjoutes }
-                    }));
-
-                    if (typeof window.__prsRefreshAbsences === 'function') {
-                        window.__prsRefreshAbsences();
-                    }
-                }, 100);
-            }
-        }
-
-        // ✅ FONCTION AUXILIAIRE : Obtenir les membres d'un groupe
-        async function obtenirMembresGroupe(groupId) {
-            try {
-                // Chercher le groupe dans les données déjà chargées
-                const groupSelect = document.getElementById('groupSelect');
-                if (!groupSelect) return null;
-
-                // Trouver l'option du groupe
-                const groupOption = Array.from(groupSelect.options).find(opt => parseInt(opt.value) === groupId);
-                if (!groupOption) return null;
-
-                // Pour obtenir les membres, on doit faire un appel API ou utiliser les données du Model
-                // Voici une approche via le backend
-                const response = await fetch(`?handler=GroupMembers&groupId=${groupId}`);
-                if (!response.ok) {
-                    console.warn(`Impossible de récupérer les membres du groupe ${groupId}`);
-                    return null;
-                }
-
-                const data = await response.json();
-                return {
-                    id: groupId,
-                    membres: data.membres || []
-                };
-            } catch (error) {
-                console.error(`Erreur lors de la récupération des membres du groupe ${groupId}:`, error);
-                return null;
-            }
-        }
+     
           // Écouteurs
           if (selectAll) {
             selectAll.addEventListener('change', () => {
@@ -1908,10 +2183,155 @@
             refreshCategoryAssignments();
           });
         }
+                })();  // ← Fin du bloc de gestion des modèles
+
+                        // ===== GESTION COPIE DEPUIS PRS EXISTANTE AVEC AFFECTATIONS =====
+        (function() {
+            const typeSel = document.getElementById('checklistTypeSelector');
+            const prsSourceSelect = document.getElementById('prsSourceSelect');
+
+            if (!prsSourceSelect) return;
+
+            prsSourceSelect.addEventListener('change', async function() {
+                const prsId = this.value;
+                if (!prsId) return;
+
+                try {
+                    prsSourceSelect.disabled = true;
+                    showRobiaNotification('Chargement de la PRS...', 'info');
+
+                    // Appel API pour récupérer checklist + affectations
+                    const response = await fetch(`?handler=PrsChecklistWithAffectations&prsId=${prsId}`);
+                    if (!response.ok) throw new Error('Erreur chargement');
+
+                    const data = await response.json();
+
+                    if (!data.success || !data.checklist || !data.checklist.length) {
+                        showRobiaNotification('Aucune tâche trouvée pour cette PRS', 'warning');
+                        return;
+                    }
+
+                    // ✅ ÉTAPE 1 : Importer les affectations PRS dans la liste globale
+                    if (data.prsAffectations && data.prsAffectations.length > 0) {
+                        let compteurAjoutes = 0;
+
+                        data.prsAffectations.forEach(aff => {
+                            if (aff.type === 'Utilisateur' && aff.utilisateurId) {
+                                const exists = selectedAffectations.some(a =>
+                                    a.type === 'Utilisateur' &&
+                                    (a.id === aff.utilisateurId || (aff.utilisateurEmail && a.email === aff.utilisateurEmail))
+                                );
+
+                                if (!exists) {
+                                    const serviceClean = cleanServiceName(aff.utilisateurService || '');
+                                    selectedAffectations.push({
+                                        id: aff.utilisateurId,
+                                        type: 'Utilisateur',
+                                        name: aff.utilisateurNom || `Utilisateur #${aff.utilisateurId}`,
+                                        info: serviceClean,
+                                        email: aff.utilisateurEmail || ''
+                                    });
+                                    compteurAjoutes++;
+                                }
+                            } else if (aff.type === 'Groupe' && aff.groupeId) {
+                                const exists = selectedAffectations.some(a =>
+                                    a.type === 'Groupe' && a.id === aff.groupeId
+                                );
+
+                                if (!exists) {
+                                    selectedAffectations.push({
+                                        id: aff.groupeId,
+                                        type: 'Groupe',
+                                        name: aff.groupeNom || `Groupe #${aff.groupeId}`,
+                                        info: `${aff.groupeMembresCount || 0} membres`
+                                    });
+                                    compteurAjoutes++;
+                                }
+                            }
+                        });
+
+                        // ✅ CORRECTION : Mettre à jour l'affichage immédiatement
+                        if (compteurAjoutes > 0 && typeof updateAffectationsList === 'function') {
+                            updateAffectationsList();
+                            showRobiaNotification(`${compteurAjoutes} affectation(s) PRS importée(s)`, 'success');
+
+                            // Rafraîchir le calendrier après mise à jour
+                            setTimeout(() => {
+                                const hidden = document.getElementById('affectationsData');
+                                if (hidden) {
+                                    hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                                }
+
+                                document.dispatchEvent(new CustomEvent('affectations:changed', {
+                                    detail: { action: 'bulk-add', count: compteurAjoutes }
+                                }));
+
+                                if (typeof window.__prsRefreshAbsences === 'function') {
+                                    window.__prsRefreshAbsences();
+                                }
+                            }, 100);
+                        }
+                    }
+
+                    // ✅ ÉTAPE 2 : Importer la checklist avec ses affectations
+                    if (window.checklistManager) {
+                        const mgr = window.checklistManager;
+
+                        const mapped = data.checklist.map(item => {
+                            const affUsers = [];
+                            const affGroups = [];
+
+                            if (item.affectations && item.affectations.length > 0) {
+                                item.affectations.forEach(aff => {
+                                    if (aff.type === 'Utilisateur' && aff.utilisateurId) {
+                                        affUsers.push(aff.utilisateurId);
+                                    } else if (aff.type === 'Groupe' && aff.groupeId) {
+                                        affGroups.push(aff.groupeId);
+                                    }
+                                });
+                            }
+
+                            return {
+                                id: ++mgr.elementIdCounter,
+                                categorie: item.categorie || '',
+                                sousCategorie: item.sousCategorie || '',
+                                libelle: item.libelle || '',
+                                priorite: item.priorite > 0 ? item.priorite : 3,
+                                delaiDefautJours: item.delaiDefautJours > 0 ? item.delaiDefautJours : 1,
+                                obligatoire: !!item.obligatoire,
+                                assignedUsers: affUsers,
+                                assignedGroups: affGroups
+                            };
+                        });
+
+                        mgr.currentChecklist = {
+                            type: 'copy',
+                            sourceId: prsId,
+                            elements: mapped
+                        };
+
+                        mgr.showChecklistEditor();
+                        mgr.renderChecklistItems();
+                        mgr.updateChecklistData();
+
+                        // ✅ AJOUT : Importer aussi les utilisateurs des tâches (en plus des affectations PRS)
+                        await ajouterUtilisateursDesGroupesEtTaches(mapped);
+
+                        showRobiaNotification(`${mapped.length} tâche(s) importée(s)`, 'success');
+                        document.getElementById('checklistEditor')?.scrollIntoView({ behavior:'smooth', block:'start' });
+                    }
+
+                } catch (error) {
+                    console.error('Erreur lors de la copie:', error);
+                    showRobiaNotification('Erreur lors de l\'import de la PRS', 'danger');
+                } finally {
+                    prsSourceSelect.disabled = false;
+                }
+            });
         })();
 
-        // Variables globales
-        const dateDebutInput = document.querySelector("#Prs_DateDebut");
+                // Variables globales
+                const dateDebutInput = document.querySelector("#Prs_DateDebut");
         const dateFinInput = document.querySelector("#Prs_DateFin");
         const durationSelect = document.querySelector("#duration-select");
         const ligneSelect = document.querySelector("#ligne-select");
