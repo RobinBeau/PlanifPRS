@@ -748,7 +748,8 @@
                 </select>
                 <span asp-validation-for="Prs.LigneId" class="text-danger"></span>
             </div>
-
+            @if (isAdminOrValidateur)
+            {
             <div class="col-md-6">
                 <label asp-for="Prs.FamilleId" class="form-label">
                     <i class="fas fa-layer-group"></i>
@@ -777,6 +778,7 @@
                     }
                 </select>
             </div>
+            }
 
        
             <!-- Nouveau champ pour les liens vers les dossiers PRS -->
@@ -1376,40 +1378,41 @@
                   function cleanServiceName(s) {
           return (s || '').replace(/^[A-Z]+_[0-9]+\s+/, '').trim();
         }
-
                 function getUsers() {
-          if (!getUsers.cache) {
-            try {
-              const raw = document.getElementById('usersJson')?.textContent;
-              const arr = raw ? JSON.parse(raw) : [];
+            if (!getUsers.cache) {
+                try {
+                    const raw = document.getElementById('usersJson')?.textContent;
+                    const arr = raw ? JSON.parse(raw) : [];
 
-              // Ajoute propriété serviceDisplay si absente
-              arr.forEach(u => {
-                u.serviceDisplay = u.serviceDisplay ? u.serviceDisplay : cleanServiceName(u.service);
-              });
+                    // Ajoute propriété serviceDisplay si absente
+                    arr.forEach(u => {
+                        u.serviceDisplay = u.serviceDisplay ? u.serviceDisplay : cleanServiceName(u.service);
+                    });
 
-              // Tri utilisateurs (nom famille puis prénom)
-              arr.sort((a,b) => {
-                const ln = (a.nomFamille||'').localeCompare(b.nomFamille||'','fr',{sensitivity:'base'});
-                return ln !== 0 ? ln : (a.prenom||'').localeCompare(b.prenom||'','fr',{sensitivity:'base'});
-              });
+                    // ✅ MODIFIÉ : Tri alphabétique par PRÉNOM puis NOM
+                    arr.sort((a, b) => {
+                        const prenomCompare = (a.prenom || '').localeCompare(b.prenom || '', 'fr', {sensitivity: 'base'});
+                        if (prenomCompare !== 0) return prenomCompare;
+                        return (a.nomFamille || '').localeCompare(b.nomFamille || '', 'fr', {sensitivity: 'base'});
+                    });
 
-              getUsers.cache = arr;
+                    getUsers.cache = arr;
 
-              // Construire liste services nettoyés uniques
-              const services = Array.from(new Set(
-                arr.map(u => u.serviceDisplay).filter(s => s && s.length > 0)
-              )).sort((a,b)=>a.localeCompare(b,'fr',{sensitivity:'base'}));
+                    // Construire liste services nettoyés uniques
+                    const services = Array.from(new Set(
+                        arr.map(u => u.serviceDisplay).filter(s => s && s.length > 0)
+                    )).sort((a, b) => a.localeCompare(b, 'fr', {sensitivity: 'base'}));
 
-              getUsers.services = services;
-            } catch(e) {
-              console.warn('[CHECKLIST] Échec parse usersJson', e);
-              getUsers.cache = [];
-              getUsers.services = [];
+                    getUsers.services = services;
+                } catch(e) {
+                    console.warn('[CHECKLIST] Échec parse usersJson', e);
+                    getUsers.cache = [];
+                    getUsers.services = [];
+                }
             }
-          }
-          return getUsers.cache;
+            return getUsers.cache;
         }
+                    
                         function getFilteredUsers() {
           const all = getUsers();
           const svc = serviceFilter?.value || '';

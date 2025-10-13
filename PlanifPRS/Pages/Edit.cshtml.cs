@@ -394,9 +394,9 @@ namespace PlanifPRS.Pages
             var lignes = await (from l in _context.Lignes
                                 join s in _context.Secteurs on l.IdSecteur equals s.Id
                                 where l.Activation == true
-                                      && s.DateDeleted == null
                                       && s.IdTypeSecteur == typeSecteur.Value
                                       && l.Nom != null && l.Nom != ""
+                                      && !l.Nom.StartsWith("CV ")
                                 orderby l.Nom
                                 select new { id = l.Id, nom = l.Nom })
                                .ToListAsync();
