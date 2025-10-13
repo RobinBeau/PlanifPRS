@@ -72,7 +72,7 @@
                     <i class="fas fa-user-slash me-2"></i>
                     <strong>PRS avec intervenants absents :</strong> @Model.PrsAbsenceAlerts.Count
                     <div class="small text-muted">
-                        Ressources (Out Of Office) détectées sur l’horizon.
+                        Ressources (Out Of Office) détectées sur l'horizon.
                     </div>
                 </div>
                 <a href="/Index" class="btn btn-sm btn-outline-dark">
@@ -102,51 +102,492 @@
         </div>
     }
 
-    <div class="row g-3 mb-4">
-        <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card kpi-card shadow-sm">
-                <div class="card-body">
-                    <div class="kpi-title text-muted">Mes éléments ouverts</div>
-                    <div class="kpi-value">@Model.Summary.TotalOpenItems</div>
-                    <div class="kpi-sub text-muted">Checklist non validées</div>
-                </div>
-                <div class="kpi-icon"><i class="fas fa-tasks"></i></div>
-            </div>
-        </div>
-        <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card kpi-card shadow-sm">
-                <div class="card-body">
-                    <div class="kpi-title text-muted">En retard</div>
-                    <div class="kpi-value text-danger">@Model.Summary.LateCount</div>
-                    <div class="kpi-sub text-muted">Échéance dépassée</div>
-                </div>
-                <div class="kpi-icon text-danger"><i class="fas fa-exclamation-triangle"></i></div>
-            </div>
-        </div>
-        <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card kpi-card shadow-sm">
-                <div class="card-body">
-                    <div class="kpi-title text-muted">Aujourd'hui</div>
-                    <div class="kpi-value text-warning">@Model.Summary.TodayCount</div>
-                    <div class="kpi-sub text-muted">À valider aujourd'hui</div>
-                </div>
-                <div class="kpi-icon text-warning"><i class="fas fa-calendar-day"></i></div>
-            </div>
-        </div>
-        <div class="col-12 col-sm-6 col-lg-3">
-            <div class="card kpi-card shadow-sm">
-                <div class="card-body">
-                    <div class="kpi-title text-muted">Prochaines @Model.DefaultDueSoonDays j</div>
-                    <div class="kpi-value text-info" id="kpiSoonValue">@Model.Summary.DueSoonCount</div>
-                    <div class="kpi-sub text-muted">Échéance proche</div>
-                </div>
-                <div class="kpi-icon text-info"><i class="fas fa-hourglass-half"></i></div>
-            </div>
-        </div>
-    </div>
-
-    @if (Model.IsManagerView)
+    @* ========== SECTION : QUI ME CONCERNENT ========== *@
+    @if (Model.MyAssignedSummary.TotalOpenItems > 0)
     {
+        <h3 class="section-title mt-4 mb-3">
+            <i class="fas fa-user-check me-2"></i>Qui me concernent (affectations)
+        </h3>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm border-primary">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">Éléments ouverts</div>
+                        <div class="kpi-value text-primary">@Model.MyAssignedSummary.TotalOpenItems</div>
+                        <div class="kpi-sub text-muted">Qui me concernent</div>
+                    </div>
+                    <div class="kpi-icon text-primary"><i class="fas fa-tasks"></i></div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">En retard</div>
+                        <div class="kpi-value text-danger">@Model.MyAssignedSummary.LateCount</div>
+                        <div class="kpi-sub text-muted">Échéance dépassée</div>
+                    </div>
+                    <div class="kpi-icon text-danger"><i class="fas fa-exclamation-triangle"></i></div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">Aujourd'hui</div>
+                        <div class="kpi-value text-warning">@Model.MyAssignedSummary.TodayCount</div>
+                        <div class="kpi-sub text-muted">À valider aujourd'hui</div>
+                    </div>
+                    <div class="kpi-icon text-warning"><i class="fas fa-calendar-day"></i></div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">Prochaines @Model.DefaultDueSoonDays j</div>
+                        <div class="kpi-value text-info">@Model.MyAssignedSummary.DueSoonCount</div>
+                        <div class="kpi-sub text-muted">Échéance proche</div>
+                    </div>
+                    <div class="kpi-icon text-info"><i class="fas fa-hourglass-half"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-xl-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-semibold text-muted"><i class="fas fa-triangle-exclamation me-1"></i>En retard</div>
+                            <a href="/Milestones" class="btn btn-sm btn-outline-secondary"><i class="fas fa-list me-1"></i>Tout voir</a>
+                        </div>
+                        @if (Model.MyAssignedOverdueItems.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>PRS</th>
+                                            <th>Élément</th>
+                                            <th>Échéance</th>
+                                            <th>Retard</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var it in Model.MyAssignedOverdueItems)
+                                        {
+                                            <tr>
+                                                <td>@it.PrsTitre</td>
+                                                <td>
+                                                    <div>@it.Libelle</div>
+                                                    <div class="small text-muted">
+                                                        @it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                                        {
+                                                            <text>• @it.SousCategorie</text>
+                                                        }
+                                                    </div>
+                                                </td>
+                                                <td>@it.DueDate.ToString("dd/MM/yyyy")</td>
+                                                <td><span class="badge bg-danger">@Math.Abs(it.DaysLeft) j</span></td>
+                                                <td>
+                                                    @if (!it.IsValidated)
+                                                    {
+                                                        <form method="post" asp-page-handler="ValidateChecklist" class="d-inline">
+                                                            <input type="hidden" name="checklistId" value="@it.Id" />
+                                                            <button type="submit" class="btn btn-sm btn-success" title="Valider">
+                                                                <i class="fas fa-check"></i>
+                                                            </button>
+                                                        </form>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-success">
+                                                            <i class="fas fa-check-circle"></i> Validé
+                                                        </span>
+                                                        <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
+                                                            <input type="hidden" name="checklistId" value="@it.Id" />
+                                                            <button type="submit" class="btn btn-sm btn-outline-secondary btn-sm" title="Annuler validation">
+                                                                <i class="fas fa-undo"></i>
+                                                            </button>
+                                                        </form>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">Aucun élément en retard.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-xl-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-semibold text-muted">
+                                <i class="fas fa-calendar-days me-1"></i>Prochaines échéances
+                            </div>
+                            <a href="/Checklists" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
+                        </div>
+                        @if (Model.MyAssignedDueSoonItems.Any())
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var item in Model.MyAssignedDueSoonItems)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold">@item.Libelle</div>
+                                            <div class="small text-muted">
+                                                PRS: <a href="/Prs/Details?id=@item.PrsId">@item.PrsTitre</a>
+                                            </div>
+                                            <div class="small">
+                                                <span class="badge bg-info text-dark">Priorité @item.Priorite</span>
+                                                @if (!string.IsNullOrWhiteSpace(item.Categorie))
+                                                {
+                                                    <span class="badge bg-secondary">@item.Categorie</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="text-end d-flex flex-column align-items-end">
+                                            @if (item.DaysLeft == 0)
+                                            {
+                                                <span class="badge bg-warning text-dark mb-1">Aujourd'hui</span>
+                                            }
+                                            else if (item.DaysLeft == 1)
+                                            {
+                                                <span class="badge bg-warning text-dark mb-1">Demain</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-info text-dark mb-1">Dans @item.DaysLeft jours</span>
+                                            }
+                                            <small class="text-muted">@item.DueDate.ToString("dd/MM/yyyy")</small>
+
+                                            @if (!item.IsValidated)
+                                            {
+                                                <form method="post" asp-page-handler="ValidateChecklist" class="mt-2">
+                                                    <input type="hidden" name="checklistId" value="@item.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-success" title="Valider">
+                                                        <i class="fas fa-check"></i> Valider
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <div class="mt-2">
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check-circle"></i> Validé
+                                                    </span>
+                                                    <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
+                                                        <input type="hidden" name="checklistId" value="@item.Id" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-secondary btn-sm" title="Annuler validation">
+                                                            <i class="fas fa-undo"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            }
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">Aucune échéance prochaine.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-semibold text-muted"><i class="fas fa-calendar-alt me-1"></i>PRS à venir</div>
+                            <a href="/Index" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
+                        </div>
+                        @if (Model.UpcomingPrs.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>PRS</th>
+                                            <th>Statut</th>
+                                            <th>Début</th>
+                                            <th>Fin</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var p in Model.UpcomingPrs)
+                                        {
+                                            var absenceAlert = Model.PrsAbsenceAlerts?.FirstOrDefault(a => a.PrsId == p.Id);
+                                            var absenceTitle = absenceAlert != null
+                                            ? "Absents: " + string.Join(", ", absenceAlert.AbsentLogins ?? new List<string>())
+                                            : string.Empty;
+
+                                            <tr>
+                                                <td>
+                                                    @p.Titre
+                                                    @if (absenceAlert != null)
+                                                    {
+                                                        <span class="badge bg-warning text-dark ms-1" title="@absenceTitle">
+                                                            <i class="fas fa-user-slash"></i>
+                                                        </span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (p.Statut == "Validé")
+                                                    {
+                                                        <span class="badge bg-success">Validé</span>
+                                                    }
+                                                    else if (p.Statut == "À re-valider")
+                                                    {
+                                                        <span class="badge bg-danger">À re-valider</span>
+                                                    }
+                                                    else if (p.Statut == "En attente")
+                                                    {
+                                                        <span class="badge bg-warning text-dark">En attente</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-secondary">@p.Statut</span>
+                                                    }
+                                                </td>
+                                                <td>@p.DateDebut.ToString("dd/MM/yyyy HH:mm")</td>
+                                                <td>@p.DateFin.ToString("dd/MM/yyyy HH:mm")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">Aucune PRS à venir.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ========== SECTION : QUE J'AI CRÉÉES ========== *@
+    @if (Model.MyCreatedSummary.TotalOpenItems > 0)
+    {
+        <h3 class="section-title mt-4 mb-3">
+            <i class="fas fa-file-circle-plus me-2"></i>Que j'ai créées
+        </h3>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm border-success">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">Éléments ouverts</div>
+                        <div class="kpi-value text-success">@Model.MyCreatedSummary.TotalOpenItems</div>
+                        <div class="kpi-sub text-muted">Que j'ai créées</div>
+                    </div>
+                    <div class="kpi-icon text-success"><i class="fas fa-tasks"></i></div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">En retard</div>
+                        <div class="kpi-value text-danger">@Model.MyCreatedSummary.LateCount</div>
+                        <div class="kpi-sub text-muted">Échéance dépassée</div>
+                    </div>
+                    <div class="kpi-icon text-danger"><i class="fas fa-exclamation-triangle"></i></div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">Aujourd'hui</div>
+                        <div class="kpi-value text-warning">@Model.MyCreatedSummary.TodayCount</div>
+                        <div class="kpi-sub text-muted">À valider aujourd'hui</div>
+                    </div>
+                    <div class="kpi-icon text-warning"><i class="fas fa-calendar-day"></i></div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">Prochaines @Model.DefaultDueSoonDays j</div>
+                        <div class="kpi-value text-info">@Model.MyCreatedSummary.DueSoonCount</div>
+                        <div class="kpi-sub text-muted">Échéance proche</div>
+                    </div>
+                    <div class="kpi-icon text-info"><i class="fas fa-hourglass-half"></i></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-xl-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-semibold text-muted"><i class="fas fa-triangle-exclamation me-1"></i>En retard</div>
+                            <a href="/Milestones" class="btn btn-sm btn-outline-secondary"><i class="fas fa-list me-1"></i>Tout voir</a>
+                        </div>
+                        @if (Model.MyCreatedOverdueItems.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>PRS</th>
+                                            <th>Élément</th>
+                                            <th>Échéance</th>
+                                            <th>Retard</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var it in Model.MyCreatedOverdueItems)
+                                        {
+                                            <tr>
+                                                <td>@it.PrsTitre</td>
+                                                <td>
+                                                    <div>@it.Libelle</div>
+                                                    <div class="small text-muted">
+                                                        @it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                                        {
+                                                            <text>• @it.SousCategorie</text>
+                                                        }
+                                                    </div>
+                                                </td>
+                                                <td>@it.DueDate.ToString("dd/MM/yyyy")</td>
+                                                <td><span class="badge bg-danger">@Math.Abs(it.DaysLeft) j</span></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">Aucun élément en retard.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-xl-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-semibold text-muted">
+                                <i class="fas fa-calendar-days me-1"></i>Prochaines échéances
+                            </div>
+                            <a href="/Checklists" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
+                        </div>
+                        @if (Model.MyCreatedDueSoonItems.Any())
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var item in Model.MyCreatedDueSoonItems)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold">@item.Libelle</div>
+                                            <div class="small text-muted">
+                                                PRS: <a href="/Prs/Details?id=@item.PrsId">@item.PrsTitre</a>
+                                            </div>
+                                            <div class="small">
+                                                <span class="badge bg-info text-dark">Priorité @item.Priorite</span>
+                                                @if (!string.IsNullOrWhiteSpace(item.Categorie))
+                                                {
+                                                    <span class="badge bg-secondary">@item.Categorie</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            @if (item.DaysLeft == 0)
+                                            {
+                                                <span class="badge bg-warning text-dark mb-1">Aujourd'hui</span>
+                                            }
+                                            else if (item.DaysLeft == 1)
+                                            {
+                                                <span class="badge bg-warning text-dark mb-1">Demain</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-info text-dark mb-1">Dans @item.DaysLeft jours</span>
+                                            }
+                                            <br />
+                                            <small class="text-muted">@item.DueDate.ToString("dd/MM/yyyy")</small>
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">Aucune échéance prochaine.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ========== SECTION : TOUTES (ADMIN SEULEMENT) ========== *@
+    @if (Model.IsManagerView && Model.Summary.TotalOpenItems > 0)
+    {
+        <h3 class="section-title mt-4 mb-3">
+            <i class="fas fa-globe me-2"></i>Toutes les PRS (vue globale)
+        </h3>
+
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm border-warning">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">Tous éléments ouverts</div>
+                        <div class="kpi-value text-warning">@Model.Summary.TotalOpenItems</div>
+                        <div class="kpi-sub text-muted">Vue globale</div>
+                    </div>
+                    <div class="kpi-icon text-warning"><i class="fas fa-tasks"></i></div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">En retard</div>
+                        <div class="kpi-value text-danger">@Model.Summary.LateCount</div>
+                        <div class="kpi-sub text-muted">Échéance dépassée</div>
+                    </div>
+                    <div class="kpi-icon text-danger"><i class="fas fa-exclamation-triangle"></i></div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">Aujourd'hui</div>
+                        <div class="kpi-value text-warning">@Model.Summary.TodayCount</div>
+                        <div class="kpi-sub text-muted">À valider aujourd'hui</div>
+                    </div>
+                    <div class="kpi-icon text-warning"><i class="fas fa-calendar-day"></i></div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="card kpi-card shadow-sm">
+                    <div class="card-body">
+                        <div class="kpi-title text-muted">Prochaines @Model.DefaultDueSoonDays j</div>
+                        <div class="kpi-value text-info" id="kpiSoonValue">@Model.Summary.DueSoonCount</div>
+                        <div class="kpi-sub text-muted">Échéance proche</div>
+                    </div>
+                    <div class="kpi-icon text-info"><i class="fas fa-hourglass-half"></i></div>
+                </div>
+            </div>
+        </div>
+
         <div class="row g-3 mb-4">
             <div class="col-12 col-lg-3">
                 <div class="card admin-card shadow-sm">
@@ -228,250 +669,273 @@
                 </div>
             </div>
         </div>
-    }
 
-    <div class="row g-3">
-        <div class="col-12 col-xl-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                        <div class="fw-semibold text-muted"><i class="fas fa-triangle-exclamation me-1"></i>En retard (qui me concernent)</div>
-                        <a href="/Milestones" class="btn btn-sm btn-outline-secondary"><i class="fas fa-list me-1"></i>Tout voir</a>
-                    </div>
-                    @if (Model.OverdueItems.Any())
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>PRS</th>
-                                        <th>Élément</th>
-                                        <th>Échéance</th>
-                                        <th>Retard</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var it in Model.OverdueItems)
-                                    {
-                                        <tr>
-                                            <td>@it.PrsTitre</td>
-                                            <td>
-                                                <div>@it.Libelle</div>
-                                                <div class="small text-muted">
-                                                    @it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
-                                                    {
-                                                        <text>• @it.SousCategorie</text>
-                                                    }
-                                                </div>
-                                            </td>
-                                            <td>@it.DueDate.ToString("dd/MM/yyyy")</td>
-                                            <td><span class="badge bg-danger">@Math.Abs(it.DaysLeft) j</span></td>
-                                            <td>
-                                                <form method="post" asp-page-handler="ValidateChecklist" class="d-inline">
-                                                    <input type="hidden" name="checklistId" value="@it.Id" />
-                                                    <button type="submit" class="btn btn-sm btn-success"><i class="fas fa-check me-1"></i>Valider</button>
-                                                    @Html.AntiForgeryToken()
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-xl-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-semibold text-muted"><i class="fas fa-triangle-exclamation me-1"></i>En retard</div>
+                            <a href="/Milestones" class="btn btn-sm btn-outline-secondary"><i class="fas fa-list me-1"></i>Tout voir</a>
                         </div>
-                    }
-                    else
-                    {
-                        <div class="text-muted small">Aucun élément en retard.</div>
-                    }
+                        @if (Model.OverdueItems.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>PRS</th>
+                                            <th>Élément</th>
+                                            <th>Échéance</th>
+                                            <th>Retard</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var it in Model.OverdueItems)
+                                        {
+                                            <tr>
+                                                <td>@it.PrsTitre</td>
+                                                <td>
+                                                    <div>@it.Libelle</div>
+                                                    <div class="small text-muted">
+                                                        @it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                                        {
+                                                            <text>• @it.SousCategorie</text>
+                                                        }
+                                                    </div>
+                                                </td>
+                                                <td>@it.DueDate.ToString("dd/MM/yyyy")</td>
+                                                <td><span class="badge bg-danger">@Math.Abs(it.DaysLeft) j</span></td>
+                                                <td>
+                                                    @if (!it.IsValidated)
+                                                    {
+                                                        <form method="post" asp-page-handler="ValidateChecklist" class="d-inline">
+                                                            <input type="hidden" name="checklistId" value="@it.Id" />
+                                                            <button type="submit" class="btn btn-sm btn-success" title="Valider">
+                                                                <i class="fas fa-check"></i>
+                                                            </button>
+                                                        </form>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-success">
+                                                            <i class="fas fa-check-circle"></i> Validé
+                                                        </span>
+                                                        <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
+                                                            <input type="hidden" name="checklistId" value="@it.Id" />
+                                                            <button type="submit" class="btn btn-sm btn-outline-secondary btn-sm" title="Annuler validation">
+                                                                <i class="fas fa-undo"></i>
+                                                            </button>
+                                                        </form>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">Aucun élément en retard.</div>
+                        }
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="col-12 col-xxl-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                        <div class="fw-semibold text-muted">
-                            <i class="fas fa-calendar-days me-1"></i>Prochaines échéances (qui me concernent)
+            <div class="col-12 col-xl-6">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-semibold text-muted">
+                                <i class="fas fa-calendar-days me-1"></i>Prochaines échéances
+                            </div>
+                            <a href="/Checklists" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
                         </div>
-                        <a href="/Checklists" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
-                    </div>
-                    @if (Model.DueSoonItems.Any())
-                    {
-                        <ul class="list-group list-group-flush">
-                            @foreach (var item in Model.DueSoonItems)
-                            {
-                                <li class="list-group-item d-flex justify-content-between align-items-start">
-                                    <div class="flex-grow-1">
-                                        <div class="fw-semibold">@item.Libelle</div>
-                                        <div class="small text-muted">
-                                            PRS: <a href="/Prs/Details?id=@item.PrsId">@item.PrsTitre</a>
+                        @if (Model.DueSoonItems.Any())
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var item in Model.DueSoonItems)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="fw-semibold">@item.Libelle</div>
+                                            <div class="small text-muted">
+                                                PRS: <a href="/Prs/Details?id=@item.PrsId">@item.PrsTitre</a>
+                                            </div>
+                                            <div class="small">
+                                                <span class="badge bg-info text-dark">Priorité @item.Priorite</span>
+                                                @if (!string.IsNullOrWhiteSpace(item.Categorie))
+                                                {
+                                                    <span class="badge bg-secondary">@item.Categorie</span>
+                                                }
+                                            </div>
                                         </div>
-                                        <div class="small">
-                                            <span class="badge bg-info text-dark">Priorité @item.Priorite</span>
-                                            @if (!string.IsNullOrWhiteSpace(item.Categorie))
+                                        <div class="text-end d-flex flex-column align-items-end">
+                                            @if (item.DaysLeft == 0)
                                             {
-                                                <span class="badge bg-secondary">@item.Categorie</span>
+                                                <span class="badge bg-warning text-dark mb-1">Aujourd'hui</span>
                                             }
-                                        </div>
-                                    </div>
-                                    <div class="text-end d-flex flex-column align-items-end">
-                                        @if (item.DaysLeft == 0)
-                                        {
-                                            <span class="badge bg-warning text-dark mb-1">Aujourd'hui</span>
-                                        }
-                                        else if (item.DaysLeft == 1)
-                                        {
-                                            <span class="badge bg-warning text-dark mb-1">Demain</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-info text-dark mb-1">Dans @item.DaysLeft jours</span>
-                                        }
-                                        <small class="text-muted">@item.DueDate.ToString("dd/MM/yyyy")</small>
+                                            else if (item.DaysLeft == 1)
+                                            {
+                                                <span class="badge bg-warning text-dark mb-1">Demain</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-info text-dark mb-1">Dans @item.DaysLeft jours</span>
+                                            }
+                                            <small class="text-muted">@item.DueDate.ToString("dd/MM/yyyy")</small>
 
-                                        @if (!item.IsValidated)
-                                        {
-                                            <form method="post" asp-page-handler="ValidateChecklist" class="mt-2">
-                                                <input type="hidden" name="checklistId" value="@item.Id" />
-                                                <button type="submit" class="btn btn-sm btn-success" title="Valider">
-                                                    <i class="fas fa-check"></i> Valider
-                                                </button>
-                                            </form>
-                                        }
-                                        else
-                                        {
-                                            <div class="mt-2">
-                                                <span class="badge bg-success">
-                                                    <i class="fas fa-check-circle"></i> Validé
-                                                </span>
-                                                <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
+                                            @if (!item.IsValidated)
+                                            {
+                                                <form method="post" asp-page-handler="ValidateChecklist" class="mt-2">
                                                     <input type="hidden" name="checklistId" value="@item.Id" />
-                                                    <button type="submit" class="btn btn-sm btn-outline-secondary btn-sm" title="Annuler validation">
-                                                        <i class="fas fa-undo"></i>
+                                                    <button type="submit" class="btn btn-sm btn-success" title="Valider">
+                                                        <i class="fas fa-check"></i> Valider
                                                     </button>
                                                 </form>
-                                            </div>
-                                        }
-                                    </div>
-                                </li>
-                            }
-                        </ul>
-                    }
-                    else
-                    {
-                        <div class="text-muted small">Aucune échéance prochaine.</div>
-                    }
-                </div>
-            </div>
-        </div>
-
-        <div class="col-12 col-xxl-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                        <div class="fw-semibold text-muted"><i class="fas fa-calendar-alt me-1"></i>PRS à venir (qui me concernent)</div>
-                        <a href="/Index" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
-                    </div>
-                    @if (Model.UpcomingPrs.Any())
-                    {
-                        <div class="table-responsive">
-                            <table class="table table-sm align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>PRS</th>
-                                        <th>Statut</th>
-                                        <th>Début</th>
-                                        <th>Fin</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var p in Model.UpcomingPrs)
-                                    {
-                                        var absenceAlert = Model.PrsAbsenceAlerts?.FirstOrDefault(a => a.PrsId == p.Id);
-                                        var absenceTitle = absenceAlert != null
-                                        ? "Absents: " + string.Join(", ", absenceAlert.AbsentLogins ?? new List<string>())
-                                        : string.Empty;
-
-                                        <tr>
-                                            <td>
-                                                @p.Titre
-                                                @if (absenceAlert != null)
-                                                {
-                                                    <span class="badge bg-warning text-dark ms-1" title="@absenceTitle">
-                                                        <i class="fas fa-user-slash"></i>
+                                            }
+                                            else
+                                            {
+                                                <div class="mt-2">
+                                                    <span class="badge bg-success">
+                                                        <i class="fas fa-check-circle"></i> Validé
                                                     </span>
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (p.Statut == "Validé")
-                                                {
-                                                    <span class="badge bg-success">Validé</span>
-                                                }
-                                                else if (p.Statut == "À re-valider")
-                                                {
-                                                    <span class="badge bg-danger">À re-valider</span>
-                                                }
-                                                else if (p.Statut == "En attente")
-                                                {
-                                                    <span class="badge bg-warning text-dark">En attente</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-secondary">@p.Statut</span>
-                                                }
-                                            </td>
-                                            <td>@p.DateDebut.ToString("dd/MM/yyyy")</td>
-                                            <td>@p.DateFin.ToString("dd/MM/yyyy")</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="text-muted small">Aucune PRS à venir.</div>
-                    }
-                </div>
-            </div>
-        </div>
-        @if (Model.IsManagerView)
-        {
-        <div class="col-12 col-xxl-6">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                        <div class="fw-semibold text-muted"><i class="fas fa-clock-rotate-left me-1"></i>Activité récente PRS</div>
-                        <a href="/Index" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
+                                                    <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
+                                                        <input type="hidden" name="checklistId" value="@item.Id" />
+                                                        <button type="submit" class="btn btn-sm btn-outline-secondary btn-sm" title="Annuler validation">
+                                                            <i class="fas fa-undo"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            }
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">Aucune échéance prochaine.</div>
+                        }
                     </div>
-                    @if (Model.RecentPrs.Any())
-                    {
-                        <ul class="list-group list-group-flush">
-                            @foreach (var a in Model.RecentPrs)
-                            {
-                                <li class="list-group-item d-flex justify-content-between">
-                                    <div>
-                                        <div class="fw-semibold">@a.Titre</div>
-                                        <div class="small text-muted">Statut: @a.Statut • Créée par @a.CreatedBy</div>
-                                    </div>
-                                    <div class="text-end small text-muted">
-                                        Modifiée le @a.DerniereModification.ToString("dd/MM/yyyy HH:mm")
-                                    </div>
-                                </li>
-                            }
-                        </ul>
-                    }
-                    else
-                    {
-                        <div class="text-muted small">Aucune activité récente.</div>
-                    }
                 </div>
             </div>
         </div>
-        }
-    </div>
+
+        @* NOUVELLE SECTION : PRS À VENIR (TOUTES) *@
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-semibold text-muted"><i class="fas fa-calendar-alt me-1"></i>PRS à venir (toutes)</div>
+                            <a href="/Index" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
+                        </div>
+                        @if (Model.AllUpcomingPrs.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm align-middle">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>PRS</th>
+                                            <th>Statut</th>
+                                            <th>Début</th>
+                                            <th>Fin</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var p in Model.AllUpcomingPrs)
+                                        {
+                                            var absenceAlert = Model.PrsAbsenceAlerts?.FirstOrDefault(a => a.PrsId == p.Id);
+                                            var absenceTitle = absenceAlert != null
+                                            ? "Absents: " + string.Join(", ", absenceAlert.AbsentLogins ?? new List<string>())
+                                            : string.Empty;
+
+                                            <tr>
+                                                <td>
+                                                    @p.Titre
+                                                    @if (absenceAlert != null)
+                                                    {
+                                                        <span class="badge bg-warning text-dark ms-1" title="@absenceTitle">
+                                                            <i class="fas fa-user-slash"></i>
+                                                        </span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    @if (p.Statut == "Validé")
+                                                    {
+                                                        <span class="badge bg-success">Validé</span>
+                                                    }
+                                                    else if (p.Statut == "À re-valider")
+                                                    {
+                                                        <span class="badge bg-danger">À re-valider</span>
+                                                    }
+                                                    else if (p.Statut == "En attente")
+                                                    {
+                                                        <span class="badge bg-warning text-dark">En attente</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-secondary">@p.Statut</span>
+                                                    }
+                                                </td>
+                                                <td>@p.DateDebut.ToString("dd/MM/yyyy HH:mm")</td>
+                                                <td>@p.DateFin.ToString("dd/MM/yyyy HH:mm")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">Aucune PRS à venir.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+    @* ========== SECTION : ACTIVITÉ RÉCENTE (ADMIN) ========== *@
+    @if (Model.IsManagerView)
+    {
+        <div class="row g-3 mt-3 mb-4">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div class="fw-semibold text-muted"><i class="fas fa-clock-rotate-left me-1"></i>Activité récente PRS</div>
+                            <a href="/Index" class="btn btn-sm btn-outline-secondary"><i class="fas fa-arrow-right"></i></a>
+                        </div>
+                        @if (Model.RecentPrs.Any())
+                        {
+                            <ul class="list-group list-group-flush">
+                                @foreach (var a in Model.RecentPrs)
+                                {
+                                    <li class="list-group-item d-flex justify-content-between">
+                                        <div>
+                                            <div class="fw-semibold">@a.Titre</div>
+                                            <div class="small text-muted">Statut: @a.Statut • Créée par @a.CreatedBy</div>
+                                        </div>
+                                        <div class="text-end small text-muted">
+                                            Modifiée le @a.DerniereModification.ToString("dd/MM/yyyy HH:mm")
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <div class="text-muted small">Aucune activité récente.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 </div>
 
 @section Scripts {
@@ -479,27 +943,13 @@
         document.addEventListener('DOMContentLoaded', function () {
             const slider = document.getElementById('dueSoonSlider');
             const value = document.getElementById('dueSoonValue');
-            const soonList = document.getElementById('soonList');
-            const soonCount = document.getElementById('soonCount');
-            const kpiSoonValue = document.getElementById('kpiSoonValue');
 
-            function applySoonFilter() {
-                const maxDays = parseInt(slider.value || '7', 10);
-                value.innerText = maxDays;
-                let count = 0;
-                if (!soonList) return;
-                soonList.querySelectorAll('.soon-item').forEach(li => {
-                    const dl = parseInt(li.getAttribute('data-daysleft') || '0', 10);
-                    const show = !isNaN(dl) && dl >= 0 && dl <= maxDays;
-                    li.style.display = show ? '' : 'none';
-                    if (show) count++;
-                });
-                if (soonCount) soonCount.innerText = count;
-                if (kpiSoonValue) kpiSoonValue.innerText = count;
-                try { localStorage.setItem('dashboard.dueSoonDays', maxDays.toString()); } catch { }
-            }
-
-            slider.addEventListener('input', applySoonFilter);
+            slider.addEventListener('input', function() {
+                value.innerText = slider.value;
+                try {
+                    localStorage.setItem('dashboard.dueSoonDays', slider.value);
+                } catch { }
+            });
 
             try {
                 const saved = localStorage.getItem('dashboard.dueSoonDays');
@@ -508,8 +958,6 @@
                     value.innerText = saved;
                 }
             } catch { }
-
-            applySoonFilter();
         });
     </script>
 
@@ -517,6 +965,13 @@
         .page-title {
             font-weight: 800;
             margin: 0;
+        }
+
+        .section-title {
+            font-weight: 700;
+            color: #333;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 0.5rem;
         }
 
         .kpi-card {

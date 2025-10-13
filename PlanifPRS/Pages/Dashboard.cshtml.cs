@@ -31,11 +31,24 @@ namespace PlanifPRS.Pages
 
         public int DefaultDueSoonDays { get; private set; } = 7;
 
+        // Vue globale (admin uniquement - toutes les PRS)
         public SummaryVM Summary { get; private set; } = new();
-        public AdminSummaryVM AdminSummary { get; private set; } = new();
         public List<ChecklistItemVM> OverdueItems { get; private set; } = new();
         public List<ChecklistItemVM> DueSoonItems { get; private set; } = new();
-        public List<PrsCardVM> UpcomingPrs { get; private set; } = new();
+
+        // Qui me concernent (affectations)
+        public SummaryVM MyAssignedSummary { get; private set; } = new();
+        public List<ChecklistItemVM> MyAssignedOverdueItems { get; private set; } = new();
+        public List<ChecklistItemVM> MyAssignedDueSoonItems { get; private set; } = new();
+
+        // Que j'ai créées
+        public SummaryVM MyCreatedSummary { get; private set; } = new();
+        public List<ChecklistItemVM> MyCreatedOverdueItems { get; private set; } = new();
+        public List<ChecklistItemVM> MyCreatedDueSoonItems { get; private set; } = new();
+
+        public AdminSummaryVM AdminSummary { get; private set; } = new();
+        public List<PrsCardVM> UpcomingPrs { get; private set; } = new(); // Qui me concernent
+        public List<PrsCardVM> AllUpcomingPrs { get; private set; } = new(); // Toutes (admin)
         public List<ActivityVM> RecentPrs { get; private set; } = new();
         public List<ParentChildAlertVM> ParentChildAlerts { get; private set; } = new();
         public List<PrsAbsenceAlertVM> PrsAbsenceAlerts { get; private set; } = new();
@@ -90,114 +103,66 @@ namespace PlanifPRS.Pages
 
                 _logger.LogInformation($"User groups: {_myGroupIds.Count}");
 
-                var today = DateTime.Today;
-
-                List<int> myChecklistIds = new();
-                List<int> prsIdsAssigned = new();
-
-                if (!IsManagerView)
-                {
-                    _logger.LogInformation("Loading user assignments (non-manager)...");
-
-                    // Affectations de checklists par utilisateur
-                    var checklistsByUser = await _context.ChecklistAffectations
-                        .AsNoTracking()
-                        .Where(a => a.UtilisateurId.HasValue && a.UtilisateurId.Value == _userId)
-                        .Select(a => a.ChecklistId)
-                        .ToListAsync();
-
-                    _logger.LogInformation($"Checklists by user: {checklistsByUser.Count}");
-
-                    // Affectations de checklists par groupe
-                    List<int> checklistsByGroup = new();
-                    if (_myGroupIds.Any())
-                    {
-                        checklistsByGroup = await _context.ChecklistAffectations
-                            .AsNoTracking()
-                            .Where(a => a.GroupeId.HasValue && _myGroupIds.Contains(a.GroupeId.Value))
-                            .Select(a => a.ChecklistId)
-                            .ToListAsync();
-
-                        _logger.LogInformation($"Checklists by group: {checklistsByGroup.Count}");
-                    }
-
-                    myChecklistIds = checklistsByUser
-                        .Concat(checklistsByGroup)
-                        .Distinct()
-                        .ToList();
-
-                    _logger.LogInformation($"Total myChecklistIds: {myChecklistIds.Count}");
-
-                    // Affectations PRS par utilisateur
-                    var prsByUser = await _context.PrsAffectations
-                        .AsNoTracking()
-                        .Where(a => a.UtilisateurId.HasValue && a.UtilisateurId.Value == _userId)
-                        .Select(a => a.PrsId)
-                        .ToListAsync();
-
-                    // Affectations PRS par groupe
-                    List<int> prsByGroup = new();
-                    if (_myGroupIds.Any())
-                    {
-                        prsByGroup = await _context.PrsAffectations
-                            .AsNoTracking()
-                            .Where(a => a.GroupeId.HasValue && _myGroupIds.Contains(a.GroupeId.Value))
-                            .Select(a => a.PrsId)
-                            .ToListAsync();
-                    }
-
-                    prsIdsAssigned = prsByUser
-                        .Concat(prsByGroup)
-                        .Distinct()
-                        .ToList();
-
-                    _logger.LogInformation($"Total prsIdsAssigned: {prsIdsAssigned.Count}");
-                }
-
                 // ============ CHECKLISTS ============
                 _logger.LogInformation("Loading checklists...");
-                List<ChecklistItemVM> items;
 
-                if (IsManagerView)
+                List<ChecklistItemVM> allItems = new();
+                List<ChecklistItemVM> myAssignedItems = new();
+                List<ChecklistItemVM> myCreatedItems = new();
+
+                // 1. Charger les affectations de l'utilisateur (qui me concernent)
+                var checklistsByUser = await _context.ChecklistAffectations
+                    .AsNoTracking()
+                    .Where(a => a.UtilisateurId.HasValue && a.UtilisateurId.Value == _userId)
+                    .Select(a => a.ChecklistId)
+                    .ToListAsync();
+
+                List<int> checklistsByGroup = new();
+                if (_myGroupIds.Any())
                 {
-                    _logger.LogInformation("Loading checklists (admin)...");
+                    checklistsByGroup = await _context.ChecklistAffectations
+                        .AsNoTracking()
+                        .Where(a => a.GroupeId.HasValue && _myGroupIds.Contains(a.GroupeId.Value))
+                        .Select(a => a.ChecklistId)
+                        .ToListAsync();
+                }
 
-                    // Pour les admins : tout récupérer avec SQL brut pour éviter l'erreur "WITH"
-                    var validPrsIds = await _context.Prs.AsNoTracking()
-                        .Where(p => p.Statut != "Supprimé")
-                        .Select(p => p.Id)
+                var myChecklistIds = checklistsByUser
+                    .Concat(checklistsByGroup)
+                    .Distinct()
+                    .ToList();
+
+                _logger.LogInformation($"Assigned checklists: {myChecklistIds.Count}");
+
+                if (myChecklistIds.Any())
+                {
+                    var checklistIdsParam = string.Join(",", myChecklistIds);
+                    var checklists = await _context.PrsChecklists
+                        .FromSqlRaw($@"
+                            SELECT * 
+                            FROM [dbo].[PRS_Checklist] 
+                            WHERE [Id] IN ({checklistIdsParam})
+                        ")
+                        .AsNoTracking()
                         .ToListAsync();
 
-                    _logger.LogInformation($"Valid PRS IDs (admin): {validPrsIds.Count}");
-
-                    if (validPrsIds.Any())
+                    if (checklists.Any())
                     {
-                        // Utiliser SQL brut pour éviter l'erreur "WITH"
-                        var validPrsIdsParam = string.Join(",", validPrsIds);
-                        var checklists = await _context.PrsChecklists
-                            .FromSqlRaw($@"
-                                SELECT * 
-                                FROM [dbo].[PRS_Checklist] 
-                                WHERE [PRSId] IN ({validPrsIdsParam})
-                            ")
-                            .AsNoTracking()
-                            .ToListAsync();
-
-                        _logger.LogInformation($"Checklists loaded (admin): {checklists.Count}");
-
-                        // Charger les PRS avec SQL brut aussi
-                        var prsDict = await _context.Prs
+                        var prsIdsFromChecklists = checklists.Select(c => c.PRSId).Distinct().ToList();
+                        var prsIdsParam = string.Join(",", prsIdsFromChecklists);
+                        var prsList = await _context.Prs
                             .FromSqlRaw($@"
                                 SELECT * 
                                 FROM [dbo].[PRS] 
-                                WHERE [Id] IN ({validPrsIdsParam})
+                                WHERE [Id] IN ({prsIdsParam}) 
+                                AND [Statut] != 'Supprimé'
                             ")
                             .AsNoTracking()
-                            .ToDictionaryAsync(p => p.Id);
+                            .ToListAsync();
 
-                        _logger.LogInformation($"PRS dictionary loaded (admin): {prsDict.Count}");
+                        var prsDict = prsList.ToDictionary(p => p.Id);
 
-                        var rows = checklists
+                        myAssignedItems = checklists
                             .Where(c => prsDict.ContainsKey(c.PRSId))
                             .Select(c => new { c, p = prsDict[c.PRSId] })
                             .OrderBy(x => x.p.DateDebut)
@@ -205,198 +170,248 @@ namespace PlanifPRS.Pages
                             .ThenBy(x => x.c.DelaiDefautJours)
                             .ThenBy(x => x.c.Categorie)
                             .ThenBy(x => x.c.SousCategorie)
+                            .Select(r => CreateChecklistItemVM(r.c, r.p))
                             .ToList();
 
-                        items = rows.Select(r =>
-                        {
-                            var delai = r.c.DelaiDefautJours > 0 ? r.c.DelaiDefautJours : 1;
-                            var due = r.c.DateEcheance.HasValue ? r.c.DateEcheance.Value.Date : r.p.DateDebut.Date.AddDays(delai);
-                            var daysLeft = (int)Math.Floor((due - DateTime.Today).TotalDays);
-                            return new ChecklistItemVM
-                            {
-                                Id = r.c.Id,
-                                PrsId = r.p.Id,
-                                PrsTitre = r.p.Titre,
-                                Categorie = r.c.Categorie,
-                                SousCategorie = r.c.SousCategorie,
-                                Libelle = string.IsNullOrWhiteSpace(r.c.Libelle) ? r.c.Tache : r.c.Libelle,
-                                Priorite = r.c.Priorite > 0 ? r.c.Priorite : 3,
-                                DelaiJours = delai,
-                                DueDate = due,
-                                DaysLeft = daysLeft,
-                                Source = r.c.DateEcheance.HasValue ? "Fixée" : "Calculée",
-                                IsValidated = r.c.EstCoche,
-                                DateValidation = r.c.DateValidation,
-                                ValidePar = r.c.ValidePar
-                            };
-                        }).ToList();
-
-                        _logger.LogInformation($"ChecklistItemVM created (admin): {items.Count}");
+                        _logger.LogInformation($"My assigned checklists loaded: {myAssignedItems.Count}");
                     }
-                    else
+                }
+
+                // 2. Charger les PRS créées par l'utilisateur (que j'ai créées)
+                _logger.LogInformation($"Searching for PRS created by: '{CurrentUserLogin}'");
+
+                var myCreatedPrs = await _context.Prs.AsNoTracking()
+                    .Where(p => p.CreatedByLogin == CurrentUserLogin && p.Statut != "Supprimé")
+                    .ToListAsync();
+
+                _logger.LogInformation($"Created PRS found: {myCreatedPrs.Count}");
+
+                if (myCreatedPrs.Any())
+                {
+                    foreach (var prs in myCreatedPrs)
                     {
-                        items = new List<ChecklistItemVM>();
+                        _logger.LogInformation($"  - PRS #{prs.Id}: {prs.Titre} (CreatedBy: '{prs.CreatedByLogin}')");
+                    }
+                }
+
+                var myCreatedPrsIds = myCreatedPrs.Select(p => p.Id).ToList();
+
+                if (myCreatedPrsIds.Any())
+                {
+                    var createdPrsIdsParam = string.Join(",", myCreatedPrsIds);
+                    var createdChecklists = await _context.PrsChecklists
+                        .FromSqlRaw($@"
+                            SELECT * 
+                            FROM [dbo].[PRS_Checklist] 
+                            WHERE [PRSId] IN ({createdPrsIdsParam})
+                        ")
+                        .AsNoTracking()
+                        .ToListAsync();
+
+                    _logger.LogInformation($"Checklists for created PRS: {createdChecklists.Count}");
+
+                    if (createdChecklists.Any())
+                    {
+                        var createdPrsDict = myCreatedPrs.ToDictionary(p => p.Id);
+
+                        myCreatedItems = createdChecklists
+                            .Where(c => createdPrsDict.ContainsKey(c.PRSId))
+                            .Select(c => new { c, p = createdPrsDict[c.PRSId] })
+                            .OrderBy(x => x.p.DateDebut)
+                            .ThenBy(x => x.c.Priorite)
+                            .ThenBy(x => x.c.DelaiDefautJours)
+                            .ThenBy(x => x.c.Categorie)
+                            .ThenBy(x => x.c.SousCategorie)
+                            .Select(r => CreateChecklistItemVM(r.c, r.p))
+                            .ToList();
+
+                        _logger.LogInformation($"My created checklists loaded: {myCreatedItems.Count}");
                     }
                 }
                 else
                 {
-                    // NON-MANAGER - Utilisation du SQL brut pour éviter l'erreur "WITH"
-                    if (myChecklistIds.Any())
-                    {
-                        _logger.LogInformation($"Loading user checklists (non-manager): {myChecklistIds.Count}");
+                    _logger.LogWarning($"No PRS created by '{CurrentUserLogin}' found in database");
+                }
 
-                        // ÉTAPE 1 : Charger les checklists avec SQL brut
-                        var checklistIdsParam = string.Join(",", myChecklistIds);
-                        var checklists = await _context.PrsChecklists
+                // 3. Pour les admins : charger TOUTES les checklists
+                if (IsManagerView)
+                {
+                    var allValidPrsIds = await _context.Prs.AsNoTracking()
+                        .Where(p => p.Statut != "Supprimé")
+                        .Select(p => p.Id)
+                        .ToListAsync();
+
+                    _logger.LogInformation($"All valid PRS IDs (admin): {allValidPrsIds.Count}");
+
+                    if (allValidPrsIds.Any())
+                    {
+                        var allValidPrsIdsParam = string.Join(",", allValidPrsIds);
+                        var allChecklists = await _context.PrsChecklists
                             .FromSqlRaw($@"
                                 SELECT * 
                                 FROM [dbo].[PRS_Checklist] 
-                                WHERE [Id] IN ({checklistIdsParam})
+                                WHERE [PRSId] IN ({allValidPrsIdsParam})
                             ")
                             .AsNoTracking()
                             .ToListAsync();
 
-                        _logger.LogInformation($"Checklists loaded (non-manager): {checklists.Count}");
+                        var allPrsDict = await _context.Prs
+                            .FromSqlRaw($@"
+                                SELECT * 
+                                FROM [dbo].[PRS] 
+                                WHERE [Id] IN ({allValidPrsIdsParam})
+                            ")
+                            .AsNoTracking()
+                            .ToDictionaryAsync(p => p.Id);
 
-                        if (checklists.Any())
-                        {
-                            // ÉTAPE 2 : Récupérer les IDs des PRS
-                            var prsIdsFromChecklists = checklists.Select(c => c.PRSId).Distinct().ToList();
+                        allItems = allChecklists
+                            .Where(c => allPrsDict.ContainsKey(c.PRSId))
+                            .Select(c => new { c, p = allPrsDict[c.PRSId] })
+                            .OrderBy(x => x.p.DateDebut)
+                            .ThenBy(x => x.c.Priorite)
+                            .ThenBy(x => x.c.DelaiDefautJours)
+                            .ThenBy(x => x.c.Categorie)
+                            .ThenBy(x => x.c.SousCategorie)
+                            .Select(r => CreateChecklistItemVM(r.c, r.p))
+                            .ToList();
 
-                            // ÉTAPE 3 : Charger les PRS avec SQL brut
-                            var prsIdsParam = string.Join(",", prsIdsFromChecklists);
-                            var prsList = await _context.Prs
-                                .FromSqlRaw($@"
-                                    SELECT * 
-                                    FROM [dbo].[PRS] 
-                                    WHERE [Id] IN ({prsIdsParam}) 
-                                    AND [Statut] != 'Supprimé'
-                                ")
-                                .AsNoTracking()
-                                .ToListAsync();
-
-                            var prsDict = prsList.ToDictionary(p => p.Id);
-
-                            // ÉTAPE 4 : Combiner en mémoire
-                            var rows = checklists
-                                .Where(c => prsDict.ContainsKey(c.PRSId))
-                                .Select(c => new { c, p = prsDict[c.PRSId] })
-                                .OrderBy(x => x.p.DateDebut)
-                                .ThenBy(x => x.c.Priorite)
-                                .ThenBy(x => x.c.DelaiDefautJours)
-                                .ThenBy(x => x.c.Categorie)
-                                .ThenBy(x => x.c.SousCategorie)
-                                .ToList();
-
-                            items = rows.Select(r =>
-                            {
-                                var delai = r.c.DelaiDefautJours > 0 ? r.c.DelaiDefautJours : 1;
-                                var due = r.c.DateEcheance.HasValue ? r.c.DateEcheance.Value.Date : r.p.DateDebut.Date.AddDays(delai);
-                                var daysLeft = (int)Math.Floor((due - DateTime.Today).TotalDays);
-                                return new ChecklistItemVM
-                                {
-                                    Id = r.c.Id,
-                                    PrsId = r.p.Id,
-                                    PrsTitre = r.p.Titre,
-                                    Categorie = r.c.Categorie,
-                                    SousCategorie = r.c.SousCategorie,
-                                    Libelle = string.IsNullOrWhiteSpace(r.c.Libelle) ? r.c.Tache : r.c.Libelle,
-                                    Priorite = r.c.Priorite > 0 ? r.c.Priorite : 3,
-                                    DelaiJours = delai,
-                                    DueDate = due,
-                                    DaysLeft = daysLeft,
-                                    Source = r.c.DateEcheance.HasValue ? "Fixée" : "Calculée",
-                                    IsValidated = r.c.EstCoche,
-                                    DateValidation = r.c.DateValidation,
-                                    ValidePar = r.c.ValidePar
-                                };
-                            }).ToList();
-
-                            _logger.LogInformation($"ChecklistItemVM created (non-manager): {items.Count}");
-                        }
-                        else
-                        {
-                            _logger.LogWarning("No checklists found for user's IDs");
-                            items = new List<ChecklistItemVM>();
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogInformation("No checklist assignments - empty dashboard");
-                        items = new List<ChecklistItemVM>();
+                        _logger.LogInformation($"All checklists loaded (admin): {allItems.Count}");
                     }
                 }
 
-                var open = items.Where(i => !i.IsValidated).ToList();
-                var late = open.Where(i => i.DueDate < DateTime.Today).ToList();
-                var todayList = open.Where(i => i.DaysLeft == 0).ToList();
-                var soon = open.Where(i => i.DaysLeft > 0 && i.DaysLeft <= DefaultDueSoonDays).ToList();
-
-                Summary = new SummaryVM
+                // Calculer les résumés pour "Toutes" (admin uniquement)
+                if (IsManagerView && allItems.Any())
                 {
-                    TotalOpenItems = open.Count,
-                    LateCount = late.Count,
-                    TodayCount = todayList.Count,
-                    DueSoonCount = soon.Count
-                };
+                    var allOpen = allItems.Where(i => !i.IsValidated).ToList();
+                    var allLate = allOpen.Where(i => i.DueDate < DateTime.Today).ToList();
+                    var allToday = allOpen.Where(i => i.DaysLeft == 0).ToList();
+                    var allSoon = allOpen.Where(i => i.DaysLeft > 0 && i.DaysLeft <= DefaultDueSoonDays).ToList();
 
-                OverdueItems = late
-                    .OrderBy(i => i.DueDate)
-                    .Take(8)
-                    .ToList();
+                    Summary = new SummaryVM
+                    {
+                        TotalOpenItems = allOpen.Count,
+                        LateCount = allLate.Count,
+                        TodayCount = allToday.Count,
+                        DueSoonCount = allSoon.Count
+                    };
 
-                DueSoonItems = open
-                    .Where(i => i.DaysLeft >= 0)
-                    .OrderBy(i => i.DaysLeft)
-                    .ThenBy(i => i.Priorite)
-                    .Take(10)
-                    .ToList();
+                    OverdueItems = allLate.OrderBy(i => i.DueDate).Take(8).ToList();
+                    DueSoonItems = allOpen.Where(i => i.DaysLeft >= 0).OrderBy(i => i.DaysLeft).ThenBy(i => i.Priorite).Take(10).ToList();
+                }
+
+                // Calculer les résumés pour "Qui me concernent"
+                if (myAssignedItems.Any())
+                {
+                    var myAssignedOpen = myAssignedItems.Where(i => !i.IsValidated).ToList();
+                    var myAssignedLate = myAssignedOpen.Where(i => i.DueDate < DateTime.Today).ToList();
+                    var myAssignedToday = myAssignedOpen.Where(i => i.DaysLeft == 0).ToList();
+                    var myAssignedSoon = myAssignedOpen.Where(i => i.DaysLeft > 0 && i.DaysLeft <= DefaultDueSoonDays).ToList();
+
+                    MyAssignedSummary = new SummaryVM
+                    {
+                        TotalOpenItems = myAssignedOpen.Count,
+                        LateCount = myAssignedLate.Count,
+                        TodayCount = myAssignedToday.Count,
+                        DueSoonCount = myAssignedSoon.Count
+                    };
+
+                    MyAssignedOverdueItems = myAssignedLate.OrderBy(i => i.DueDate).Take(8).ToList();
+                    MyAssignedDueSoonItems = myAssignedOpen.Where(i => i.DaysLeft >= 0).OrderBy(i => i.DaysLeft).ThenBy(i => i.Priorite).Take(10).ToList();
+                }
+
+                // Calculer les résumés pour "Que j'ai créées"
+                if (myCreatedItems.Any())
+                {
+                    var myCreatedOpen = myCreatedItems.Where(i => !i.IsValidated).ToList();
+                    var myCreatedLate = myCreatedOpen.Where(i => i.DueDate < DateTime.Today).ToList();
+                    var myCreatedToday = myCreatedOpen.Where(i => i.DaysLeft == 0).ToList();
+                    var myCreatedSoon = myCreatedOpen.Where(i => i.DaysLeft > 0 && i.DaysLeft <= DefaultDueSoonDays).ToList();
+
+                    MyCreatedSummary = new SummaryVM
+                    {
+                        TotalOpenItems = myCreatedOpen.Count,
+                        LateCount = myCreatedLate.Count,
+                        TodayCount = myCreatedToday.Count,
+                        DueSoonCount = myCreatedSoon.Count
+                    };
+
+                    MyCreatedOverdueItems = myCreatedLate.OrderBy(i => i.DueDate).Take(8).ToList();
+                    MyCreatedDueSoonItems = myCreatedOpen.Where(i => i.DaysLeft >= 0).OrderBy(i => i.DaysLeft).ThenBy(i => i.Priorite).Take(10).ToList();
+                }
+
+                _logger.LogInformation($"Summary - All: {Summary.TotalOpenItems}, Assigned: {MyAssignedSummary.TotalOpenItems}, Created: {MyCreatedSummary.TotalOpenItems}");
 
                 // ============ PRS À VENIR ============
                 _logger.LogInformation("Loading upcoming PRS...");
 
-                if (IsManagerView || prsIdsAssigned.Any())
+                var prsByUser = await _context.PrsAffectations
+                    .AsNoTracking()
+                    .Where(a => a.UtilisateurId.HasValue && a.UtilisateurId.Value == _userId)
+                    .Select(a => a.PrsId)
+                    .ToListAsync();
+
+                List<int> prsByGroup = new();
+                if (_myGroupIds.Any())
                 {
-                    var allUpcomingPrs = await _context.Prs.AsNoTracking()
-                        .Where(p => p.DateDebut >= DateTime.Today && p.Statut != "Supprimé")
-                        .OrderBy(p => p.DateDebut)
-                        .ThenBy(p => p.Titre)
+                    prsByGroup = await _context.PrsAffectations
+                        .AsNoTracking()
+                        .Where(a => a.GroupeId.HasValue && _myGroupIds.Contains(a.GroupeId.Value))
+                        .Select(a => a.PrsId)
                         .ToListAsync();
+                }
 
-                    if (IsManagerView)
-                    {
-                        UpcomingPrs = allUpcomingPrs
-                            .Take(12)
-                            .Select(p => new PrsCardVM
-                            {
-                                Id = p.Id,
-                                Titre = p.Titre,
-                                Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
-                                DateDebut = p.DateDebut,
-                                DateFin = p.DateFin
-                            })
-                            .ToList();
-                    }
-                    else
-                    {
-                        UpcomingPrs = allUpcomingPrs
-                            .Where(p => prsIdsAssigned.Contains(p.Id))
-                            .Take(12)
-                            .Select(p => new PrsCardVM
-                            {
-                                Id = p.Id,
-                                Titre = p.Titre,
-                                Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
-                                DateDebut = p.DateDebut,
-                                DateFin = p.DateFin
-                            })
-                            .ToList();
-                    }
+                var prsIdsAssigned = prsByUser.Concat(prsByGroup).Distinct().ToList();
 
-                    _logger.LogInformation($"Upcoming PRS loaded: {UpcomingPrs.Count}");
+                _logger.LogInformation($"PRS IDs assigned to user: {prsIdsAssigned.Count}");
+
+                // Charger toutes les PRS à venir
+                var allUpcomingPrsList = await _context.Prs.AsNoTracking()
+                    .Where(p => p.DateDebut >= DateTime.Today && p.Statut != "Supprimé")
+                    .OrderBy(p => p.DateDebut)
+                    .ThenBy(p => p.Titre)
+                    .ToListAsync();
+
+                _logger.LogInformation($"All upcoming PRS: {allUpcomingPrsList.Count}");
+
+                // Pour les admins : stocker TOUTES les PRS à venir
+                if (IsManagerView)
+                {
+                    AllUpcomingPrs = allUpcomingPrsList
+                        .Take(12)
+                        .Select(p => new PrsCardVM
+                        {
+                            Id = p.Id,
+                            Titre = p.Titre,
+                            Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
+                            DateDebut = p.DateDebut,
+                            DateFin = p.DateFin
+                        })
+                        .ToList();
+
+                    _logger.LogInformation($"AllUpcomingPrs (admin): {AllUpcomingPrs.Count}");
+                }
+
+                // Pour tout le monde : PRS à venir qui me concernent (affectations)
+                if (prsIdsAssigned.Any())
+                {
+                    UpcomingPrs = allUpcomingPrsList
+                        .Where(p => prsIdsAssigned.Contains(p.Id))
+                        .Take(12)
+                        .Select(p => new PrsCardVM
+                        {
+                            Id = p.Id,
+                            Titre = p.Titre,
+                            Statut = string.IsNullOrWhiteSpace(p.Statut) ? "En attente" : p.Statut,
+                            DateDebut = p.DateDebut,
+                            DateFin = p.DateFin
+                        })
+                        .ToList();
+
+                    _logger.LogInformation($"UpcomingPrs (assigned): {UpcomingPrs.Count}");
                 }
                 else
                 {
+                    _logger.LogInformation("No assigned PRS - UpcomingPrs will be empty");
                     UpcomingPrs = new List<PrsCardVM>();
                 }
 
@@ -424,11 +439,6 @@ namespace PlanifPRS.Pages
 
                     _logger.LogInformation($"Recent activity loaded: {RecentPrs.Count}");
                 }
-                else
-                {
-                    // Ne pas charger pour les non-admins
-                    RecentPrs = new List<ActivityVM>();
-                }
 
                 // ============ ALERTES PARENT/ENFANT ============
                 _logger.LogInformation("Loading parent/child alerts...");
@@ -439,14 +449,11 @@ namespace PlanifPRS.Pages
                                (p.Equipement == "Finition" || p.Equipement.Contains("Finition")))
                     .ToListAsync();
 
-                _logger.LogInformation($"Child PRS loaded: {allChildPrs.Count}");
-
                 var parentIds = allChildPrs.Select(c => c.PrsParentId.Value).Distinct().ToList();
 
                 var parentPrsDict = new Dictionary<int, Models.Prs>();
                 if (parentIds.Any())
                 {
-                    // Utiliser SQL brut pour éviter l'erreur "WITH"
                     var parentIdsParam = string.Join(",", parentIds);
                     var parentPrsList = await _context.Prs
                         .FromSqlRaw($@"
@@ -459,8 +466,6 @@ namespace PlanifPRS.Pages
                         .ToListAsync();
 
                     parentPrsDict = parentPrsList.ToDictionary(p => p.Id);
-
-                    _logger.LogInformation($"Parent PRS loaded: {parentPrsDict.Count}");
                 }
 
                 var conflicts = allChildPrs
@@ -506,18 +511,10 @@ namespace PlanifPRS.Pages
                         })
                         .ToList();
                 }
-                else
-                {
-                    ParentChildAlerts = new List<ParentChildAlertVM>();
-                }
-
-                _logger.LogInformation($"Parent/child alerts loaded: {ParentChildAlerts.Count}");
 
                 // ============ VUE GLOBALE (ADMIN) ============
                 if (IsManagerView)
                 {
-                    _logger.LogInformation("Loading admin summary...");
-
                     var allPrsForStats = await _context.Prs.AsNoTracking()
                         .Where(p => p.Statut != "Supprimé")
                         .ToListAsync();
@@ -555,14 +552,10 @@ namespace PlanifPRS.Pages
                             .CountAsync(g => g.Actif),
                         PrsEnAttenteList = pendingList
                     };
-
-                    _logger.LogInformation("Admin summary loaded successfully");
                 }
 
                 // Alertes d'absence
-                _logger.LogInformation("Loading absence alerts...");
                 await BuildAbsenceAlertsFromJsonAsync(DateTime.Today, IsManagerView ? null : prsIdsAssigned);
-                _logger.LogInformation($"Absence alerts loaded: {PrsAbsenceAlerts.Count}");
 
                 _logger.LogInformation("========== DASHBOARD END ==========");
             }
@@ -573,6 +566,30 @@ namespace PlanifPRS.Pages
             }
 
             return Page();
+        }
+
+        private ChecklistItemVM CreateChecklistItemVM(Models.PrsChecklist c, Models.Prs p)
+        {
+            var delai = c.DelaiDefautJours > 0 ? c.DelaiDefautJours : 1;
+            var due = c.DateEcheance.HasValue ? c.DateEcheance.Value.Date : p.DateDebut.Date.AddDays(delai);
+            var daysLeft = (int)Math.Floor((due - DateTime.Today).TotalDays);
+            return new ChecklistItemVM
+            {
+                Id = c.Id,
+                PrsId = p.Id,
+                PrsTitre = p.Titre,
+                Categorie = c.Categorie,
+                SousCategorie = c.SousCategorie,
+                Libelle = string.IsNullOrWhiteSpace(c.Libelle) ? c.Tache : c.Libelle,
+                Priorite = c.Priorite > 0 ? c.Priorite : 3,
+                DelaiJours = delai,
+                DueDate = due,
+                DaysLeft = daysLeft,
+                Source = c.DateEcheance.HasValue ? "Fixée" : "Calculée",
+                IsValidated = c.EstCoche,
+                DateValidation = c.DateValidation,
+                ValidePar = c.ValidePar
+            };
         }
 
         private async Task BuildAbsenceAlertsFromJsonAsync(DateTime today, List<int>? limitedPrsIds)
@@ -694,10 +711,6 @@ namespace PlanifPRS.Pages
                     .GroupBy(x => x.Email)
                     .ToDictionary(g => g.Key, g => g.Select(x => x.ev).ToList());
 
-                if (DEBUG_ABSENCES)
-                    _logger.LogInformation("[ABS DEBUG] Agg={Agg} PRS={PRS} Direct={Dir} GroupLinks={Grp} Expanded={Exp} Users={Usr} EventsIdx={Evt}",
-                        aggregates.Count, prsList.Count, direct.Count, groupLinks.Count, expanded.Count, utilisateurs.Count, eventsByEmail.Count);
-
                 var alerts = new List<PrsAbsenceAlertVM>();
 
                 foreach (var prs in prsList)
@@ -729,14 +742,6 @@ namespace PlanifPRS.Pages
                         if (overlap)
                         {
                             absents.Add(labelByUserId[uid]);
-                            if (DEBUG_ABSENCES)
-                            {
-                                var firstEvt = evts.First(e => e.IsOutOfOffice &&
-                                                               e.End >= prs.DateDebut &&
-                                                               e.Start <= prs.DateFin);
-                                _logger.LogInformation("[ABS DEBUG] PRS {Id} absent {User} (Evt {S:o}->{E:o})",
-                                    prs.Id, labelByUserId[uid], firstEvt.Start, firstEvt.End);
-                            }
                         }
                     }
 
@@ -757,9 +762,6 @@ namespace PlanifPRS.Pages
                     .OrderBy(a => a.DateDebut)
                     .Take(60)
                     .ToList();
-
-                if (DEBUG_ABSENCES)
-                    _logger.LogInformation("[ABS RESULT] Alerts={Count}", PrsAbsenceAlerts.Count);
             }
             catch (Exception ex)
             {
