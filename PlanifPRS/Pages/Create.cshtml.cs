@@ -145,9 +145,13 @@ namespace PlanifPRS.Pages.Prs
 
         public async Task LoadPrsParentOptionsAsync()
         {
-            // Récupérer toutes les PRS de type CMS pour les proposer comme parent
+            // Date limite : 2 mois avant aujourd'hui
+            var dateLimit = DateTime.Now.AddMonths(-2);
+
             PrsParentOptions = await _context.Prs
-                .Where(p => p.Equipement == "CMS")
+                .Where(p => p.Equipement == "CMS"
+                         && p.Statut != "Supprimé"
+                         && p.DateFin >= dateLimit)  // ✅ Exclure PRS terminées depuis plus de 2 mois
                 .OrderByDescending(p => p.DateCreation)
                 .ToListAsync();
         }

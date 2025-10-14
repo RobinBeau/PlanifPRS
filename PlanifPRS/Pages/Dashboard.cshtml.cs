@@ -23,6 +23,15 @@ namespace PlanifPRS.Pages
             _env = env;
         }
 
+        // ✅ NOUVEAU : Chef de Service
+        public bool IsChefService { get; private set; } = false;
+        public string ServiceName { get; private set; } = "";
+        public ServiceStatsVM ServiceStats { get; private set; } = new();
+        public List<UtilisateurServiceVM> UtilisateursService { get; private set; } = new();
+        public List<TacheServiceVM> TachesServiceEnRetard { get; private set; } = new();
+
+        public List<TacheServiceVM> TachesServiceAVenir { get; private set; } = new();
+
         [TempData] public string Flash { get; set; }
         [TempData] public string ErrorMessage { get; set; }
         public bool IsManagerView { get; private set; } = false;
@@ -77,7 +86,11 @@ namespace PlanifPRS.Pages
                 CurrentUserRole = string.IsNullOrWhiteSpace(user.Droits) ? "-" : user.Droits;
                 IsManagerView = IsManager(user.Droits);
 
-                _logger.LogInformation($"UserId: {_userId}, Role: {CurrentUserRole}, IsManager: {IsManagerView}");
+                // ✅ NOUVEAU : Détection chef de service
+                IsChefService = user.IsChefService;
+                ServiceName = user.ServiceClean;
+
+                _logger.LogInformation($"UserId: {_userId}, Role: {CurrentUserRole}, IsManager: {IsManagerView}, IsChefService: {IsChefService}");
 
                 // Récupération des groupes de l'utilisateur
                 var myGroups = await _context.GroupeUtilisateurs
@@ -102,6 +115,12 @@ namespace PlanifPRS.Pages
                 }
 
                 _logger.LogInformation($"User groups: {_myGroupIds.Count}");
+
+                // ✅ NOUVEAU : Charger les stats du service pour le chef
+                if (IsChefService)
+                {
+                    await ChargerStatsServiceAsync(user, DateTime.Today);
+                }
 
                 // ============ CHECKLISTS ============
                 _logger.LogInformation("Loading checklists...");
@@ -568,6 +587,254 @@ namespace PlanifPRS.Pages
             return Page();
         }
 
+        private async Task ChargerStatsServiceAsync(Models.Utilisateur chef, DateTime today)
+        {
+            try
+            {
+                var servicePrefix = chef.ServicePrefix;
+                _logger.LogInformation($"[DASHBOARD][CHEF] Chargement stats service: {servicePrefix}");
+
+                // Récupérer tous les utilisateurs du service
+                var utilisateursService = await _context.Utilisateurs
+                    .AsNoTracking()
+                    .Where(u => !u.DateDeleted.HasValue
+                             && u.Service != null
+                             && u.Service.StartsWith(servicePrefix))
+                    .OrderBy(u => u.Nom)
+                    .ThenBy(u => u.Prenom)
+                    .ToListAsync();
+
+                var userIds = utilisateursService.Select(u => u.Id).ToList();
+
+                // ✅ AJOUTER ICI : Charger TOUTES les affectations UNE SEULE FOIS
+                var affectationsService = await _context.ChecklistAffectations
+                    .AsNoTracking()
+                    .Where(a => a.UtilisateurId != null)
+                    .Select(a => new { a.UtilisateurId, a.ChecklistId })
+                    .ToListAsync();
+
+                _logger.LogInformation($"[DASHBOARD][CHEF] {affectationsService.Count} affectations chargées");
+                _logger.LogInformation($"[DASHBOARD][CHEF] {utilisateursService.Count} utilisateurs dans le service");
+
+                if (!userIds.Any())
+                {
+                    _logger.LogWarning($"[DASHBOARD][CHEF] Aucun utilisateur trouvé dans le service {servicePrefix}");
+                    ServiceStats = new ServiceStatsVM { NombreUtilisateurs = 0 };
+                    UtilisateursService = new List<UtilisateurServiceVM>();
+                    TachesServiceEnRetard = new List<TacheServiceVM>();
+                    return;
+                }
+
+                // ✅ Construire la requête SQL avec paramètres
+                var userIdsParam = string.Join(",", userIds);
+
+                _logger.LogInformation($"[DASHBOARD][CHEF] Requête SQL pour userIds: {userIdsParam}");
+
+                // ✅ Requête SQL brute sécurisée
+                var tachesServiceIds = await _context.ChecklistAffectations
+                    .FromSqlRaw(@"
+        SELECT DISTINCT ChecklistId 
+        FROM ChecklistAffectations 
+        WHERE UtilisateurId IN (" + userIdsParam + @")
+    ")
+                    .AsNoTracking()
+                    .Select(a => a.ChecklistId)
+                    .ToListAsync();
+
+                _logger.LogInformation($"[DASHBOARD][CHEF] {tachesServiceIds.Count} tâches trouvées via SQL brut");
+
+                _logger.LogInformation($"[DASHBOARD][CHEF] {tachesServiceIds.Count} affectations trouvées");
+
+                if (!tachesServiceIds.Any())
+                {
+                    ServiceStats = new ServiceStatsVM
+                    {
+                        NombreUtilisateurs = utilisateursService.Count,
+                        TotalTaches = 0,
+                        TachesValidees = 0,
+                        TachesEnCours = 0,
+                        TachesEnRetard = 0,
+                        TauxCompletion = 0
+                    };
+                    UtilisateursService = new List<UtilisateurServiceVM>();
+                    TachesServiceEnRetard = new List<TacheServiceVM>();
+                    return;
+                }
+
+                // Récupérer les tâches avec SQL brut
+                var tachesIdsParam = string.Join(",", tachesServiceIds);
+                var tachesService = await _context.PrsChecklists
+                    .FromSqlRaw($@"SELECT * FROM [dbo].[PRS_Checklist] WHERE [Id] IN ({tachesIdsParam})")
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                _logger.LogInformation($"[DASHBOARD][CHEF] {tachesService.Count} tâches trouvées");
+
+                if (!tachesService.Any())
+                {
+                    ServiceStats = new ServiceStatsVM { NombreUtilisateurs = utilisateursService.Count };
+                    UtilisateursService = new List<UtilisateurServiceVM>();
+                    TachesServiceEnRetard = new List<TacheServiceVM>();
+                    return;
+                }
+
+                // Récupérer les PRS associées
+                var prsIds = tachesService.Select(t => t.PRSId).Distinct().ToList();
+                var prsIdsParam = string.Join(",", prsIds);
+                var prsList = await _context.Prs
+                    .FromSqlRaw($@"SELECT * FROM [dbo].[PRS] WHERE [Id] IN ({prsIdsParam}) AND [Statut] != 'Supprimé'")
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                var prsDict = prsList.ToDictionary(p => p.Id);
+
+                var tachesServiceValides = tachesService
+                    .Where(t => prsDict.ContainsKey(t.PRSId))
+                    .ToList();
+
+                _logger.LogInformation($"[DASHBOARD][CHEF] {tachesServiceValides.Count} tâches valides (PRS non supprimées)");
+
+                // === STATS GLOBALES DU SERVICE ===
+                var totalTaches = tachesServiceValides.Count;
+                var tachesValidees = tachesServiceValides.Count(t => t.EstCoche);
+                var tachesEnRetard = tachesServiceValides.Count(t =>
+                    !t.EstCoche &&
+                    t.DateEcheance.HasValue &&
+                    t.DateEcheance.Value.Date < today);
+                var tachesEnCours = totalTaches - tachesValidees - tachesEnRetard;
+
+                ServiceStats = new ServiceStatsVM
+                {
+                    NombreUtilisateurs = utilisateursService.Count,
+                    TotalTaches = totalTaches,
+                    TachesValidees = tachesValidees,
+                    TachesEnCours = tachesEnCours,
+                    TachesEnRetard = tachesEnRetard,
+                    TauxCompletion = totalTaches > 0 ? (int)((double)tachesValidees / totalTaches * 100) : 0
+                };
+
+                // === STATS PAR UTILISATEUR ===
+                UtilisateursService = new List<UtilisateurServiceVM>();
+
+                foreach (var user in utilisateursService)
+                {
+                    var userTachesIds = await _context.ChecklistAffectations
+                        .AsNoTracking()
+                        .Where(a => a.UtilisateurId == user.Id)
+                        .Select(a => a.ChecklistId)
+                        .ToListAsync();
+
+                    var userTaches = tachesServiceValides
+                        .Where(t => userTachesIds.Contains(t.Id))
+                        .ToList();
+
+                    var userTotal = userTaches.Count;
+                    var userValidees = userTaches.Count(t => t.EstCoche);
+                    var userRetard = userTaches.Count(t =>
+                        !t.EstCoche &&
+                        t.DateEcheance.HasValue &&
+                        t.DateEcheance.Value.Date < today);
+
+                    UtilisateursService.Add(new UtilisateurServiceVM
+                    {
+                        Id = user.Id,
+                        NomComplet = user.NomComplet,
+                        TotalTaches = userTotal,
+                        TachesValidees = userValidees,
+                        TachesEnRetard = userRetard,
+                        TauxCompletion = userTotal > 0 ? (int)((double)userValidees / userTotal * 100) : 0
+                    });
+                }
+
+                // === TOP 10 TÂCHES EN RETARD DU SERVICE ===
+                // ✅ Filtrer EN MÉMOIRE depuis affectationsService (déjà chargé plus haut)
+                var affectationsMap = affectationsService
+                    .Where(a => tachesServiceIds.Contains(a.ChecklistId))
+                    .ToList();
+
+                var userDict = utilisateursService.ToDictionary(u => u.Id);
+
+                TachesServiceEnRetard = tachesServiceValides
+                    .Where(t => !t.EstCoche && t.DateEcheance.HasValue && t.DateEcheance.Value.Date < today)
+                    .OrderBy(t => t.DateEcheance)
+                    .Take(10)
+                    .Select(t =>
+                    {
+                        var prs = prsDict.ContainsKey(t.PRSId) ? prsDict[t.PRSId] : null;
+                        var affectation = affectationsMap.FirstOrDefault(a => a.ChecklistId == t.Id);
+                        var userName = "Non assigné";
+
+                        if (affectation != null &&
+                            affectation.UtilisateurId.HasValue &&
+                            userDict.ContainsKey(affectation.UtilisateurId.Value))
+                        {
+                            userName = userDict[affectation.UtilisateurId.Value].NomComplet;
+                        }
+
+                        return new TacheServiceVM
+                        {
+                            Id = t.Id,
+                            Libelle = t.Libelle ?? t.Tache ?? "Tâche sans nom",
+                            PrsTitre = prs?.Titre ?? "N/A",
+                            DateEcheance = t.DateEcheance,
+                            JoursRetard = t.DateEcheance.HasValue
+                                ? (int)(today - t.DateEcheance.Value.Date).TotalDays
+                                : 0,
+                            Priorite = t.Priorite > 0 ? t.Priorite : 3,
+                            UtilisateurAssigne = userName
+                        };
+                    })
+                    .ToList();
+
+                _logger.LogInformation($"[DASHBOARD][CHEF] ✅ Stats OK: Users={utilisateursService.Count}, Total={totalTaches}, Retard={tachesEnRetard}");
+
+                // ✅ NOUVEAU : Top 10 tâches à venir (7 prochains jours)
+                var dans7Jours = today.AddDays(7);
+                TachesServiceAVenir = tachesServiceValides
+                    .Where(t => !t.EstCoche &&
+                                t.DateEcheance.HasValue &&
+                                t.DateEcheance.Value.Date >= today &&
+                                t.DateEcheance.Value.Date <= dans7Jours)
+                    .OrderBy(t => t.DateEcheance)
+                    .Take(10)
+                    .Select(t =>
+                    {
+                        var prs = prsDict.ContainsKey(t.PRSId) ? prsDict[t.PRSId] : null;
+                        var affectation = affectationsMap.FirstOrDefault(a => a.ChecklistId == t.Id);
+                        var userName = "Non assigné";
+
+                        if (affectation != null && affectation.UtilisateurId.HasValue &&
+                            userDict.ContainsKey(affectation.UtilisateurId.Value))
+                        {
+                            userName = userDict[affectation.UtilisateurId.Value].NomComplet;
+                        }
+
+                        return new TacheServiceVM
+                        {
+                            Id = t.Id,
+                            Libelle = t.Libelle ?? t.Tache ?? "Tâche sans nom",
+                            PrsTitre = prs?.Titre ?? "N/A",
+                            DateEcheance = t.DateEcheance,
+                            JoursRetard = 0, // Pas en retard, c'est à venir
+                            Priorite = t.Priorite > 0 ? t.Priorite : 3,
+                            UtilisateurAssigne = userName
+                        };
+                    })
+                    .ToList();
+
+                _logger.LogInformation($"[DASHBOARD][CHEF] {TachesServiceAVenir.Count} tâches à venir trouvées");
+
+                _logger.LogInformation($"[DASHBOARD][CHEF] Stats chargées: Total={totalTaches}, Retard={tachesEnRetard}, Utilisateurs={utilisateursService.Count}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[DASHBOARD][CHEF] Erreur chargement stats service");
+                ServiceStats = new ServiceStatsVM();
+                UtilisateursService = new List<UtilisateurServiceVM>();
+                TachesServiceEnRetard = new List<TacheServiceVM>();
+            }
+        }
+
         private ChecklistItemVM CreateChecklistItemVM(Models.PrsChecklist c, Models.Prs p)
         {
             var delai = c.DelaiDefautJours > 0 ? c.DelaiDefautJours : 1;
@@ -995,6 +1262,37 @@ namespace PlanifPRS.Pages
             public DateTime DateDebut { get; set; }
             public DateTime DateFin { get; set; }
             public List<string> AbsentLogins { get; set; } = new();
+        }
+
+        public class ServiceStatsVM
+        {
+            public int NombreUtilisateurs { get; set; }
+            public int TotalTaches { get; set; }
+            public int TachesValidees { get; set; }
+            public int TachesEnCours { get; set; }
+            public int TachesEnRetard { get; set; }
+            public int TauxCompletion { get; set; }
+        }
+
+        public class UtilisateurServiceVM
+        {
+            public int Id { get; set; }
+            public string NomComplet { get; set; }
+            public int TotalTaches { get; set; }
+            public int TachesValidees { get; set; }
+            public int TachesEnRetard { get; set; }
+            public int TauxCompletion { get; set; }
+        }
+
+        public class TacheServiceVM
+        {
+            public int Id { get; set; }
+            public string Libelle { get; set; }
+            public string PrsTitre { get; set; }
+            public DateTime? DateEcheance { get; set; }
+            public int JoursRetard { get; set; }
+            public int Priorite { get; set; }
+            public string UtilisateurAssigne { get; set; }
         }
     }
 }

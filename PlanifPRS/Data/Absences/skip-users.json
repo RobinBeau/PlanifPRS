@@ -876,7 +876,7 @@
   },
   {
     "Email": "jean.pigat@allcircuits.com",
-    "EmptyRuns": 2,
+    "EmptyRuns": 0,
     "Skip": false
   },
   {
@@ -921,7 +921,7 @@
   },
   {
     "Email": "jerome.serret@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
@@ -1541,7 +1541,7 @@
   },
   {
     "Email": "perrine.vukovic@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
@@ -1641,7 +1641,7 @@
   },
   {
     "Email": "romain.olland@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {
@@ -1891,7 +1891,7 @@
   },
   {
     "Email": "thomas.esteves@allcircuits.com",
-    "EmptyRuns": 1,
+    "EmptyRuns": 2,
     "Skip": false
   },
   {

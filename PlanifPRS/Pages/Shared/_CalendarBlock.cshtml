@@ -170,6 +170,58 @@
         text-shadow: 0 1px 1px rgba(0,0,0,0.55);
     }
 
+    /* === FIX DÉBORDEMENT ÉVÉNEMENTS CALENDRIER === */
+
+    /* Conteneur principal de l'événement */
+    .fc-daygrid-event {
+        overflow: hidden !important;
+        max-width: 100% !important;
+    }
+
+        /* Div interne avec position relative */
+        .fc-daygrid-event > div {
+            max-width: 100% !important;
+            overflow: hidden !important;
+            box-sizing: border-box;
+        }
+
+        /* Background coloré */
+        .fc-daygrid-event .prs-text-background {
+            max-width: 100% !important;
+            overflow: hidden !important;
+            box-sizing: border-box;
+        }
+
+        /* Titre de la PRS */
+        .fc-daygrid-event .prs-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+            display: block;
+        }
+
+        /* Métadonnées */
+        .fc-daygrid-event .prs-meta {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 100%;
+            display: block;
+        }
+
+    /* Empêcher le harness de déborder */
+    .fc-daygrid-event-harness {
+        overflow: hidden !important;
+        max-width: 100% !important;
+    }
+
+    /* En vue 2 semaines ou plus */
+    .fc-dayGridWeek-view .fc-daygrid-event,
+    .fc-dayGridMonth-view .fc-daygrid-event {
+        max-width: 100% !important;
+        overflow: hidden !important;
+    }
     .prs-text-background.prs-inner.light-scheme {
         text-shadow: none;
     }

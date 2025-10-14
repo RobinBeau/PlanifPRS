@@ -4,129 +4,284 @@
     ViewData["Title"] = "Gestion des utilisateurs";
 }
 
-<h1>Gestion des utilisateurs</h1>
-
-@if (Model.IsAdmin)
-{
-    <div class="mb-3">
-        <input type="text" id="searchInput" class="form-control" placeholder="Rechercher par nom, prénom, login, mail, service ou droits..." />
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="fas fa-users-cog me-2"></i>
+            Gestion des utilisateurs
+        </h1>
+        <span class="badge bg-info fs-6">@Model.ListeUtilisateurs.Count utilisateur(s)</span>
     </div>
 
-    <div class="mb-3">
-        <small class="text-muted">
-            <strong>Légende des droits :</strong>
-            <span class="badge bg-danger ms-2 role-filter" data-role="admin" style="cursor: pointer;">Admin</span> Accès complet
-            <span class="badge bg-primary ms-2 role-filter" data-role="cdp" style="cursor: pointer;">CDP/Pilote</span> Gestion projets
-            <span class="badge bg-warning ms-2 role-filter" data-role="validateur" style="cursor: pointer;">Validateur</span> Validation PRS
-            <span class="badge bg-success ms-2 role-filter" data-role="process" style="cursor: pointer;">Process</span> Process / Equipements Indus
-            <span class="badge bg-orange ms-2 role-filter" data-role="maintenance" style="background-color: #fd7e14; cursor: pointer;">Maintenance</span> Maintenance
-            <span class="badge bg-purple ms-2 role-filter" data-role="qualite" style="background-color: #6f42c1; cursor: pointer;">Qualité</span> Qualité
-            <span class="badge bg-secondary ms-2 role-filter" data-role="visualiseur" style="cursor: pointer;">Visualiseur</span> Lecture seule
-        </small>
-    </div>
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @Html.Raw(TempData["SuccessMessage"])
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
 
-    <table class="table table-bordered table-striped mt-2" id="usersTable">
-        <thead class="thead-dark">
-            <tr>
-                <th class="sortable" data-column="0">ID <span class="sort-icon">↕️</span></th>
-                <th class="sortable" data-column="1">Matricule <span class="sort-icon">↕️</span></th>
-                <th class="sortable sorted-asc" data-column="2">Nom <span class="sort-icon">↑</span></th>
-                <th class="sortable" data-column="3">Prénom <span class="sort-icon">↕️</span></th>
-                <th class="sortable" data-column="4">Login Windows <span class="sort-icon">↕️</span></th>
-                <th class="sortable" data-column="5">Mail <span class="sort-icon">↕️</span></th>
-                <th class="sortable" data-column="6">Service <span class="sort-icon">↕️</span></th>
-                <th style="min-width: 180px;">Droits</th>
-            </tr>
-        </thead>
-        <tbody id="userTableBody">
-            @foreach (var user in Model.ListeUtilisateurs)
-            {
-                <tr class="user-row"
-                    data-search="@($"{user.Id} {user.Matricule} {user.Nom} {user.Prenom} {user.LoginWindows} {user.Mail} {user.Service} {user.Droits}".ToLower())"
-                    data-role="@((user.Droits ?? "visualiseur").ToLower())">
-                    <td>@user.Id</td>
-                    <td>@user.Matricule</td>
-                    <td>@user.Nom</td>
-                    <td>@user.Prenom</td>
-                    <td>@user.LoginWindows</td>
-                    <td>@user.Mail</td>
-                    <td>@user.Service</td>
-                    <td style="min-width: 180px;">
-                        <form method="post" asp-page-handler="UpdateDroit" class="m-0 p-0">
-                            <input type="hidden" name="id" value="@user.Id" />
-                            <select name="nouveauDroit" class="form-select form-select-sm" onchange="this.form.submit()">
-                                @{
-                                    var droits = user.Droits ?? "Visualiseur";
-                                }
-                                <option value="admin" selected="@(droits.ToLower() == "admin")">🔴 Admin</option>
-                                <option value="cdp" selected="@(droits.ToLower() == "cdp")">🔵 CDP / Pilote</option>
-                                <option value="validateur" selected="@(droits.ToLower() == "validateur")">🟡 Validateur</option>
-                                <option value="process" selected="@(droits.ToLower() == "process")">🟢 Process</option>
-                                <option value="maintenance" selected="@(droits.ToLower() == "maintenance")">🟠 Maintenance</option>
-                                <option value="qualite" selected="@(droits.ToLower() == "qualite")">🟣 Qualité</option>
-                                <option value="visualiseur" selected="@(droits.ToLower() == "visualiseur")">⚫ Visualiseur</option>
-                            </select>
-                        </form>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
 
-    <div class="mt-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">📊 Statistiques des droits</h5>
+    @if (Model.IsAdmin)
+    {
+        <!-- Barre de recherche -->
+        <div class="mb-3">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-search"></i>
+                </span>
+                <input type="text"
+                       id="searchInput"
+                       class="form-control"
+                       placeholder="Rechercher par nom, prénom, login, mail, service ou droits..." />
             </div>
-            <div class="card-body">
-                <div class="row text-center">
-                    @{
-                        var stats = Model.ListeUtilisateurs
-                        .GroupBy(u => u.Droits?.ToLower() ?? "visualiseur")
-                        .ToDictionary(g => g.Key, g => g.Count());
+        </div>
+
+        <!-- Légende et filtres -->
+        <div class="mb-3">
+            <small class="text-muted">
+                <strong>
+                    <i class="fas fa-filter me-1"></i>
+                    Filtrer par rôle :
+                </strong>
+                <span class="badge bg-danger ms-2 role-filter" data-role="admin" style="cursor: pointer;">
+                    <i class="fas fa-shield-alt"></i> Admin
+                </span>
+                <span class="badge bg-primary ms-2 role-filter" data-role="cdp" style="cursor: pointer;">
+                    <i class="fas fa-project-diagram"></i> CDP/Pilote
+                </span>
+                <span class="badge bg-warning ms-2 role-filter" data-role="validateur" style="cursor: pointer;">
+                    <i class="fas fa-check-double"></i> Validateur
+                </span>
+                <span class="badge bg-success ms-2 role-filter" data-role="process" style="cursor: pointer;">
+                    <i class="fas fa-cogs"></i> Process
+                </span>
+                <span class="badge ms-2 role-filter" data-role="maintenance" style="background-color: #fd7e14; cursor: pointer;">
+                    <i class="fas fa-wrench"></i> Maintenance
+                </span>
+                <span class="badge ms-2 role-filter" data-role="qualite" style="background-color: #6f42c1; cursor: pointer;">
+                    <i class="fas fa-certificate"></i> Qualité
+                </span>
+                <span class="badge bg-secondary ms-2 role-filter" data-role="visualiseur" style="cursor: pointer;">
+                    <i class="fas fa-eye"></i> Visualiseur
+                </span>
+            </small>
+        </div>
+
+        <!-- Tableau des utilisateurs -->
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle" id="usersTable">
+                <thead class="table-dark">
+                    <tr>
+                        <th class="sortable" data-column="0" style="width: 60px;">
+                            ID <span class="sort-icon">↕️</span>
+                        </th>
+                        <th class="sortable" data-column="1" style="width: 100px;">
+                            Matricule <span class="sort-icon">↕️</span>
+                        </th>
+                        <th class="sortable sorted-asc" data-column="2">
+                            Nom <span class="sort-icon">↑</span>
+                        </th>
+                        <th class="sortable" data-column="3">
+                            Prénom <span class="sort-icon">↕️</span>
+                        </th>
+                        <th class="sortable" data-column="4">
+                            Login <span class="sort-icon">↕️</span>
+                        </th>
+                        <th class="sortable" data-column="5">
+                            Mail <span class="sort-icon">↕️</span>
+                        </th>
+                        <th class="sortable" data-column="6">
+                            Service <span class="sort-icon">↕️</span>
+                        </th>
+                        <th style="min-width: 200px;">
+                            <i class="fas fa-user-shield me-1"></i>
+                            Droits
+                        </th>
+                        <th class="text-center" style="width: 150px;">
+                            <i class="fas fa-users-cog me-1"></i>
+                            Chef Service
+                        </th>
+                    </tr>
+                </thead>
+                <tbody id="userTableBody">
+                    @foreach (var user in Model.ListeUtilisateurs)
+                    {
+                        <tr class="user-row"
+                            data-search="@($"{user.Id} {user.Matricule} {user.Nom} {user.Prenom} {user.LoginWindows} {user.Mail} {user.Service} {user.Droits}".ToLower())"
+                            data-role="@((user.Droits ?? "visualiseur").ToLower())">
+                            <td class="text-center">
+                                <span class="badge bg-secondary">@user.Id</span>
+                            </td>
+                            <td>@user.Matricule</td>
+                            <td><strong>@user.Nom</strong></td>
+                            <td>@user.Prenom</td>
+                            <td>
+                                <code>@user.LoginWindows</code>
+                            </td>
+                            <td>
+                                @if (!string.IsNullOrEmpty(user.Mail))
+                                {
+                                    <a href="mailto:@user.Mail">@user.Mail</a>
+                                }
+                            </td>
+                            <td>
+                                <small class="text-muted">@user.ServiceClean</small>
+                            </td>
+                            <td>
+                                <form method="post" asp-page-handler="UpdateDroit" class="m-0">
+                                    <input type="hidden" name="id" value="@user.Id" />
+                                    <select name="nouveauDroit"
+                                            class="form-select form-select-sm"
+                                            onchange="this.form.submit()"
+                                            style="min-width: 180px;">
+                                        @{
+                                            var droits = user.Droits ?? "Visualiseur";
+                                        }
+                                        <option value="admin" selected="@(droits.ToLower() == "admin")">
+                                            🔴 Admin
+                                        </option>
+                                        <option value="cdp" selected="@(droits.ToLower() == "cdp")">
+                                            🔵 CDP / Pilote
+                                        </option>
+                                        <option value="validateur" selected="@(droits.ToLower() == "validateur")">
+                                            🟡 Validateur
+                                        </option>
+                                        <option value="process" selected="@(droits.ToLower() == "process")">
+                                            🟢 Process
+                                        </option>
+                                        <option value="maintenance" selected="@(droits.ToLower() == "maintenance")">
+                                            🟠 Maintenance
+                                        </option>
+                                        <option value="qualite" selected="@(droits.ToLower() == "qualite")">
+                                            🟣 Qualité
+                                        </option>
+                                        <option value="visualiseur" selected="@(droits.ToLower() == "visualiseur")">
+                                            ⚫ Visualiseur
+                                        </option>
+                                    </select>
+                                    @Html.AntiForgeryToken()
+                                </form>
+                            </td>
+                            <td class="text-center">
+                                <form method="post" asp-page-handler="ToggleChefService" class="m-0">
+                                    <input type="hidden" name="id" value="@user.Id" />
+                                    @if (user.IsChefService)
+                                    {
+                                        <button type="submit"
+                                                class="btn btn-sm btn-success"
+                                                title="Chef de Service - Cliquer pour désactiver">
+                                            <i class="fas fa-user-tie me-1"></i>
+                                            Chef
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button type="submit"
+                                                class="btn btn-sm btn-outline-secondary"
+                                                title="Cliquer pour activer Chef de Service">
+                                            <i class="fas fa-user me-1"></i>
+                                            Non
+                                        </button>
+                                    }
+                                    @Html.AntiForgeryToken()
+                                </form>
+                            </td>
+                        </tr>
                     }
-                    <div class="col-md-2">
-                        <span class="badge bg-danger fs-6">@(stats.GetValueOrDefault("admin", 0))</span>
-                        <br><small>Admin</small>
-                    </div>
-                    <div class="col-md-2">
-                        <span class="badge bg-primary fs-6">@(stats.GetValueOrDefault("cdp", 0))</span>
-                        <br><small>CDP/Pilote</small>
-                    </div>
-                    <div class="col-md-2">
-                        <span class="badge bg-warning fs-6">@(stats.GetValueOrDefault("validateur", 0))</span>
-                        <br><small>Validateur</small>
-                    </div>
-                    <div class="col-md-2">
-                        <span class="badge bg-success fs-6">@(stats.GetValueOrDefault("process", 0))</span>
-                        <br><small>Process</small>
-                    </div>
-                    <div class="col-md-2">
-                        <span class="badge fs-6" style="background-color: #fd7e14;">@(stats.GetValueOrDefault("maintenance", 0))</span>
-                        <br><small>Maintenance</small>
-                    </div>
-                    <div class="col-md-2">
-                        <span class="badge fs-6" style="background-color: #6f42c1;">@(stats.GetValueOrDefault("qualite", 0))</span>
-                        <br><small>Qualité</small>
-                    </div>
-                    <div class="col-md-2">
-                        <span class="badge bg-secondary fs-6">@(stats.GetValueOrDefault("visualiseur", 0))</span>
-                        <br><small>Visualiseur</small>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Statistiques -->
+        <div class="mt-4">
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Statistiques
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center g-3">
+                        @{
+                            var stats = Model.ListeUtilisateurs
+                            .GroupBy(u => u.Droits?.ToLower() ?? "visualiseur")
+                            .ToDictionary(g => g.Key, g => g.Count());
+
+                            var chefsService = Model.ListeUtilisateurs.Count(u => u.IsChefService);
+                        }
+                        <div class="col-md-2">
+                            <div class="p-3 bg-danger bg-opacity-10 rounded">
+                                <span class="badge bg-danger fs-4">@(stats.GetValueOrDefault("admin", 0))</span>
+                                <br><small class="fw-bold">Admin</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-primary bg-opacity-10 rounded">
+                                <span class="badge bg-primary fs-4">@(stats.GetValueOrDefault("cdp", 0))</span>
+                                <br><small class="fw-bold">CDP/Pilote</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-warning bg-opacity-10 rounded">
+                                <span class="badge bg-warning fs-4">@(stats.GetValueOrDefault("validateur", 0))</span>
+                                <br><small class="fw-bold">Validateur</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-success bg-opacity-10 rounded">
+                                <span class="badge bg-success fs-4">@(stats.GetValueOrDefault("process", 0))</span>
+                                <br><small class="fw-bold">Process</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 rounded" style="background-color: rgba(253, 126, 20, 0.1);">
+                                <span class="badge fs-4" style="background-color: #fd7e14;">@(stats.GetValueOrDefault("maintenance", 0))</span>
+                                <br><small class="fw-bold">Maintenance</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 rounded" style="background-color: rgba(111, 66, 193, 0.1);">
+                                <span class="badge fs-4" style="background-color: #6f42c1;">@(stats.GetValueOrDefault("qualite", 0))</span>
+                                <br><small class="fw-bold">Qualité</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-secondary bg-opacity-10 rounded">
+                                <span class="badge bg-secondary fs-4">@(stats.GetValueOrDefault("visualiseur", 0))</span>
+                                <br><small class="fw-bold">Visualiseur</small>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="p-3 bg-info bg-opacity-10 rounded">
+                                <span class="badge bg-info fs-4">@chefsService</span>
+                                <br><small class="fw-bold">Chefs Service</small>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-}
+    }
+</div>
 
 <style>
     .sortable {
         cursor: pointer;
         user-select: none;
+        transition: background-color 0.2s;
     }
 
         .sortable:hover {
-            background-color: #f8f9fa;
+            background-color: rgba(255, 255, 255, 0.1);
         }
 
     .sort-icon {
@@ -142,14 +297,26 @@
         color: #dc3545;
     }
 
-    .role-filter.active {
-        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
-        transform: scale(1.1);
+    .role-filter {
+        transition: all 0.3s ease;
     }
 
-    .role-filter:hover {
-        transform: scale(1.05);
+        .role-filter.active {
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+            transform: scale(1.1);
+        }
+
+        .role-filter:hover {
+            transform: scale(1.05);
+        }
+
+    .user-row {
+        transition: background-color 0.2s;
     }
+
+        .user-row:hover {
+            background-color: rgba(0, 123, 255, 0.05);
+        }
 </style>
 
 <script>
@@ -172,15 +339,11 @@
             badge.addEventListener('click', function() {
                 const role = this.getAttribute('data-role');
 
-                // Si on clique sur le même rôle, on désactive le filtre
                 if (activeRoleFilter === role) {
                     activeRoleFilter = null;
                     this.classList.remove('active');
                 } else {
-                    // Désactiver l'ancien filtre
                     roleFilters.forEach(b => b.classList.remove('active'));
-
-                    // Activer le nouveau filtre
                     activeRoleFilter = role;
                     this.classList.add('active');
                 }
@@ -191,6 +354,7 @@
 
         function filterUsers() {
             const searchTerm = searchInput.value.toLowerCase().trim();
+            let visibleCount = 0;
 
             userRows.forEach(function(row) {
                 const searchData = row.getAttribute('data-search');
@@ -198,35 +362,34 @@
 
                 let showRow = true;
 
-                // Filtre par texte de recherche
                 if (searchTerm && !searchData.includes(searchTerm)) {
                     showRow = false;
                 }
 
-                // Filtre par rôle
                 if (activeRoleFilter && userRole !== activeRoleFilter) {
                     showRow = false;
                 }
 
                 row.style.display = showRow ? '' : 'none';
+                if (showRow) visibleCount++;
             });
+
+            console.log(`${visibleCount} utilisateur(s) affiché(s)`);
         }
 
         // Fonction de tri
-        let currentSort = { column: 2, direction: 'asc' }; // Par défaut sur la colonne Nom (index 2)
+        let currentSort = { column: 2, direction: 'asc' };
 
         table.addEventListener('click', function(e) {
             if (e.target.closest('.sortable')) {
                 const th = e.target.closest('.sortable');
                 const columnIndex = parseInt(th.getAttribute('data-column'));
 
-                // Déterminer la direction du tri
                 let direction = 'asc';
                 if (currentSort.column === columnIndex && currentSort.direction === 'asc') {
                     direction = 'desc';
                 }
 
-                // Mettre à jour les classes CSS
                 document.querySelectorAll('.sortable').forEach(header => {
                     header.classList.remove('sorted-asc', 'sorted-desc');
                     header.querySelector('.sort-icon').textContent = '↕️';
@@ -235,7 +398,6 @@
                 th.classList.add(direction === 'asc' ? 'sorted-asc' : 'sorted-desc');
                 th.querySelector('.sort-icon').textContent = direction === 'asc' ? '↑' : '↓';
 
-                // Effectuer le tri
                 sortTable(columnIndex, direction);
                 currentSort = { column: columnIndex, direction: direction };
             }
@@ -248,7 +410,6 @@
                 let aVal = a.cells[columnIndex].textContent.trim();
                 let bVal = b.cells[columnIndex].textContent.trim();
 
-                // Si c'est la colonne ID, traiter comme des nombres
                 if (columnIndex === 0) {
                     aVal = parseInt(aVal);
                     bVal = parseInt(bVal);
@@ -264,8 +425,15 @@
                 return direction === 'asc' ? comparison : -comparison;
             });
 
-            // Réorganiser les lignes dans le DOM
             rows.forEach(row => tbody.appendChild(row));
         }
+
+        // Auto-masquer les alertes après 5 secondes
+        setTimeout(() => {
+            document.querySelectorAll('.alert').forEach(alert => {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
     });
 </script>
