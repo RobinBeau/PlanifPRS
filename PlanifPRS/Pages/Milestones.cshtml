@@ -6,549 +6,798 @@
 }
 
 <div class="milestones-container">
-    <!-- En-tête moderne -->
-    <div class="milestones-header">
-        <div class="d-flex justify-content-between align-items-center">
-            <div>
-                <h1 class="page-title">
-                    <i class="fas fa-flag-checkered me-3"></i>Gestion des Tâches
-                </h1>
-                <p class="page-subtitle">
-                    <i class="fas fa-info-circle me-1"></i>Suivez l'avancement des tâches et identifiez les retards
-                    <span class="ms-3"><i class="fas fa-calendar me-1"></i>Aujourd'hui : @today.ToString("dd/MM/yyyy")</span>
-                </p>
-            </div>
-            <div class="stats-summary">
-                @{
-                    var totalItems = Model.ChecklistItems?.Count ?? 0;
-                    var itemsValides = Model.ChecklistItems?.Count(j => j.IsValidated) ?? 0;
-                    var itemsEnRetard = Model.ChecklistItems?.Count(j => j.DueDate.Date < today && !j.IsValidated) ?? 0;
-                    var itemsEnCours = totalItems - itemsValides - itemsEnRetard;
+    <!-- En-tête -->
+    <div class="header d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h1 class="page-title">
+                <i class="fas fa-flag-checkered me-2"></i>Gestion des Tâches
+            </h1>
+            <div class="text-muted">
+                @Model.CurrentUserLogin
+                @if (Model.IsManagerView)
+                {
+                        <span class="badge bg-danger ms-2">
+                            <i class="fas fa-crown me-1"></i>Admin
+                        </span>
                 }
-                <div class="stat-badge stat-total">
-                    <i class="fas fa-list-ol"></i>
-                    <span>@totalItems</span>
-                    <small>Total</small>
-                </div>
-                <div class="stat-badge stat-success">
-                    <i class="fas fa-check-circle"></i>
-                    <span>@itemsValides</span>
-                    <small>Validés</small>
-                </div>
-                <div class="stat-badge stat-warning">
-                    <i class="fas fa-clock"></i>
-                    <span>@itemsEnCours</span>
-                    <small>En cours</small>
-                </div>
-                <div class="stat-badge stat-danger">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    <span>@itemsEnRetard</span>
-                    <small>En retard</small>
-                </div>
+                @if (Model.IsChefService)
+                {
+                        <span class="badge bg-warning text-dark ms-2">
+                            <i class="fas fa-users-cog me-1"></i>Chef de Service (@Model.ServiceName)
+                        </span>
+                }
             </div>
+        </div>
+        <div class="text-muted">
+            <i class="fas fa-calendar me-1"></i>@today.ToString("dd/MM/yyyy")
         </div>
     </div>
 
-    <!-- Filtres et actions -->
-    <div class="actions-panel">
-        <div class="filters-section">
-            <div class="filter-group">
-                <label class="filter-label">
-                    <i class="fas fa-filter me-1"></i>Filtrer par statut (tâches)
-                </label>
-                <div class="filter-buttons">
-                    <button class="filter-btn" data-filter="all">
-                        <i class="fas fa-globe"></i>Tous
-                    </button>
-                    <button class="filter-btn active" data-filter="retard">
-                        <i class="fas fa-exclamation-triangle"></i>En retard
-                    </button>
-                    <button class="filter-btn" data-filter="encours">
-                        <i class="fas fa-clock"></i>En cours
-                    </button>
-                    <button class="filter-btn" data-filter="valide">
-                        <i class="fas fa-check-circle"></i>Validés
-                    </button>
-                </div>
+    <!-- Messages -->
+    @if (!string.IsNullOrWhiteSpace(TempData["ErrorMessage"]?.ToString()))
+    {
+            <div class="alert alert-danger alert-dismissible fade show">
+                <i class="fas fa-exclamation-circle me-2"></i>
+            @TempData["ErrorMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
-        </div>
+    }
+    @if (!string.IsNullOrWhiteSpace(TempData["SuccessMessage"]?.ToString()))
+    {
+            <div class="alert alert-success alert-dismissible fade show">
+                <i class="fas fa-check-circle me-2"></i>
+            @TempData["SuccessMessage"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+    }
 
-        <div class="search-section">
-            <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input type="text" id="searchInput" placeholder="Rechercher une checklist, PRS...">
-            </div>
-        </div>
-
-        <!-- Filtres PRS (client, sans bouton) -->
-        <div class="d-flex flex-wrap gap-2 align-items-end">
-            <div>
-                <label class="filter-label">
-                    <i class="fas fa-diagram-project me-1"></i>PRS
-                </label>
-                <select id="filterPrsName" class="form-select">
-                    <option value="">Toutes les PRS</option>
-                    @if (Model.PrsOptions != null)
-                    {
-                        foreach (var n in Model.PrsOptions)
-                        {
-                            <option value="@n">@n</option>
-                        }
-                    }
-                </select>
-            </div>
-            <div>
-                <label class="filter-label">
-                    <i class="fas fa-traffic-light me-1"></i>Statut PRS
-                </label>
-                <select id="filterPrsState" class="form-select">
-                    <option value="all">Tous</option>
-                    <option value="attente">En attente</option>
-                    <option value="revalider">À re-valider</option>
-                    <option value="valide">Validé</option>
-                </select>
-            </div>
-        </div>
-    </div>
-
-    <!-- SECTION: Suivi des checklists PRS -->
-    <div class="jalons-table-container">
-        <div class="p-3 border-bottom" style="background: rgba(248, 249, 250, 0.8);">
-            <h3 class="m-0" style="font-weight:700;color:#495057;">
-                <i class="fas fa-tasks me-2"></i>Tâches
+    @* ========== SECTION ADMIN : TOUTES LES TÂCHES ========== *@
+    @if (Model.IsManagerView && Model.AllChecklistItems != null && Model.AllChecklistItems.Any())
+    {
+            <h3 class="section-title mt-4 mb-3">
+                <i class="fas fa-globe me-2"></i>Toutes les tâches (vue globale)
             </h3>
-            @if (Model.ChecklistItems != null)
-            {
-                var total = Model.ChecklistItems.Count;
-                var validated = Model.ChecklistItems.Count(i => i.IsValidated);
-                var late = Model.ChecklistItems.Count(i => i.IsLate);
-                var dueSoon = Model.ChecklistItems.Count(i => i.IsDueSoon);
-                <div class="mt-2 d-flex flex-wrap gap-2">
-                    <span class="badge" style="background:#e9ecef;color:#495057;">@total tâche(s)</span>
-                    <span class="badge" style="background:#198754;color:#fff;">@validated validé(s)</span>
-                    <span class="badge" style="background:#ffc107;color:#212529;">@dueSoon à échéance proche</span>
-                    <span class="badge" style="background:#dc3545;color:#fff;">@late en retard</span>
-                </div>
-            }
-        </div>
 
-        @if (Model.ChecklistItems != null && Model.ChecklistItems.Any())
-        {
-            <div class="table-responsive">
-                <table class="table jalons-table">
+        var allTotal = Model.AllChecklistItems.Count;
+        var allValides = Model.AllChecklistItems.Count(i => i.IsValidated);
+        var allRetard = Model.AllChecklistItems.Count(i => i.IsLate);
+        var allEnCours = allTotal - allValides - allRetard;
+
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-secondary">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">Total</div>
+                            <div class="kpi-value text-secondary">@allTotal</div>
+                            <div class="kpi-sub text-muted">Tâches</div>
+                        </div>
+                        <div class="kpi-icon text-secondary"><i class="fas fa-list-ol"></i></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-success">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">Validées</div>
+                            <div class="kpi-value text-success">@allValides</div>
+                            <div class="kpi-sub text-muted">Terminées</div>
+                        </div>
+                        <div class="kpi-icon text-success"><i class="fas fa-check-circle"></i></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-warning">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">En cours</div>
+                            <div class="kpi-value text-warning">@allEnCours</div>
+                            <div class="kpi-sub text-muted">À faire</div>
+                        </div>
+                        <div class="kpi-icon text-warning"><i class="fas fa-clock"></i></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-danger">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">En retard</div>
+                            <div class="kpi-value text-danger">@allRetard</div>
+                            <div class="kpi-sub text-muted">Urgentes</div>
+                        </div>
+                        <div class="kpi-icon text-danger"><i class="fas fa-exclamation-triangle"></i></div>
+                    </div>
+                </div>
+            </div>
+
+        @* Tableau Admin *@
+            <div class="card shadow-sm mb-3 p-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-6">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button class="filter-btn" data-table="allTasksTable" data-filter="all">
+                                <i class="fas fa-globe me-1"></i>Tous
+                            </button>
+                            <button class="filter-btn" data-table="allTasksTable" data-filter="retard">
+                                <i class="fas fa-exclamation-triangle me-1"></i>En retard
+                            </button>
+                            <button class="filter-btn" data-table="allTasksTable" data-filter="encours">
+                                <i class="fas fa-clock me-1"></i>En cours
+                            </button>
+                            <button class="filter-btn" data-table="allTasksTable" data-filter="valide">
+                                <i class="fas fa-check-circle me-1"></i>Validés
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" class="form-control search-input" data-table="allTasksTable" placeholder="Rechercher...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive mb-4">
+                <table class="table table-hover align-middle" id="allTasksTable">
                     <thead>
                         <tr>
-                            <th style="width:32%">
-                                <i class="fas fa-project-diagram me-1"></i>
-                                PRS - Tâche
-                            </th>
-                            <th style="width:15%">
-                                <i class="fas fa-tags me-1"></i>
-                                Catégorie
-                            </th>
-                            <th style="width:16%">
-                                <i class="fas fa-calendar-alt me-1"></i>
-                                Date prévue
-                            </th>
-                            <th style="width:16%">
-                                <i class="fas fa-hourglass-half me-1"></i>
-                                Délai
-                            </th>
-                            <th style="width:12%">
-                                <i class="fas fa-check-square me-1"></i>
-                                Statut
-                            </th>
-                            <th style="width:9%">
-                                <i class="fas fa-bolt me-1"></i>
-                                Action
-                            </th>
+                            <th style="width:30%">PRS - Tâche</th>
+                            <th style="width:15%">Catégorie</th>
+                            <th style="width:15%">Échéance</th>
+                            <th style="width:12%">Délai</th>
+                            <th style="width:13%">Statut</th>
+                            <th style="width:15%">Action</th>
                         </tr>
                     </thead>
-                    <tbody id="checklistTableBody">
-                        @foreach (var it in Model.ChecklistItems)
-                        {
-                            var statusClass = it.IsValidated ? "valide" : (it.IsLate ? "retard" : "encours");
-                            <tr class="checklist-row"
-                                data-status="@statusClass"
-                                data-searchable="@($"{it.PrsTitre} {it.Categorie} {it.Libelle}")"
-                                data-prs="@it.PrsTitre"
-                                data-prsstate="@it.PrsState">
-                                <td>
-                                    <div class="jalon-info">
-                                        <div class="prs-title">
-                                            <i class="fas fa-bookmark me-2"></i>@it.PrsTitre
+                    <tbody>
+                    @foreach (var it in Model.AllChecklistItems)
+                    {
+                        var statusClass = it.IsValidated ? "valide" : (it.IsLate ? "retard" : "encours");
+                                <tr class="task-row" data-status="@statusClass" data-searchable="@($"{it.PrsTitre} {it.Categorie} {it.Libelle}")">
+                                    <td>
+                                        <div class="fw-semibold text-primary small mb-1">
+                                            <i class="fas fa-bookmark me-1"></i>@it.PrsTitre
                                         </div>
-                                        <div class="jalon-name">
-                                            <i class="fas fa-clipboard-check me-2"></i>@it.Libelle
+                                        <div class="text-muted small">
+                                            <i class="fas fa-clipboard-check me-1"></i>@it.Libelle
                                         </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="date-info">
-                                        <div class="date-value">
-                                            <i class="fas fa-layer-group me-1"></i>@it.Categorie
-                                        </div>
-                                        @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
-                                        {
-                                            <div class="text-muted">@it.SousCategorie</div>
-                                        }
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="date-info">
-                                        <div class="date-value">
-                                            <i class="fas fa-calendar me-1"></i>@it.DueDate.ToString("dd/MM/yyyy")
-                                        </div>
-                                        <div class="date-relative">
-                                            @if (!it.IsValidated)
-                                            {
-                                                if (it.DaysLeft > 0)
-                                                {
-                                                    <span class="badge badge-info"><i class="fas fa-arrow-right me-1"></i>Dans @it.DaysLeft j</span>
-                                                }
-                                                else if (it.DaysLeft == 0)
-                                                {
-                                                    <span class="badge badge-warning"><i class="fas fa-exclamation me-1"></i>Aujourd'hui</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge badge-danger"><i class="fas fa-clock me-1"></i>@Math.Abs(it.DaysLeft) j de retard</span>
-                                                }
-                                            }
-                                            else
-                                            {
-                                                <span class="badge" style="background:#20c997;color:#fff;"><i class="fas fa-check me-1"></i>Validé</span>
-                                            }
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div>
-                                        <span class="badge" style="background:#6c757d;color:#fff;">@($"P{it.Priorite}")</span>
-                                        <span class="badge" style="background:#0dcaf0;color:#212529;">@it.DelaiJours j</span>
-                                        <span class="badge" style="background:#adb5bd;color:#212529;">@(it.Source)</span>
-                                    </div>
-                                </td>
-                                <td>
-                                    @if (it.IsValidated)
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold small">@it.Categorie</div>
+                                @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                {
+                                                <small class="text-muted">@it.SousCategorie</small>
+                                }
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold small mb-1">@it.DueDate.ToString("dd/MM/yyyy")</div>
+                                @if (!it.IsValidated)
+                                {
+                                    if (it.DaysLeft > 0)
                                     {
-                                        <div>
-                                            <span class="status-badge status-success">
-                                                <i class="fas fa-check-circle me-1"></i>
-                                                Validé
-                                            </span>
-                                            <div class="small text-muted mt-1">
-                                                le @(it.DateValidation?.ToString("dd/MM/yyyy")) par @(it.ValidePar ?? "-")
-                                            </div>
-                                        </div>
+                                                        <span class="badge bg-info text-dark">Dans @it.DaysLeft j</span>
+                                    }
+                                    else if (it.DaysLeft == 0)
+                                    {
+                                                        <span class="badge bg-warning text-dark">Aujourd'hui</span>
                                     }
                                     else
                                     {
-                                        <span class="status-badge status-warning">
-                                            <i class="fas fa-clock me-1"></i>
-                                            En cours
-                                        </span>
+                                                        <span class="badge bg-danger">@Math.Abs(it.DaysLeft) j retard</span>
                                     }
-                                </td>
-                                <td>
-                                    @if (!it.IsValidated)
-                                    {
-                                        <form method="post" asp-page-handler="ValidateChecklist" class="d-inline">
-                                            <input type="hidden" name="checklistId" value="@it.Id" />
-                                            <button type="submit" class="btn btn-sm btn-success">
-                                                <i class="fas fa-check me-1"></i>Valider
-                                            </button>
-                                            @Html.AntiForgeryToken()
-                                        </form>
-                                    }
-                                    else
-                                    {
-                                        <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
-                                            <input type="hidden" name="checklistId" value="@it.Id" />
-                                            <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                                <i class="fas fa-undo me-1"></i>Annuler
-                                            </button>
-                                            @Html.AntiForgeryToken()
-                                        </form>
-                                    }
-                                </td>
-                            </tr>
-                        }
+                                }
+                                else
+                                {
+                                                <span class="badge bg-success">Validé</span>
+                                }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary me-1">P @it.Priorite</span>
+                                        <span class="badge bg-info">@it.DelaiJours j</span>
+                                    </td>
+                                    <td>
+                                @if (it.IsValidated)
+                                {
+                                                <div>
+                                                    <span class="badge bg-success mb-1">
+                                                        <i class="fas fa-check-circle me-1"></i>Validé
+                                                    </span>
+                                                    <div class="small text-muted">
+                                            @it.DateValidation?.ToString("dd/MM/yyyy")<br>
+                                                        par @(it.ValidePar ?? "-")
+                                                    </div>
+                                                </div>
+                                }
+                                else
+                                {
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-clock me-1"></i>En cours
+                                                </span>
+                                }
+                                    </td>
+                                    <td>
+                                @if (!it.IsValidated)
+                                {
+                                                <form method="post" asp-page-handler="ValidateChecklist" class="d-inline">
+                                                    <input type="hidden" name="checklistId" value="@it.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                        <i class="fas fa-check me-1"></i>Valider
+                                                    </button>
+                                                </form>
+                                }
+                                else
+                                {
+                                                <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
+                                                    <input type="hidden" name="checklistId" value="@it.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                        <i class="fas fa-undo me-1"></i>Annuler
+                                                    </button>
+                                                </form>
+                                }
+                                    </td>
+                                </tr>
+                    }
                     </tbody>
                 </table>
             </div>
-        }
-        else
-        {
-            <div class="empty-state">
-                <div class="empty-icon">
-                    <i class="fas fa-tasks"></i>
+    }
+
+    @* ========== SECTION CHEF DE SERVICE ========== *@
+    @if (Model.IsChefService && Model.ServiceChecklistItems != null && Model.ServiceChecklistItems.Any())
+    {
+            <h3 class="section-title mt-4 mb-3">
+                <i class="fas fa-users-cog me-2"></i>Mon service : <strong>@Model.ServiceName</strong>
+            </h3>
+
+        var serviceTotal = Model.ServiceChecklistItems.Count;
+        var serviceValides = Model.ServiceChecklistItems.Count(i => i.IsValidated);
+        var serviceRetard = Model.ServiceChecklistItems.Count(i => i.IsLate);
+        var serviceEnCours = serviceTotal - serviceValides - serviceRetard;
+
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-info">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">Total</div>
+                            <div class="kpi-value text-info">@serviceTotal</div>
+                            <div class="kpi-sub text-muted">Tâches</div>
+                        </div>
+                        <div class="kpi-icon text-info"><i class="fas fa-list-ol"></i></div>
+                    </div>
                 </div>
-                <h4>Aucune tâche</h4>
-                <p>Aucune tâche n'a été trouvée.</p>
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-success">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">Validées</div>
+                            <div class="kpi-value text-success">@serviceValides</div>
+                            <div class="kpi-sub text-muted">Terminées</div>
+                        </div>
+                        <div class="kpi-icon text-success"><i class="fas fa-check-circle"></i></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-warning">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">En cours</div>
+                            <div class="kpi-value text-warning">@serviceEnCours</div>
+                            <div class="kpi-sub text-muted">À faire</div>
+                        </div>
+                        <div class="kpi-icon text-warning"><i class="fas fa-clock"></i></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-danger">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">En retard</div>
+                            <div class="kpi-value text-danger">@serviceRetard</div>
+                            <div class="kpi-sub text-muted">Urgentes</div>
+                        </div>
+                        <div class="kpi-icon text-danger"><i class="fas fa-exclamation-triangle"></i></div>
+                    </div>
+                </div>
             </div>
-        }
-    </div>
+
+        @* Tableau Service *@
+            <div class="card shadow-sm mb-3 p-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-6">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button class="filter-btn" data-table="serviceTasksTable" data-filter="all">
+                                <i class="fas fa-globe me-1"></i>Tous
+                            </button>
+                            <button class="filter-btn" data-table="serviceTasksTable" data-filter="retard">
+                                <i class="fas fa-exclamation-triangle me-1"></i>En retard
+                            </button>
+                            <button class="filter-btn" data-table="serviceTasksTable" data-filter="encours">
+                                <i class="fas fa-clock me-1"></i>En cours
+                            </button>
+                            <button class="filter-btn" data-table="serviceTasksTable" data-filter="valide">
+                                <i class="fas fa-check-circle me-1"></i>Validés
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" class="form-control search-input" data-table="serviceTasksTable" placeholder="Rechercher...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive mb-4">
+                <table class="table table-hover align-middle" id="serviceTasksTable">
+                    <thead>
+                        <tr>
+                            <th style="width:30%">PRS - Tâche</th>
+                            <th style="width:15%">Catégorie</th>
+                            <th style="width:15%">Échéance</th>
+                            <th style="width:12%">Délai</th>
+                            <th style="width:13%">Statut</th>
+                            <th style="width:15%">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var it in Model.ServiceChecklistItems)
+                    {
+                        var statusClass = it.IsValidated ? "valide" : (it.IsLate ? "retard" : "encours");
+                                <tr class="task-row" data-status="@statusClass" data-searchable="@($"{it.PrsTitre} {it.Categorie} {it.Libelle}")">
+                                    <td>
+                                        <div class="fw-semibold text-primary small mb-1">
+                                            <i class="fas fa-bookmark me-1"></i>@it.PrsTitre
+                                        </div>
+                                        <div class="text-muted small">
+                                            <i class="fas fa-clipboard-check me-1"></i>@it.Libelle
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold small">@it.Categorie</div>
+                                @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                {
+                                                <small class="text-muted">@it.SousCategorie</small>
+                                }
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold small mb-1">@it.DueDate.ToString("dd/MM/yyyy")</div>
+                                @if (!it.IsValidated)
+                                {
+                                    if (it.DaysLeft > 0)
+                                    {
+                                                        <span class="badge bg-info text-dark">Dans @it.DaysLeft j</span>
+                                    }
+                                    else if (it.DaysLeft == 0)
+                                    {
+                                                        <span class="badge bg-warning text-dark">Aujourd'hui</span>
+                                    }
+                                    else
+                                    {
+                                                        <span class="badge bg-danger">@Math.Abs(it.DaysLeft) j retard</span>
+                                    }
+                                }
+                                else
+                                {
+                                                <span class="badge bg-success">Validé</span>
+                                }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary me-1">P @it.Priorite</span>
+                                        <span class="badge bg-info">@it.DelaiJours j</span>
+                                    </td>
+                                    <td>
+                                @if (it.IsValidated)
+                                {
+                                                <div>
+                                                    <span class="badge bg-success mb-1">
+                                                        <i class="fas fa-check-circle me-1"></i>Validé
+                                                    </span>
+                                                    <div class="small text-muted">
+                                            @it.DateValidation?.ToString("dd/MM/yyyy")<br>
+                                                        par @(it.ValidePar ?? "-")
+                                                    </div>
+                                                </div>
+                                }
+                                else
+                                {
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-clock me-1"></i>En cours
+                                                </span>
+                                }
+                                    </td>
+                                    <td>
+                                @if (!it.IsValidated)
+                                {
+                                                <form method="post" asp-page-handler="ValidateChecklist" class="d-inline">
+                                                    <input type="hidden" name="checklistId" value="@it.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                        <i class="fas fa-check me-1"></i>Valider
+                                                    </button>
+                                                </form>
+                                }
+                                else
+                                {
+                                                <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
+                                                    <input type="hidden" name="checklistId" value="@it.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                        <i class="fas fa-undo me-1"></i>Annuler
+                                                    </button>
+                                                </form>
+                                }
+                                    </td>
+                                </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+    }
+
+    @* ========== SECTION MES TÂCHES ========== *@
+    @if (Model.MyChecklistItems != null && Model.MyChecklistItems.Any())
+    {
+            <h3 class="section-title mt-4 mb-3">
+                <i class="fas fa-user-check me-2"></i>Mes tâches
+            </h3>
+
+        var myTotal = Model.MyChecklistItems.Count;
+        var myValides = Model.MyChecklistItems.Count(i => i.IsValidated);
+        var myRetard = Model.MyChecklistItems.Count(i => i.IsLate);
+        var myEnCours = myTotal - myValides - myRetard;
+
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-primary">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">Total</div>
+                            <div class="kpi-value text-primary">@myTotal</div>
+                            <div class="kpi-sub text-muted">Mes tâches</div>
+                        </div>
+                        <div class="kpi-icon text-primary"><i class="fas fa-list-ol"></i></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-success">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">Validées</div>
+                            <div class="kpi-value text-success">@myValides</div>
+                            <div class="kpi-sub text-muted">Terminées</div>
+                        </div>
+                        <div class="kpi-icon text-success"><i class="fas fa-check-circle"></i></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-warning">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">En cours</div>
+                            <div class="kpi-value text-warning">@myEnCours</div>
+                            <div class="kpi-sub text-muted">À faire</div>
+                        </div>
+                        <div class="kpi-icon text-warning"><i class="fas fa-clock"></i></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card kpi-card shadow-sm border-danger">
+                        <div class="card-body">
+                            <div class="kpi-title text-muted">En retard</div>
+                            <div class="kpi-value text-danger">@myRetard</div>
+                            <div class="kpi-sub text-muted">Urgentes</div>
+                        </div>
+                        <div class="kpi-icon text-danger"><i class="fas fa-exclamation-triangle"></i></div>
+                    </div>
+                </div>
+            </div>
+
+        @* Tableau Mes Tâches *@
+            <div class="card shadow-sm mb-3 p-3">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-6">
+                        <div class="d-flex gap-2 flex-wrap">
+                            <button class="filter-btn" data-table="myTasksTable" data-filter="all">
+                                <i class="fas fa-globe me-1"></i>Tous
+                            </button>
+                            <button class="filter-btn" data-table="myTasksTable" data-filter="retard">
+                                <i class="fas fa-exclamation-triangle me-1"></i>En retard
+                            </button>
+                            <button class="filter-btn" data-table="myTasksTable" data-filter="encours">
+                                <i class="fas fa-clock me-1"></i>En cours
+                            </button>
+                            <button class="filter-btn" data-table="myTasksTable" data-filter="valide">
+                                <i class="fas fa-check-circle me-1"></i>Validés
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" class="form-control search-input" data-table="myTasksTable" placeholder="Rechercher...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive mb-4">
+                <table class="table table-hover align-middle" id="myTasksTable">
+                    <thead>
+                        <tr>
+                            <th style="width:30%">PRS - Tâche</th>
+                            <th style="width:15%">Catégorie</th>
+                            <th style="width:15%">Échéance</th>
+                            <th style="width:12%">Délai</th>
+                            <th style="width:13%">Statut</th>
+                            <th style="width:15%">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var it in Model.MyChecklistItems)
+                    {
+                        var statusClass = it.IsValidated ? "valide" : (it.IsLate ? "retard" : "encours");
+                                <tr class="task-row" data-status="@statusClass" data-searchable="@($"{it.PrsTitre} {it.Categorie} {it.Libelle}")">
+                                    <td>
+                                        <div class="fw-semibold text-primary small mb-1">
+                                            <i class="fas fa-bookmark me-1"></i>@it.PrsTitre
+                                        </div>
+                                        <div class="text-muted small">
+                                            <i class="fas fa-clipboard-check me-1"></i>@it.Libelle
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold small">@it.Categorie</div>
+                                @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
+                                {
+                                                <small class="text-muted">@it.SousCategorie</small>
+                                }
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold small mb-1">@it.DueDate.ToString("dd/MM/yyyy")</div>
+                                @if (!it.IsValidated)
+                                {
+                                    if (it.DaysLeft > 0)
+                                    {
+                                                        <span class="badge bg-info text-dark">Dans @it.DaysLeft j</span>
+                                    }
+                                    else if (it.DaysLeft == 0)
+                                    {
+                                                        <span class="badge bg-warning text-dark">Aujourd'hui</span>
+                                    }
+                                    else
+                                    {
+                                                        <span class="badge bg-danger">@Math.Abs(it.DaysLeft) j retard</span>
+                                    }
+                                }
+                                else
+                                {
+                                                <span class="badge bg-success">Validé</span>
+                                }
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary me-1">P @it.Priorite</span>
+                                        <span class="badge bg-info">@it.DelaiJours j</span>
+                                    </td>
+                                    <td>
+                                @if (it.IsValidated)
+                                {
+                                                <div>
+                                                    <span class="badge bg-success mb-1">
+                                                        <i class="fas fa-check-circle me-1"></i>Validé
+                                                    </span>
+                                                    <div class="small text-muted">
+                                            @it.DateValidation?.ToString("dd/MM/yyyy")<br>
+                                                        par @(it.ValidePar ?? "-")
+                                                    </div>
+                                                </div>
+                                }
+                                else
+                                {
+                                                <span class="badge bg-warning text-dark">
+                                                    <i class="fas fa-clock me-1"></i>En cours
+                                                </span>
+                                }
+                                    </td>
+                                    <td>
+                                @if (!it.IsValidated)
+                                {
+                                                <form method="post" asp-page-handler="ValidateChecklist" class="d-inline">
+                                                    <input type="hidden" name="checklistId" value="@it.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-success">
+                                                        <i class="fas fa-check me-1"></i>Valider
+                                                    </button>
+                                                </form>
+                                }
+                                else
+                                {
+                                                <form method="post" asp-page-handler="UnvalidateChecklist" class="d-inline">
+                                                    <input type="hidden" name="checklistId" value="@it.Id" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                        <i class="fas fa-undo me-1"></i>Annuler
+                                                    </button>
+                                                </form>
+                                }
+                                    </td>
+                                </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+    }
+    else if (!Model.IsManagerView && !Model.IsChefService)
+    {
+            <div class="alert alert-info mt-4">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Aucune tâche assignée</strong><br>
+                Aucune tâche ne vous est assignée pour le moment.
+            </div>
+    }
 </div>
 
 @section Scripts {
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-               // Gestion des filtres (client) sur statut d'élément
-        const filterButtons = document.querySelectorAll('.filter-btn');
-        const rows = document.querySelectorAll('.checklist-row');
-        const searchInput = document.getElementById('searchInput');
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                // ✅ Gestion des filtres pour TOUS les tableaux
+                const tables = ['allTasksTable', 'serviceTasksTable', 'myTasksTable'];
 
-        // Filtres PRS (client)
-        const filterPrsName = document.getElementById('filterPrsName');
-        const filterPrsState = document.getElementById('filterPrsState');
+                tables.forEach(tableId => {
+                    const filterButtons = document.querySelectorAll(`[data-table="${tableId}"][data-filter]`);
+                    const searchInput = document.querySelector(`[data-table="${tableId}"].search-input`);
+                    const rows = document.querySelectorAll(`#${tableId} .task-row`);
 
-        // ✅ APPLIQUER LE FILTRE PAR DÉFAUT (EN RETARD) AU CHARGEMENT
-        applyFilters();
+                    if (rows.length === 0) {
+                        console.log(`[${tableId}] Tableau vide, skip`);
+                        return;
+                    }
 
-        filterButtons.forEach(btn => {
-            btn.addEventListener('click', function() {
-                filterButtons.forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                applyFilters();
-            });
-        });
+                    function applyFilters() {
+                        const activeFilter = document.querySelector(`[data-table="${tableId}"].filter-btn.active`);
+                        const statusFilter = activeFilter ? activeFilter.getAttribute('data-filter') : 'retard';
+                        const searchText = searchInput ? searchInput.value.toLowerCase() : '';
 
-            searchInput.addEventListener('input', function() {
-                applyFilters();
-            });
+                        let visibleCount = 0;
 
-            if (filterPrsName) {
-                filterPrsName.addEventListener('change', applyFilters);
-            }
-            if (filterPrsState) {
-                filterPrsState.addEventListener('change', applyFilters);
-            }
+                        rows.forEach(row => {
+                            const status = row.getAttribute('data-status');
+                            const searchable = row.getAttribute('data-searchable').toLowerCase();
 
-            function applyFilters() {
-                const statusFilter = document.querySelector('.filter-btn.active').getAttribute('data-filter');
-                const searchText = (searchInput.value || '').toLowerCase();
-                const prsValue = (filterPrsName && filterPrsName.value) ? filterPrsName.value : '';
-                const prsStateValue = (filterPrsState && filterPrsState.value) ? filterPrsState.value : 'all';
+                            const matchesStatus = statusFilter === 'all' || status === statusFilter;
+                            const matchesSearch = searchText === '' || searchable.includes(searchText);
 
-                let visibleCount = 0;
+                            if (matchesStatus && matchesSearch) {
+                                row.style.display = '';
+                                visibleCount++;
+                            } else {
+                                row.style.display = 'none';
+                            }
+                        });
 
-                rows.forEach(row => {
-                    const status = row.getAttribute('data-status');
-                    const searchable = (row.getAttribute('data-searchable') || '').toLowerCase();
-                    const rowPrs = row.getAttribute('data-prs') || '';
-                    const rowPrsState = row.getAttribute('data-prsstate') || 'autre';
+                        console.log(`[${tableId}] ${visibleCount} tâche(s) visible(s) (filtre: ${statusFilter})`);
+                    }
 
-                    const matchesStatus = statusFilter === 'all' || status === statusFilter;
-                    const matchesSearch = searchText === '' || searchable.includes(searchText);
-                    const matchesPrs = prsValue === '' || rowPrs === prsValue;
-                    const matchesPrsState = prsStateValue === 'all' || rowPrsState === prsStateValue;
+                    // Click sur les boutons de filtre
+                    filterButtons.forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            filterButtons.forEach(b => b.classList.remove('active'));
+                            this.classList.add('active');
+                            applyFilters();
+                        });
+                    });
 
-                    if (matchesStatus && matchesSearch && matchesPrs && matchesPrsState) {
-                        row.style.display = '';
-                        visibleCount++;
-                        row.style.opacity = '0';
-                        row.style.transform = 'translateY(10px)';
-                        setTimeout(() => {
-                            row.style.transition = 'all 0.3s ease';
-                            row.style.opacity = '1';
-                            row.style.transform = 'translateY(0)';
-                        }, Math.random() * 100);
+                    // Recherche
+                    if (searchInput) {
+                        searchInput.addEventListener('input', applyFilters);
+                    }
+
+                    // ✅ FILTRE PAR DÉFAUT : "EN RETARD" POUR TOUS LES TABLEAUX
+                    console.log(`[${tableId}] Application du filtre par défaut "En retard"`);
+
+                    const retardBtn = Array.from(filterButtons).find(b => b.getAttribute('data-filter') === 'retard');
+
+                    if (retardBtn) {
+                        filterButtons.forEach(b => b.classList.remove('active'));
+                        retardBtn.classList.add('active');
+                        applyFilters();
                     } else {
-                        row.style.display = 'none';
+                        console.warn(`[${tableId}] Bouton "En retard" introuvable !`);
                     }
                 });
+            });
+        </script>
 
-                console.log(`${visibleCount} tâche(s) visible(s)`);
+        <style>
+            .milestones-container {
+                animation: slideInUp 0.5s ease-out;
             }
 
-            // Animation des barres de progression
-            setTimeout(() => {
-                document.querySelectorAll('.progress-fill').forEach(bar => {
-                    bar.style.transition = 'width 1s ease-in-out';
-                });
-            }, 500);
-        });
-    </script>
-
-    <style>
-        /* Variables CSS pour la cohérence */
-        :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            --warning-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            --danger-gradient: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
-            --glass-bg: rgba(255, 255, 255, 0.95);
-            --glass-border: rgba(255, 255, 255, 0.2);
-            --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.1);
-            --shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.15);
-            --border-radius: 1rem;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Container principal */
-        .milestones-container {
-            animation: slideInUp 0.6s ease-out;
-        }
-
-        @@keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
+            @@keyframes slideInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
             }
 
-            to {
-                opacity: 1;
-                transform: translateY(0);
+            .page-title {
+                font-weight: 800;
+                margin: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
             }
-        }
 
-        /* En-tête */
-        .milestones-header {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--border-radius);
-            padding: 2rem;
-            margin-bottom: 1.5rem;
-            box-shadow: var(--shadow-soft);
-        }
+            .section-title {
+                font-weight: 700;
+                color: #333;
+                border-bottom: 2px solid #e0e0e0;
+                padding-bottom: 0.5rem;
+            }
 
-        .page-title {
-            background: var(--primary-gradient);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            font-weight: 800;
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
+            .kpi-card {
+                position: relative;
+                overflow: hidden;
+                border: 1px solid #f0f0f0;
+                transition: all 0.3s ease;
+            }
 
-        .page-subtitle {
-            color: #6c757d;
-            font-weight: 500;
-            margin-bottom: 0;
-        }
-
-        /* Stats */
-        .stats-summary {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .stat-badge {
-            background: var(--glass-bg);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            padding: 1rem;
-            text-align: center;
-            border: 1px solid var(--glass-border);
-            transition: var(--transition);
-            min-width: 80px;
-        }
-
-            .stat-badge:hover {
+            .kpi-card:hover {
                 transform: translateY(-5px);
-                box-shadow: var(--shadow-hover);
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
             }
 
-            .stat-badge i {
-                font-size: 1.5rem;
-                margin-bottom: 0.5rem;
-                display: block;
+            .kpi-title {
+                font-size: .9rem;
+                font-weight: 600;
             }
 
-            .stat-badge span {
+            .kpi-value {
                 font-size: 1.8rem;
                 font-weight: 800;
-                display: block;
-                margin-bottom: 0.25rem;
             }
 
-            .stat-badge small {
+            .kpi-sub {
+                font-size: .8rem;
+                font-weight: 500;
+            }
+
+            .kpi-icon {
+                position: absolute;
+                bottom: .75rem;
+                right: .75rem;
+                font-size: 1.5rem;
+                opacity: .2;
+            }
+
+            .card {
+                border-radius: .75rem;
+            }
+
+            .filter-btn {
+                background: white;
+                border: 2px solid #e9ecef;
+                border-radius: 8px;
+                padding: 0.5rem 1rem;
+                cursor: pointer;
                 font-weight: 600;
-                opacity: 0.8;
+                transition: all 0.3s ease;
+                font-size: 0.9rem;
             }
-
-        .stat-total {
-            color: #495057;
-        }
-
-        .stat-success {
-            color: #28a745;
-        }
-
-        .stat-warning {
-            color: #ffc107;
-        }
-
-        .stat-danger {
-            color: #dc3545;
-        }
-
-        /* Panneau d'actions */
-        .actions-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 1rem;
-            box-shadow: var(--shadow-soft);
-        }
-
-        .filter-label {
-            font-weight: 700;
-            color: #495057;
-            margin-bottom: 0.5rem;
-        }
-
-        .filter-buttons {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .filter-btn {
-            background: white;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            cursor: pointer;
-            font-weight: 600;
-            transition: var(--transition);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
 
             .filter-btn:hover {
                 border-color: #667eea;
                 transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(102, 126, 234, 0.2);
             }
 
             .filter-btn.active {
-                background: var(--primary-gradient);
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 border-color: #667eea;
                 color: white;
             }
 
-        .search-box {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
+            .search-box {
+                position: relative;
+            }
 
             .search-box i {
                 position: absolute;
                 left: 1rem;
+                top: 50%;
+                transform: translateY(-50%);
                 color: #6c757d;
                 z-index: 2;
             }
@@ -559,227 +808,69 @@
                 border-radius: 25px;
                 padding: 0.75rem 1rem 0.75rem 3rem;
                 font-weight: 500;
-                transition: var(--transition);
-                width: 300px;
+                transition: all 0.3s ease;
+                width: 100%;
             }
 
-                .search-box input:focus {
-                    border-color: #667eea;
-                    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
-                    outline: none;
-                }
+            .search-box input:focus {
+                border-color: #667eea;
+                box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+                outline: none;
+            }
 
-        /* Tableau */
-        .jalons-table-container {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-soft);
-            overflow: hidden;
-        }
+            .table-responsive {
+                background: white;
+                border-radius: 0.75rem;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                overflow: hidden;
+            }
 
-        .jalons-table {
-            margin: 0;
-            background: transparent;
-        }
+            .table {
+                margin-bottom: 0;
+            }
 
-            .jalons-table thead th {
-                background: rgba(248, 249, 250, 0.8);
+            .table th {
+                background: #f8f9fa;
                 border: none;
-                padding: 1.5rem 1rem;
+                padding: 1rem;
                 font-weight: 700;
                 color: #495057;
                 border-bottom: 2px solid #e9ecef;
             }
 
-        .checklist-row {
-            transition: var(--transition);
-            border: none;
-        }
-
-            .checklist-row:hover {
-                background: rgba(102, 126, 234, 0.05);
-                transform: translateX(5px);
-            }
-
-            .checklist-row td {
-                padding: 1.5rem 1rem;
-                border: none;
-                border-bottom: 1px solid rgba(0,0,0,0.05);
-                vertical-align: middle;
-            }
-
-        /* Info bloc */
-        .jalon-info .prs-title {
-            font-weight: 700;
-            color: #495057;
-            margin-bottom: 0.5rem;
-        }
-
-        .jalon-info .jalon-name {
-            color: #6c757d;
-            font-weight: 500;
-        }
-
-        /* Info date */
-        .date-info .date-value {
-            font-weight: 600;
-            color: #495057;
-            margin-bottom: 0.5rem;
-        }
-
-        .date-missing {
-            color: #6c757d;
-            font-style: italic.
-        }
-
-        /* Badges */
-        .badge {
-            padding: 0.25rem 0.75rem;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 0.75rem;
-        }
-
-        .badge-info {
-            background: var(--info-gradient);
-            color: white;
-        }
-
-        .badge-warning {
-            background: var(--warning-gradient);
-            color: white;
-        }
-
-        .badge-danger {
-            background: var(--danger-gradient);
-            color: white;
-        }
-
-        /* Status badges */
-        .status-badge {
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .status-success {
-            background: var(--success-gradient);
-            color: white.
-        }
-
-        .status-warning {
-            background: var(--warning-gradient);
-            color: white;
-        }
-
-        .status-danger {
-            background: var(--danger-gradient);
-            color: white;
-        }
-
-        /* Progression */
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #e9ecef;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 0.5rem;
-        }
-
-        .progress-fill {
-            height: 100%;
-            transition: width 0.3s ease;
-        }
-
-        .progress-text {
-            font-weight: 600;
-            color: #495057;
-            font-size: 0.85rem;
-        }
-
-            .progress-text.danger {
-                color: #dc3545;
-            }
-
-        /* État vide */
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: #6c757d;
-        }
-
-        .empty-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            opacity: 0.5;
-        }
-
-        .empty-state h4 {
-            margin-bottom: 1rem;
-            color: #495057;
-        }
-
-        .btn-primary {
-            background: var(--primary-gradient);
-            border: none;
-            border-radius: 25px;
-            padding: 0.75rem 1.5rem;
-            color: white;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-            .btn-primary:hover {
-                transform: translateY(-2px);
-                box-shadow: var(--shadow-hover);
-            }
-
-        /* Responsive */
-        @@media (max-width: 768px) {
-            .milestones-header, .actions-panel {
+            .table td {
                 padding: 1rem;
+                vertical-align: middle;
+                border-bottom: 1px solid #f0f0f0;
             }
 
-            .stats-summary {
-                justify-content: center;
+            .table tbody tr {
+                transition: all 0.3s ease;
             }
 
-            .actions-panel {
-                flex-direction: column;
-                align-items: stretch;
+            .table tbody tr:hover {
+                background: rgba(102, 126, 234, 0.05);
+                transform: translateX(3px);
             }
 
-            .search-box input {
-                width: 100%;
+            .badge {
+                font-weight: 600;
             }
 
-            .jalons-table-container {
-                overflow-x: auto;
-            }
+            @@media (max-width: 768px) {
+                .page-title {
+                    font-size: 1.5rem;
+                }
 
-            .checklist-row:hover {
-                transform: none;
-            }
-        }
+                .kpi-value {
+                    font-size: 1.5rem;
+                }
 
-        @@keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
+                .table th,
+                .table td {
+                    padding: 0.75rem 0.5rem;
+                    font-size: 0.875rem;
+                }
             }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-    </style>
+        </style>
 }
