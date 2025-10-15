@@ -4118,5 +4118,409 @@ document.getElementById('create-form').addEventListener('submit', function(e) {
                 $('form').off('submit').submit();
             });
         });
+
+              // ===== SUPPRESSION AUTOMATIQUE DES AFFECTATIONS NON UTILISÉES =====
+    document.addEventListener('click', function(e) {
+        // ✅ Gestion bouton supprimer utilisateur d'une tâche
+        if (e.target.closest('.btn-remove-user')) {
+            const btn = e.target.closest('.btn-remove-user');
+            const userId = parseInt(btn.dataset.userId);
+
+            if (!userId || isNaN(userId)) {
+                console.warn('[REMOVE-USER] ID utilisateur invalide');
+                return;
+            }
+
+            console.log(`[REMOVE-USER] Suppression utilisateur ${userId} d'une tâche`);
+
+            // ✅ CORRECTION : Utiliser async/await correctement
+            (async function() {
+                // Attendre un peu que checklistManager ait mis à jour les données
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // ✅ AJOUTER AWAIT ICI
+                const estEncoreUtilise = await verifierSiUtilisateurEstAssigne(userId);
+
+                console.log(`[REMOVE-USER] Utilisateur ${userId} encore utilisé: ${estEncoreUtilise}`);
+
+                if (!estEncoreUtilise) {
+                    // Supprimer de la liste des affectations globales
+                    supprimerAffectationUtilisateur(userId);
+                } else {
+                    console.log(`[REMOVE-USER] ⏸️ Utilisateur ${userId} CONSERVÉ (encore utilisé)`);
+                }
+            })();
+        }
+
+        // ✅ Gestion bouton supprimer groupe d'une tâche (INCHANGÉ)
+        if (e.target.closest('.btn-remove-group')) {
+            const btn = e.target.closest('.btn-remove-group');
+            const groupId = parseInt(btn.dataset.groupId);
+
+            if (!groupId || isNaN(groupId)) {
+                console.warn('[REMOVE-GROUP] ID groupe invalide');
+                return;
+            }
+
+            console.log(`[REMOVE-GROUP] Suppression groupe ${groupId} d'une tâche`);
+
+            // ✅ Fonction async pour gérer l'attente
+            (async function() {
+                // Attendre un peu que checklistManager ait mis à jour les données
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Vérifier si le groupe est encore assigné à d'autres tâches
+                const estEncoreUtilise = verifierSiGroupeEstAssigne(groupId);
+
+                console.log(`[REMOVE-GROUP] Groupe ${groupId} encore utilisé: ${estEncoreUtilise}`);
+
+                if (!estEncoreUtilise) {
+                    // ✅ APPELER LA FONCTION ASYNC AVEC AWAIT
+                    await supprimerAffectationGroupe(groupId);
+                }
+            })();
+        }
+    });
+
+      // ✅ Fonction pour vérifier si un utilisateur est assigné à au moins une tâche
+    // (directement OU via un groupe)
+    async function verifierSiUtilisateurEstAssigne(userId) {
+        if (!window.checklistManager || !window.checklistManager.currentChecklist) {
+            console.log(`[VERIFY-USER] ⚠️ checklistManager non disponible`);
+            return false;
+        }
+
+        const elements = window.checklistManager.currentChecklist.elements || [];
+
+        console.log(`[VERIFY-USER] === Vérification utilisateur ${userId} ===`);
+        console.log(`[VERIFY-USER] ${elements.length} tâche(s) dans la checklist`);
+
+        // ✅ CAS 1 : Vérifier s'il est directement assigné à une tâche (assignedUsers)
+        const estDirectementAssigne = elements.some(element => {
+            return element.assignedUsers && element.assignedUsers.includes(userId);
+        });
+
+        if (estDirectementAssigne) {
+            console.log(`[VERIFY-USER] ✅ Utilisateur ${userId} directement assigné à une tâche (assignedUsers)`);
+            return true;
+        }
+
+        console.log(`[VERIFY-USER] ℹ️ Utilisateur ${userId} PAS directement assigné`);
+
+        // ✅ CAS 2 : Vérifier s'il est membre d'un groupe encore assigné
+        const groupesAssignes = new Set();
+
+        // Récupérer tous les groupes assignés aux tâches
+        elements.forEach(element => {
+            if (element.assignedGroups && element.assignedGroups.length > 0) {
+                element.assignedGroups.forEach(gId => groupesAssignes.add(gId));
+            }
+        });
+
+        if (groupesAssignes.size === 0) {
+            console.log(`[VERIFY-USER] ✅ Utilisateur ${userId} : Aucun groupe assigné dans les tâches → PEUT ÊTRE SUPPRIMÉ`);
+            return false;
+        }
+
+        console.log(`[VERIFY-USER] 🔍 Vérification si utilisateur ${userId} est dans ${groupesAssignes.size} groupe(s) assigné(s) : [${Array.from(groupesAssignes).join(', ')}]`);
+
+        // Vérifier si l'utilisateur est membre de l'un de ces groupes
+        for (const groupeId of groupesAssignes) {
+            try {
+                const response = await fetch(`?handler=GroupMembers&groupId=${groupeId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const membres = data.membres || [];
+
+                    console.log(`[VERIFY-USER] Groupe ${groupeId} : ${membres.length} membre(s) [${membres.join(', ')}]`);
+
+                    if (membres.includes(userId)) {
+                        console.log(`[VERIFY-USER] ✅ Utilisateur ${userId} trouvé dans le groupe ${groupeId} (encore assigné) → CONSERVER`);
+                        return true;
+                    }
+                } else {
+                    console.warn(`[VERIFY-USER] ⚠️ Erreur HTTP ${response.status} pour groupe ${groupeId}`);
+                }
+            } catch (error) {
+                console.warn(`[VERIFY-USER] ⚠️ Erreur vérification groupe ${groupeId}:`, error);
+            }
+        }
+
+        console.log(`[VERIFY-USER] ✅ Utilisateur ${userId} n'est dans aucun groupe assigné → PEUT ÊTRE SUPPRIMÉ`);
+        return false;
+    }
+
+    // ✅ Fonction pour vérifier si un groupe est assigné à au moins une tâche
+    function verifierSiGroupeEstAssigne(groupId) {
+        if (!window.checklistManager || !window.checklistManager.currentChecklist) {
+            return false;
+        }
+
+        const elements = window.checklistManager.currentChecklist.elements || [];
+
+        return elements.some(element => {
+            return element.assignedGroups && element.assignedGroups.includes(groupId);
+        });
+    }
+
+    // ✅ Fonction pour supprimer un utilisateur de la liste des affectations globales
+    function supprimerAffectationUtilisateur(userId) {
+        if (typeof selectedAffectations === 'undefined') {
+            console.warn('[REMOVE-USER] selectedAffectations non défini');
+            return;
+        }
+
+        const indexToRemove = selectedAffectations.findIndex(a =>
+            a.type === 'Utilisateur' && a.id === userId
+        );
+
+        if (indexToRemove !== -1) {
+            const removed = selectedAffectations.splice(indexToRemove, 1)[0];
+            console.log(`[REMOVE-USER] ✅ Utilisateur ${userId} supprimé des affectations globales`);
+
+            // Mettre à jour l'affichage
+            if (typeof updateAffectationsList === 'function') {
+                updateAffectationsList();
+            }
+
+            // Notification
+            showRobiaNotification(`Utilisateur "${removed.name}" retiré automatiquement (plus assigné à aucune tâche)`, 'info');
+
+            // Rafraîchir le calendrier
+            setTimeout(() => {
+                const hidden = document.getElementById('affectationsData');
+                if (hidden) {
+                    hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                document.dispatchEvent(new CustomEvent('affectations:changed', {
+                    detail: { action: 'auto-remove-user', id: userId }
+                }));
+
+                if (typeof window.__prsRefreshAbsences === 'function') {
+                    window.__prsRefreshAbsences();
+                }
+            }, 100);
+        } else {
+            console.log(`[REMOVE-USER] ⚠️ Utilisateur ${userId} déjà absent des affectations globales`);
+        }
+    }
+
+       // ✅ Fonction pour supprimer les membres d'un groupe de la liste des affectations globales
+    async function supprimerAffectationGroupe(groupId) {
+        if (typeof selectedAffectations === 'undefined') {
+            console.warn('[REMOVE-GROUP] selectedAffectations non défini');
+            return;
+        }
+
+        console.log(`[REMOVE-GROUP] ✅ Traitement du groupe ${groupId}`);
+
+        // ✅ ÉTAPE 1 : Récupérer les membres du groupe supprimé
+        try {
+            const response = await fetch(`?handler=GroupMembers&groupId=${groupId}`);
+            if (!response.ok) {
+                console.warn(`[REMOVE-GROUP] Impossible de récupérer les membres du groupe ${groupId}`);
+                return;
+            }
+
+            const data = await response.json();
+            const membresGroupeSupprime = data.membres || [];
+
+            console.log(`[REMOVE-GROUP] ${membresGroupeSupprime.length} membres trouvés dans le groupe ${groupId}`);
+
+            if (membresGroupeSupprime.length === 0) {
+                console.log('[REMOVE-GROUP] Aucun membre à traiter');
+                return;
+            }
+
+            // ✅ ÉTAPE 2 : Pour chaque membre, vérifier s'il peut être supprimé
+            const utilisateursASupprimer = [];
+
+            for (const membreId of membresGroupeSupprime) {
+                const peutEtresSupprime = await verifierSiMembrePeutEtresSupprime(membreId, groupId);
+
+                if (peutEtresSupprime) {
+                    utilisateursASupprimer.push(membreId);
+                } else {
+                    console.log(`[REMOVE-GROUP] ⏸️ Utilisateur ${membreId} conservé (encore utilisé ailleurs)`);
+                }
+            }
+
+            console.log(`[REMOVE-GROUP] ${utilisateursASupprimer.length} utilisateurs à supprimer automatiquement`);
+
+            // ✅ ÉTAPE 3 : Supprimer les utilisateurs qui peuvent l'être
+            if (utilisateursASupprimer.length > 0) {
+                let compteurSupprimes = 0;
+
+                utilisateursASupprimer.forEach(userId => {
+                    const userIndex = selectedAffectations.findIndex(a =>
+                        a.type === 'Utilisateur' && a.id === userId
+                    );
+
+                    if (userIndex !== -1) {
+                        const removedUser = selectedAffectations.splice(userIndex, 1)[0];
+                        console.log(`[REMOVE-GROUP] ✅ Utilisateur ${userId} "${removedUser.name}" supprimé`);
+                        compteurSupprimes++;
+                    }
+                });
+
+                if (compteurSupprimes > 0) {
+                    // ✅ Trouver le nom du groupe pour la notification
+                    const groupSelect = document.getElementById('groupSelect');
+                    let groupeName = `Groupe #${groupId}`;
+
+                    if (groupSelect) {
+                        const groupOption = Array.from(groupSelect.options).find(opt => parseInt(opt.value) === groupId);
+                        if (groupOption) {
+                            groupeName = groupOption.dataset.name || groupOption.textContent.trim();
+                        }
+                    }
+
+                    showRobiaNotification(
+                        `Groupe "${groupeName}" : ${compteurSupprimes} utilisateur(s) retiré(s) automatiquement`,
+                        'info'
+                    );
+
+                    // ✅ ÉTAPE 4 : Mettre à jour l'affichage et rafraîchir
+                    if (typeof updateAffectationsList === 'function') {
+                        updateAffectationsList();
+                    }
+
+                    // Rafraîchir le calendrier
+                    setTimeout(() => {
+                        const hidden = document.getElementById('affectationsData');
+                        if (hidden) {
+                            hidden.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+
+                        document.dispatchEvent(new CustomEvent('affectations:changed', {
+                            detail: { action: 'auto-remove-group', groupId: groupId, count: compteurSupprimes }
+                        }));
+
+                        if (typeof window.__prsRefreshAbsences === 'function') {
+                            window.__prsRefreshAbsences();
+                        }
+                    }, 100);
+                } else {
+                    console.log('[REMOVE-GROUP] Aucun utilisateur à supprimer finalement');
+                }
+            } else {
+                console.log('[REMOVE-GROUP] Aucun utilisateur du groupe n\'est dans les affectations globales');
+            }
+
+        } catch (error) {
+            console.error(`[REMOVE-GROUP] Erreur lors de la récupération des membres:`, error);
+        }
+    }
+
+        // ✅ Fonction pour vérifier si un membre peut être supprimé (VERSION CORRIGÉE)
+    async function verifierSiMembrePeutEtresSupprime(membreId, groupeIdSupprime) {
+        console.log(`[VERIFY-MEMBRE] === Début vérification membre ${membreId} ===`);
+
+        // ✅ CAS 1 : Vérifier si le membre n'est PAS dans la liste des affectations globales
+        const estDansAffectationsGlobales = selectedAffectations.some(a =>
+            a.type === 'Utilisateur' && a.id === membreId
+        );
+
+        if (!estDansAffectationsGlobales) {
+            console.log(`[VERIFY-MEMBRE] ℹ️ Membre ${membreId} pas dans les affectations globales → RIEN À FAIRE`);
+            return false;
+        }
+
+        console.log(`[VERIFY-MEMBRE] ✅ Membre ${membreId} est dans les affectations globales → VÉRIFICATION`);
+
+        // ✅ CAS 2 : Vérifier s'il est directement affecté à une tâche (assignedUsers)
+        // On vérifie SANS passer par les groupes
+        const estDirectementAssigne = verifierSiUtilisateurEstDirectementAssigne(membreId);
+
+        if (estDirectementAssigne) {
+            console.log(`[VERIFY-MEMBRE] ⏸️ Membre ${membreId} directement assigné dans assignedUsers → CONSERVER`);
+            return false;
+        }
+
+        console.log(`[VERIFY-MEMBRE] ✅ Membre ${membreId} PAS directement assigné dans assignedUsers`);
+
+        // ✅ CAS 3 : Vérifier s'il est dans un AUTRE groupe encore affecté (pas celui qu'on supprime)
+        const autresGroupesAffectes = await obtenirAutresGroupesAffectesAvecMembre(membreId, groupeIdSupprime);
+
+        if (autresGroupesAffectes.length > 0) {
+            console.log(`[VERIFY-MEMBRE] ⏸️ Membre ${membreId} dans ${autresGroupesAffectes.length} autre(s) groupe(s) affecté(s) [${autresGroupesAffectes.join(', ')}] → CONSERVER`);
+            return false;
+        }
+
+        console.log(`[VERIFY-MEMBRE] ✅ Membre ${membreId} dans aucun autre groupe`);
+
+        // ✅ Peut être supprimé
+        console.log(`[VERIFY-MEMBRE] ✅✅✅ Membre ${membreId} PEUT ÊTRE SUPPRIMÉ`);
+        return true;
+    }
+
+    // ✅ NOUVELLE FONCTION : Vérifier si directement assigné SANS vérifier les groupes
+    function verifierSiUtilisateurEstDirectementAssigne(userId) {
+        if (!window.checklistManager || !window.checklistManager.currentChecklist) {
+            return false;
+        }
+
+        const elements = window.checklistManager.currentChecklist.elements || [];
+
+        // ✅ Vérifier UNIQUEMENT assignedUsers (pas les groupes)
+        const estDirectementAssigne = elements.some(element => {
+            return element.assignedUsers && element.assignedUsers.includes(userId);
+        });
+
+        console.log(`[VERIFY-DIRECT] Utilisateur ${userId} directement assigné (assignedUsers): ${estDirectementAssigne}`);
+        return estDirectementAssigne;
+    }
+
+    // ✅ Fonction pour obtenir les autres groupes affectés contenant ce membre (VERSION MODIFIÉE)
+    async function obtenirAutresGroupesAffectesAvecMembre(membreId, groupeIdAIgnorer) {
+        if (!window.checklistManager || !window.checklistManager.currentChecklist) {
+            return [];
+        }
+
+        const elements = window.checklistManager.currentChecklist.elements || [];
+
+        // Récupérer tous les groupes encore affectés aux tâches (SAUF celui qu'on est en train de supprimer)
+        const groupesAffectesIds = new Set();
+        elements.forEach(element => {
+            if (element.assignedGroups && element.assignedGroups.length > 0) {
+                element.assignedGroups.forEach(gId => {
+                    // ✅ IGNORER le groupe qu'on est en train de supprimer
+                    if (gId !== groupeIdAIgnorer) {
+                        groupesAffectesIds.add(gId);
+                    }
+                });
+            }
+        });
+
+        if (groupesAffectesIds.size === 0) {
+            console.log(`[REMOVE-GROUP] Aucun autre groupe affecté (hormis ${groupeIdAIgnorer})`);
+            return [];
+        }
+
+        console.log(`[REMOVE-GROUP] Vérification dans ${groupesAffectesIds.size} autre(s) groupe(s)`);
+
+        // Vérifier lesquels contiennent ce membre
+        const groupesAvecMembre = [];
+
+        for (const groupeId of groupesAffectesIds) {
+            try {
+                const response = await fetch(`?handler=GroupMembers&groupId=${groupeId}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const membres = data.membres || [];
+
+                    if (membres.includes(membreId)) {
+                        groupesAvecMembre.push(groupeId);
+                        console.log(`[REMOVE-GROUP] ✅ Membre ${membreId} trouvé dans le groupe ${groupeId}`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`[REMOVE-GROUP] Erreur vérification groupe ${groupeId}:`, error);
+            }
+        }
+
+        return groupesAvecMembre;
+    }
     </script>
 }
