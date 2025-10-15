@@ -220,10 +220,10 @@ namespace PlanifPRS.Pages
                     var createdPrsIdsParam = string.Join(",", myCreatedPrsIds);
                     var createdChecklists = await _context.PrsChecklists
                         .FromSqlRaw($@"
-                            SELECT * 
-                            FROM [dbo].[PRS_Checklist] 
-                            WHERE [PRSId] IN ({createdPrsIdsParam})
-                        ")
+            SELECT * 
+            FROM [dbo].[PRS_Checklist] 
+            WHERE [PRSId] IN ({createdPrsIdsParam})
+        ")
                         .AsNoTracking()
                         .ToListAsync();
 
@@ -233,20 +233,111 @@ namespace PlanifPRS.Pages
                     {
                         var createdPrsDict = myCreatedPrs.ToDictionary(p => p.Id);
 
+                        // ✅ NOUVEAU : Charger les affectations pour ces checklists
+                        var createdChecklistIds = createdChecklists.Select(c => c.Id).ToList();
+
+                        // ✅ Charger TOUTES les affectations
+                        var allAffectationsCreated = await _context.ChecklistAffectations
+                            .AsNoTracking()
+                            .Select(a => new { a.ChecklistId, a.UtilisateurId, a.GroupeId })
+                            .ToListAsync();
+
+                        _logger.LogInformation($"[DASHBOARD] {allAffectationsCreated.Count} affectations totales chargées");
+
+                        // ✅ Filtrer EN MÉMOIRE
+                        var affectationsCreated = allAffectationsCreated
+                            .Where(a => createdChecklistIds.Contains(a.ChecklistId))
+                            .ToList();
+
+                        _logger.LogInformation($"[DASHBOARD] {affectationsCreated.Count} affectations pour les tâches créées");
+
+                        // Charger les utilisateurs concernés
+                        var userIdsCreated = affectationsCreated
+                            .Where(a => a.UtilisateurId.HasValue)
+                            .Select(a => a.UtilisateurId.Value)
+                            .Distinct()
+                            .ToList();
+
+                        _logger.LogInformation($"[DASHBOARD] {userIdsCreated.Count} utilisateurs distincts à charger");
+
+                        // ✅ Charger TOUS les utilisateurs actifs
+                        var allUsersCreated = await _context.Utilisateurs
+                            .AsNoTracking()
+                            .Where(u => u.DateDeleted == null)
+                            .Select(u => new { u.Id, u.NomComplet })
+                            .ToListAsync();
+
+                        _logger.LogInformation($"[DASHBOARD] {allUsersCreated.Count} utilisateurs actifs chargés");
+
+                        // ✅ Filtrer EN MÉMOIRE
+                        var usersCreated = allUsersCreated
+                            .Where(u => userIdsCreated.Contains(u.Id))
+                            .ToDictionary(u => u.Id, u => u.NomComplet);
+
+                        _logger.LogInformation($"[DASHBOARD] {usersCreated.Count} utilisateurs correspondants trouvés");
+
+                        // Charger les groupes
+                        var groupIdsCreated = affectationsCreated
+                            .Where(a => a.GroupeId.HasValue)
+                            .Select(a => a.GroupeId.Value)
+                            .Distinct()
+                            .ToList();
+
+                        Dictionary<int, List<string>> groupMembersCreated = new();
+                        if (groupIdsCreated.Any())
+                        {
+                            var groupMembersRaw = await _context.GroupeUtilisateurs
+                                .AsNoTracking()
+                                .Where(m => groupIdsCreated.Contains(m.GroupeId))
+                                .Join(_context.Utilisateurs.AsNoTracking(),
+                                      m => m.UtilisateurId,
+                                      u => u.Id,
+                                      (m, u) => new { m.GroupeId, u.NomComplet })
+                                .ToListAsync();
+
+                            groupMembersCreated = groupMembersRaw
+                                .GroupBy(x => x.GroupeId)
+                                .ToDictionary(
+                                    g => g.Key,
+                                    g => g.Select(x => x.NomComplet).Distinct().ToList()
+                                );
+                        }
+
                         myCreatedItems = createdChecklists
                             .Where(c => createdPrsDict.ContainsKey(c.PRSId))
-                            .Select(c => new { c, p = createdPrsDict[c.PRSId] })
-                            .OrderBy(x => x.p.DateDebut)
-                            .ThenBy(x => x.c.Priorite)
-                            .ThenBy(x => x.c.DelaiDefautJours)
-                            .ThenBy(x => x.c.Categorie)
-                            .ThenBy(x => x.c.SousCategorie)
-                            .Select(r => CreateChecklistItemVM(r.c, r.p))
+                            .Select(c =>
+                            {
+                                var vm = CreateChecklistItemVM(c, createdPrsDict[c.PRSId]);
+
+                                // ✅ Ajouter les assignés
+                                var affectations = affectationsCreated.Where(a => a.ChecklistId == c.Id).ToList();
+                                var assignes = new List<string>();
+
+                                foreach (var aff in affectations)
+                                {
+                                    if (aff.UtilisateurId.HasValue && usersCreated.ContainsKey(aff.UtilisateurId.Value))
+                                    {
+                                        assignes.Add(usersCreated[aff.UtilisateurId.Value]);
+                                    }
+                                    else if (aff.GroupeId.HasValue && groupMembersCreated.ContainsKey(aff.GroupeId.Value))
+                                    {
+                                        assignes.AddRange(groupMembersCreated[aff.GroupeId.Value]);
+                                    }
+                                }
+
+                                vm.AssignesA = assignes.Distinct().OrderBy(a => a).ToList();
+                                vm.AssigneA = assignes.Any() ? string.Join(", ", vm.AssignesA) : "Non assigné";
+
+                                return vm;
+                            })
+                            .OrderBy(x => x.DueDate)
+                            .ThenBy(x => x.Priorite)
                             .ToList();
 
                         _logger.LogInformation($"My created checklists loaded: {myCreatedItems.Count}");
                     }
                 }
+
                 else
                 {
                     _logger.LogWarning($"No PRS created by '{CurrentUserLogin}' found in database");
@@ -1225,6 +1316,8 @@ namespace PlanifPRS.Pages
             public bool IsValidated { get; set; }
             public DateTime? DateValidation { get; set; }
             public string ValidePar { get; set; }
+            public string AssigneA { get; set; } = "Non assigné";
+            public List<string> AssignesA { get; set; } = new();
         }
 
         public class PrsCardVM

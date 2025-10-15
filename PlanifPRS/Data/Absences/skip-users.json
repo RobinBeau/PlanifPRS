@@ -921,7 +921,7 @@
   },
   {
     "Email": "jerome.serret@allcircuits.com",
-    "EmptyRuns": 2,
+    "EmptyRuns": 0,
     "Skip": false
   },
   {
@@ -1541,8 +1541,8 @@
   },
   {
     "Email": "perrine.vukovic@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "philippe.lefaou@allcircuits.com",
@@ -1641,8 +1641,8 @@
   },
   {
     "Email": "romain.olland@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "romain.tortajada@allcircuits.com",
@@ -1891,8 +1891,8 @@
   },
   {
     "Email": "thomas.esteves@allcircuits.com",
-    "EmptyRuns": 2,
-    "Skip": false
+    "EmptyRuns": 3,
+    "Skip": true
   },
   {
     "Email": "thomas.guibert@allcircuits.com",

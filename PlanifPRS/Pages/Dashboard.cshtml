@@ -714,7 +714,7 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th>PRS</th>
-                                            <th>Tâche</th>
+                                                     <th>Tâche / Assigné</th>
                                             <th>Échéance</th>
                                             <th>Retard</th>
                                         </tr>
@@ -722,20 +722,25 @@
                                     <tbody>
                                         @foreach (var it in Model.MyCreatedOverdueItems)
                                         {
-                                            <tr>
-                                                <td>@it.PrsTitre</td>
-                                                <td>
-                                                    <div>@it.Libelle</div>
-                                                    <div class="small text-muted">
+                                                        <tr>
+                <td>@it.PrsTitre</td>
+                <td>
+                    <div>@it.Libelle</div>
+                    <div class="small text-muted">
                                                         @it.Categorie @if (!string.IsNullOrWhiteSpace(it.SousCategorie))
                                                         {
                                                             <text>• @it.SousCategorie</text>
                                                         }
-                                                    </div>
-                                                </td>
-                                                <td>@it.DueDate.ToString("dd/MM/yyyy")</td>
-                                                <td><span class="badge bg-danger">@Math.Abs(it.DaysLeft) j</span></td>
-                                            </tr>
+                    </div>
+                    <!-- ✅ AJOUTER L'ASSIGNÉ -->
+                    <div class="small">
+                        <i class="fas fa-user me-1 text-muted"></i>
+                        <span class="fw-semibold">@it.AssigneA</span>
+                    </div>
+                </td>
+                <td>@it.DueDate.ToString("dd/MM/yyyy")</td>
+                <td><span class="badge bg-danger">@Math.Abs(it.DaysLeft) j</span></td>
+            </tr>
                                         }
                                     </tbody>
                                 </table>
@@ -763,20 +768,25 @@
                             <ul class="list-group list-group-flush">
                                 @foreach (var item in Model.MyCreatedDueSoonItems)
                                 {
-                                    <li class="list-group-item d-flex justify-content-between align-items-start">
-                                        <div class="flex-grow-1">
-                                            <div class="fw-semibold">@item.Libelle</div>
-                                            <div class="small text-muted">
-                                                PRS: <a href="/Prs/Details?id=@item.PrsId">@item.PrsTitre</a>
-                                            </div>
-                                            <div class="small">
-                                                <span class="badge bg-info text-dark">Priorité @item.Priorite</span>
+                                                <li class="list-group-item d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <div class="fw-semibold">@item.Libelle</div>
+                    <div class="small text-muted">
+                        PRS: <a href="/Prs/Details?id=@item.PrsId">@item.PrsTitre</a>
+                    </div>
+                    <!-- ✅ AJOUTER L'ASSIGNÉ -->
+                    <div class="small mb-1">
+                        <i class="fas fa-user me-1 text-muted"></i>
+                        <span class="fw-semibold">@item.AssigneA</span>
+                    </div>
+                    <div class="small">
+                        <span class="badge bg-info text-dark">Priorité @item.Priorite</span>
                                                 @if (!string.IsNullOrWhiteSpace(item.Categorie))
                                                 {
-                                                    <span class="badge bg-secondary">@item.Categorie</span>
+                                <span class="badge bg-secondary">@item.Categorie</span>
                                                 }
-                                            </div>
-                                        </div>
+                    </div>
+                </div>
                                         <div class="text-end">
                                             @if (item.DaysLeft == 0)
                                             {
